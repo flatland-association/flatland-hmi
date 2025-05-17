@@ -17,21 +17,16 @@ class InteractiveEnv:
 
     def reset(self):
         self.obs, self.info = self.env.reset()
-        self.done = False
+        self.done = {}
         return self.obs, self.info
 
-    def step(self, manual_actions = {}):
-        if self.done:
+    def step(self, explicit_actions = {}):
+        if self.done.get("__all__", False):
             raise Exception("Environment done, call reset() to start a new episode")
-        
-        # Get actions from the policy for each agent
         actions = {a: self.policy.act(self.obs[a]) for a in range(self.env.get_num_agents())}
-        # Update actions with manual actions if provided
-        actions.update(manual_actions)
-        # Step the environment with the actions
+        actions.update(explicit_actions)
         self.obs, self.rewards, self.done, self.info = self.env.step(actions)
-
-        return self.obs, self.rewards, self.done, self.info
+        return self.obs, self.rewards, self.done, self.info, actions
 
 # Create a Flatland environment
 env = RailEnv(

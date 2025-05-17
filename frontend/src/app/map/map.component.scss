@@ -1,0 +1,18 @@
+.controller {
+  display: flex;
+  gap: 8px;
+}
+
+.map {
+  padding: 20px;
+
+  .row {
+    display: flex;
+    flex-direction: row;
+    .cell {
+      width: 10px;
+      height: 10px;
+      border: 1px solid #000;
+    }
+  }
+}

@@ -1,0 +1,19 @@
+<div class="controller">
+  <button (click)="stateService.next()">Step</button>
+  <button (click)="stateService.reset()">Reset</button>
+  <button (click)="stateService.play()">
+    {{ stateService.playing ? 'Stop' : 'Play' }}
+  </button>
+</div>
+
+<div class="map">
+  @for (row of stateService.getMap() | async; track $index) {
+    <div class="row">
+      @for (col of row; track $index) {
+        <div class="cell">
+          {{ col }}
+        </div>
+      }
+    </div>
+  }
+</div>
