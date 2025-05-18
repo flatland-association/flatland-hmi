@@ -30,18 +30,17 @@ class InteractiveEnv:
 
 # Create a Flatland environment
 env = RailEnv(
-    width=100,
-    height=100,
-    rail_generator=sparse_rail_generator(
-        max_num_cities=4,
-        seed=42,
-        grid_mode=True,
-        max_rails_between_cities=2,
-        max_rail_pairs_in_city=4
-    ),
-    line_generator=sparse_line_generator(),
-    number_of_agents=2,
-    obs_builder_object=TreeObsForRailEnv(max_depth=3, predictor=ShortestPathPredictorForRailEnv())
+  width=32,
+  height=32,
+  rail_generator=sparse_rail_generator(
+      max_num_cities=5,
+      grid_mode=False,
+      max_rails_between_cities=2,
+      max_rail_pairs_in_city=2
+  ),
+  line_generator=sparse_line_generator(),
+  number_of_agents=7,
+  obs_builder_object=TreeObsForRailEnv(max_depth=3, predictor=ShortestPathPredictorForRailEnv())
 )
 
 # Create a random agent policy

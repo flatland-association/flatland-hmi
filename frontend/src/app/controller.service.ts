@@ -4,6 +4,14 @@ import { firstValueFrom } from 'rxjs'
 
 const BACKEND_URL = 'http://localhost:8000'
 
+export interface State {
+  steps: number
+  done: {
+    __all__: boolean
+    [key: string]: boolean
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -11,10 +19,10 @@ export class ControllerService {
   constructor(private http: HttpClient) {}
 
   public stepEnv() {
-    return firstValueFrom(this.http.post(`${BACKEND_URL}/step`, {}))
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}))
   }
 
   public resetEnv() {
-    return firstValueFrom(this.http.post(`${BACKEND_URL}/reset`, {}))
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}))
   }
 }

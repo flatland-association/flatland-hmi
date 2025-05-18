@@ -1,19 +1,42 @@
+
+<div class="map">
+  <div class="environment">
+    @for (row of mapClasses; track $index) {
+      <div class="row">
+        @for (col of row; track $index) {
+          <div class="cell" [class]="col.ground">
+            @if (col.objects) {
+              <div class="target" [class]="col.objects"></div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="agents">
+    @for (agent of agents; let i = $index; track $index) {
+      @if (agent.position) {
+        <div
+          class="agent"
+          [class]="rendererService.getAgentClasses(agent)"
+          [style.left]="agent.position[1] * 20 + 'px'"
+          [style.top]="agent.position[0] * 20 + 'px'"
+          [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+        ></div>
+      }
+    }
+  </div>
+</div>
+
 <div class="controller">
   <button (click)="stateService.next()">Step</button>
   <button (click)="stateService.reset()">Reset</button>
-  <button (click)="stateService.play()">
-    {{ stateService.playing ? 'Stop' : 'Play' }}
-  </button>
-</div>
-
-<div class="map">
-  @for (row of stateService.getMap() | async; track $index) {
-    <div class="row">
-      @for (col of row; track $index) {
-        <div class="cell">
-          {{ col }}
-        </div>
-      }
-    </div>
+  @if (stateService.playing) {
+    <button (click)="stateService.stop()">Stop</button>
+  } @else {
+    <button (click)="stateService.play()">Play</button>
+  }
+  @if (state) {
+    <div>{{ state.steps }}</div>
   }
 </div>
