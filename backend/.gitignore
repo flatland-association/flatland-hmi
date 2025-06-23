@@ -4,3 +4,6 @@ __pycache__
 
 # Python
 /venv
+
+# Trajectory output
+/env_states
