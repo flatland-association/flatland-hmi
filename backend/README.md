@@ -4,7 +4,7 @@ This is the backend of the Flatland Interactive project, built using FastAPI.
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - pip (Python package manager)
 
 ## Installation
