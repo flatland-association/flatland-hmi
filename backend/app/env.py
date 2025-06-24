@@ -26,11 +26,11 @@ class InteractiveEnv:
         return self.obs, self.rewards, self.done, self.info, actions
 
 
-# import random env generator
-from .scenario.random import create_random_env
+# Import hack4rail environment generator providing a static environment
+from .scenario.hack4rail import create_hack4rail_env
 
-# create a random Flatland environment
-env = create_random_env(width=32, height=32)
+# Create the hack4rail environment
+env = create_hack4rail_env()
 
 
 # Import the RandomPolicy from the policies module
