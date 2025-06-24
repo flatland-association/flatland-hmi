@@ -10,16 +10,46 @@ from flatland.envs.malfunction_generators import (
 )
 
 from .static import create_static_env
+from dataclasses import dataclass
 
-
-def create_hack4rail_env():
+@dataclass
+class Hack4RailEnvGenerator:
     """
-    Create a static Flatland environment for the Hack4Rail competition.
-    The environment is defined by a specific grid, line, and timetable.
+    Static environment for the Hack4Rail competition.
     """
 
     width = 34
     height = 6
+
+    line=Line(
+            agent_positions=[
+                [(3, 4)],
+                [(2, 4), (3, 16)],
+                [(2, 29)],
+                [(3, 29), (3, 16)],
+            ],
+            agent_directions=[[1], [1, 1], [3], [3, 3]],
+            agent_targets=[(2, 29), (3, 29), (3, 4), (2, 4)],
+            agent_speeds=[1.0, 0.8, 1.0, 0.8],
+        )
+    
+    timetable=Timetable(
+        earliest_departures=[
+            [4, None],
+            [0, 21, None],
+            [4, None],
+            [0, 24, None],
+            [0, None],
+        ],
+        latest_arrivals=[
+            [None, 29],
+            [None, 19, 43],
+            [None, 29],
+            [None, 22, 43],
+            [None, 0],
+        ],
+        max_episode_steps=120,
+        )
 
     map = RailGridTransitionMap(
         width=width, height=height, transitions=RailEnvTransitions()
@@ -245,46 +275,22 @@ def create_hack4rail_env():
         ]
     )
 
-    return create_static_env(
-        width=width,
-        height=height,
-        map=map,
-        line=Line(
-            agent_positions=[
-                [(3, 4)],
-                [(2, 4), (3, 16)],
-                [(2, 29)],
-                [(3, 29), (3, 16)],
-            ],
-            agent_directions=[[1], [1, 1], [3], [3, 3]],
-            agent_targets=[(2, 29), (3, 29), (3, 4), (2, 4)],
-            agent_speeds=[1.0, 0.8, 1.0, 0.8],
-        ),
-        timetable=Timetable(
-            earliest_departures=[
-                [4, None],
-                [0, 21, None],
-                [4, None],
-                [0, 24, None],
-                [0, None],
-            ],
-            latest_arrivals=[
-                [None, 29],
-                [None, 19, 43],
-                [None, 29],
-                [None, 22, 43],
-                [None, 0],
-            ],
-            max_episode_steps=120,
-        ),
-        obs_builder=TreeObsForRailEnv(
-            max_depth=1, predictor=ShortestPathPredictorForRailEnv()
-        ),
-        malfunction_generator=ParamMalfunctionGen(
-            MalfunctionParameters(
-                min_duration=10,
-                max_duration=50,
-                malfunction_rate=1.0 / 50.0,
-            )
-        ),
-    )
+    def create_hack4rail_env(self, enable_malfunctions=True):
+        return create_static_env(
+            width=self.width,
+            height=self.height,
+            map=self.map,
+            line=self.line,
+            timetable=self.timetable,        
+            obs_builder=TreeObsForRailEnv(
+                max_depth=1, predictor=ShortestPathPredictorForRailEnv()
+            ),
+            malfunction_generator=ParamMalfunctionGen(
+                MalfunctionParameters(
+                    min_duration=10,
+                    max_duration=50,
+                    malfunction_rate=1.0 / 50.0,
+                ) 
+            )if enable_malfunctions else None,
+        )
+    
