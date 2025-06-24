@@ -26,7 +26,7 @@ uvicorn main:app --reload
 ```bash
 cd frontend
 npm install
-ng serve
+npm run start
 ```
 
 Open your browser and navigate to `http://localhost:4200` to interact with the Flatland simulation.
