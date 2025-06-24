@@ -49,11 +49,7 @@ const TRANSITION_CLASSES_MAP = Object.fromEntries(
     const bitmap = parseInt(binaryList.join(''), 2)
     return [0, 1, 2, 3].map((direction) => [
       rotateTransition(bitmap, direction * 90),
-      [
-        `rotation_${direction * 90}`,
-        'track',
-        `transition_${transition.split(' ').join('_').toLocaleLowerCase()}`,
-      ],
+      [`rotation_${direction * 90}`, 'track', `transition_${transition.split(' ').join('_').toLocaleLowerCase()}`],
     ])
   }),
 )
@@ -66,8 +62,7 @@ function rotateTransition(transition: number, rotation: number): number {
   for (let i = 0; i < 4; i++) {
     const mask = 0xf << (i * 4)
     const rowBits = (value & mask) >> (i * 4)
-    const rotatedBits =
-      ((rowBits << (4 - rotationSteps)) | (rowBits >> rotationSteps)) & 0xf
+    const rotatedBits = ((rowBits << (4 - rotationSteps)) | (rowBits >> rotationSteps)) & 0xf
     value = (value & ~mask) | (rotatedBits << (i * 4))
   }
 
@@ -80,10 +75,7 @@ function rotateTransition(transition: number, rotation: number): number {
 }
 
 function getBackgroundClasses() {
-  const sum = Object.values(BACKGROUND_CLASSES_WEIGHT).reduce(
-    (acc, weight) => acc + weight,
-    0,
-  )
+  const sum = Object.values(BACKGROUND_CLASSES_WEIGHT).reduce((acc, weight) => acc + weight, 0)
   const random = Math.floor(Math.random() * sum)
   let lastWeight = 0
   for (const [key, weight] of Object.entries(BACKGROUND_CLASSES_WEIGHT)) {
@@ -106,9 +98,7 @@ export class RendererService {
   constructor() {}
 
   public getMapClasses(transition: number): string {
-    return (TRANSITION_CLASSES_MAP[transition] || getBackgroundClasses()).join(
-      ' ',
-    )
+    return (TRANSITION_CLASSES_MAP[transition] || getBackgroundClasses()).join(' ')
   }
 
   public getTargetClasses(transition: number): string {
@@ -124,7 +114,6 @@ export class RendererService {
     for (const agent of agents) {
       targetsMap.set(getLocationKey(agent.target[0], agent.target[1]), true)
     }
-    console.log('targetsMap', targetsMap)
     const mapClasses: Array<Array<MapCell>> = []
     for (let i = 0; i < transitions.length; i++) {
       const row = transitions[i]
@@ -132,19 +121,11 @@ export class RendererService {
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
         const ground = this.getMapClasses(cell)
-        const objects = targetsMap.has(getLocationKey(i, j))
-          ? this.getTargetClasses(cell)
-          : undefined
+        const objects = targetsMap.has(getLocationKey(i, j)) ? this.getTargetClasses(cell) : undefined
         mapRow.push({ ground, objects })
       }
       mapClasses.push(mapRow)
     }
-    console.log(
-      'mapClasses',
-      mapClasses
-        .map((row) => row.filter((cell) => cell.objects))
-        .filter((row) => row.length > 0),
-    )
     return mapClasses
   }
 }

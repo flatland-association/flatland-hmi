@@ -3,9 +3,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 20px;
-  height: 100vh;
+  gap: 10px;
 }
 
 .controller {
@@ -34,32 +32,8 @@
         background-size: cover;
         background-repeat: no-repeat;
         background-position: center;
-        background-color: rgb(248, 245, 240);
-
-        &.bkgnd {
-          &.bkgnd_grass {
-            background-color: #f0f5dc;
-          }
-          &.bkgnd_water {
-            background-image: url('/svg/Scenery_Water.svg');
-            background-color: #f0f5dc;
-          }
-          &.bkgnd_trees {
-            background-image: url('/svg/Scenery-Laubbaume_A.svg');
-            background-color: #f0f5dc;
-          }
-          &.bkgnd_forest {
-            background-image: url('/svg/Scenery-Nadelbaume_B.svg');
-            background-color: #f0f5dc;
-          }
-          &.bkgnd_mountain {
-            background-image: url('/svg/Scenery-Bergwelt_B.svg');
-            background-color: #f0f5dc;
-          }
-        }
 
         &.track {
-          background-color: whitesmoke; // rgb(236, 234, 229);
           &.rotation_90 {
             transform: rotate(90deg);
           }
@@ -197,7 +171,7 @@
       }
 
       &.malfunction {
-        background-color: rgba(150,150,150,0.5);
+        background-color: rgba(150, 150, 150, 0.5);
       }
     }
   }
