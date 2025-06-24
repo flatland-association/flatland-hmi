@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.env import interactive_env
+from app.scenario.hack4rail import Hack4RailEnvGenerator
 
 router = APIRouter()
 
@@ -33,6 +34,9 @@ def get_map():
 @router.post("/step")
 def step_env(actions: dict = {}):
     _, _, done, info, actions = interactive_env.step(actions)
+    return _step_to_dict(done, info, actions)
+
+def _step_to_dict(done, info, actions):
     return {
         "info": info,
         "done": done,
@@ -44,6 +48,13 @@ def step_env(actions: dict = {}):
         "max_steps": interactive_env.env._max_episode_steps,
     }
 
+@router.get("/steps")
+def step_env_all():
+    steps = []
+    for _, _, done, info, actions in interactive_env.all_steps():
+        steps.append(_step_to_dict(done, info, actions))
+    return steps
+
 
 @router.post("/reset")
 def reset_env():
@@ -53,3 +64,7 @@ def reset_env():
         "done": {"__all__": False},
         "steps": interactive_env.env._elapsed_steps,
     }
+
+@router.get("/timetable", response_model=Hack4RailEnvGenerator)
+def get_timetable():
+    return interactive_env.generator    

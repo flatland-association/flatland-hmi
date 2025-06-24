@@ -7,3 +7,5 @@ __pycache__
 
 # Trajectory output
 /env_states
+
+.mypy_cache
