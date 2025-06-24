@@ -1,5 +1,3 @@
-from flatland.envs.observations import TreeObsForRailEnv
-from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.envs.rail_env import RailEnv
 
 
@@ -33,6 +31,8 @@ def create_static_env(
     map=None,
     line=None,
     timetable=None,
+    obs_builder=None,
+    malfunction_generator=None,
 ):
 
     assert map is not None, "Grid must be provided"
@@ -45,9 +45,8 @@ def create_static_env(
         rail_generator=rail_generator_from_grid_map(map),
         line_generator=line_generator_from_line(line),
         timetable_generator=timetable_generator_from_timetable(timetable),
-        obs_builder_object=TreeObsForRailEnv(
-            max_depth=1, predictor=ShortestPathPredictorForRailEnv()
-        ),
+        obs_builder_object=obs_builder,
+        malfunction_generator=malfunction_generator,
     )
 
     return env

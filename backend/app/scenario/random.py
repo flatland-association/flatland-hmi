@@ -8,7 +8,12 @@ from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 
 
 # Create a Flatland environment
-def create_random_env(width=32, height=32):
+def create_random_env(
+    width=32,
+    height=32,
+    obs_builder=None,
+    malfunction_generator=None,
+):
     """
     Create a random Flatland environment with specified width and height.
     The environment will have sparse rail generation and a tree observation builder.
@@ -24,7 +29,6 @@ def create_random_env(width=32, height=32):
         ),
         line_generator=sparse_line_generator(),
         number_of_agents=5,
-        obs_builder_object=TreeObsForRailEnv(
-            max_depth=3, predictor=ShortestPathPredictorForRailEnv()
-        ),
+        obs_builder_object=obs_builder,
+        malfunction_generator=malfunction_generator,
     )

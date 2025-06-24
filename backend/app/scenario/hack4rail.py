@@ -2,6 +2,12 @@ import numpy as np
 from flatland.envs.timetable_utils import Line, Timetable
 from flatland.envs.rail_grid_transition_map import RailGridTransitionMap
 from flatland.core.grid.rail_env_grid import RailEnvTransitions
+from flatland.envs.observations import TreeObsForRailEnv
+from flatland.envs.predictions import ShortestPathPredictorForRailEnv
+from flatland.envs.malfunction_generators import (
+    ParamMalfunctionGen,
+    MalfunctionParameters,
+)
 
 from .static import create_static_env
 
@@ -12,7 +18,7 @@ def create_hack4rail_env():
     The environment is defined by a specific grid, line, and timetable.
     """
 
-    width = 30
+    width = 34
     height = 6
 
     map = RailGridTransitionMap(
@@ -105,15 +111,15 @@ def create_hack4rail_env():
                 0,
                 16386,
                 1025,
-                5633,
-                1025,
-                17411,
                 1025,
                 1025,
+                4608,
+                0,
+                0,
+                0,
+                16386,
                 1025,
-                17411,
                 1025,
-                5633,
                 1025,
                 1025,
                 17411,
@@ -141,15 +147,15 @@ def create_hack4rail_env():
                 1025,
                 3089,
                 1025,
+                1025,
+                1025,
                 1097,
+                1025,
+                1025,
                 1025,
                 3089,
                 1025,
                 1025,
-                1025,
-                3089,
-                1025,
-                1097,
                 1025,
                 1025,
                 2064,
@@ -249,11 +255,10 @@ def create_hack4rail_env():
                 [(2, 4), (3, 16)],
                 [(2, 29)],
                 [(3, 29), (3, 16)],
-                [(3, 16)],
             ],
-            agent_directions=[[1], [1, 1], [3], [3, 3], [3]],
-            agent_targets=[(2, 29), (3, 29), (3, 4), (2, 4), (3, 16)],
-            agent_speeds=[1.0, 0.8, 1.0, 0.8, 1.0],
+            agent_directions=[[1], [1, 1], [3], [3, 3]],
+            agent_targets=[(2, 29), (3, 29), (3, 4), (2, 4)],
+            agent_speeds=[1.0, 0.8, 1.0, 0.8],
         ),
         timetable=Timetable(
             earliest_departures=[
@@ -271,5 +276,15 @@ def create_hack4rail_env():
                 [None, 0],
             ],
             max_episode_steps=120,
+        ),
+        obs_builder=TreeObsForRailEnv(
+            max_depth=1, predictor=ShortestPathPredictorForRailEnv()
+        ),
+        malfunction_generator=ParamMalfunctionGen(
+            MalfunctionParameters(
+                min_duration=10,
+                max_duration=50,
+                malfunction_rate=1.0 / 50.0,
+            )
         ),
     )
