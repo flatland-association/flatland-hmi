@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http'
 import { Injectable } from '@angular/core'
-import { firstValueFrom } from 'rxjs'
+import { firstValueFrom, Subject } from 'rxjs'
 
 const BACKEND_URL = 'http://localhost:8000'
 
@@ -16,13 +16,24 @@ export interface State {
   providedIn: 'root',
 })
 export class ControllerService {
-  constructor(private http: HttpClient) {}
+  private resetEvent = new Subject<void>()
+
+  constructor(private http: HttpClient) {
+    this.resetEnv()
+  }
 
   public stepEnv() {
     return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}))
   }
 
   public resetEnv() {
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}))
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {})).then((state) => {
+      this.resetEvent.next()
+      return state
+    })
+  }
+
+  public observeReset() {
+    return this.resetEvent.asObservable()
   }
 }
