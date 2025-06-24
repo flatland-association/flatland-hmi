@@ -116,7 +116,7 @@ export class RendererService {
   }
 
   public getAgentClasses(agent: Agent | undefined): string {
-    return agent ? `direction_${agent.direction}` : ''
+    return agent ? `direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
   public renderMap(transitions: Transitions, agents: Array<Agent>) {

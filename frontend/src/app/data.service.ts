@@ -11,6 +11,7 @@ export interface Agent {
   direction: number
   moving: boolean
   target: [number, number]
+  malfunction: number
 }
 
 @Injectable({

@@ -24,6 +24,7 @@ def get_map():
             "target": (
                 None if agent.target is None else tuple(int(c) for c in agent.target)
             ),
+            "malfunction": agent.malfunction_handler.malfunction_down_counter,
         }
         for agent in interactive_env.env.agents
     ]

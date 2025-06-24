@@ -195,6 +195,10 @@
       &.direction_3 {
         transform: rotate(270deg);
       }
+
+      &.malfunction {
+        background-color: rgba(150,150,150,0.5);
+      }
     }
   }
 }
