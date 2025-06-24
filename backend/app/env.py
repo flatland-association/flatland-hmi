@@ -1,8 +1,3 @@
-from flatland.envs.rail_env import RailEnv
-from flatland.envs.rail_generators import sparse_rail_generator
-from flatland.envs.line_generators import sparse_line_generator
-from flatland.envs.observations import TreeObsForRailEnv
-from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.envs.rail_env_action import RailEnvActions
 
 
@@ -31,22 +26,12 @@ class InteractiveEnv:
         return self.obs, self.rewards, self.done, self.info, actions
 
 
-# Create a Flatland environment
-env = RailEnv(
-    width=32,
-    height=32,
-    rail_generator=sparse_rail_generator(
-        max_num_cities=5,
-        grid_mode=False,
-        max_rails_between_cities=2,
-        max_rail_pairs_in_city=2,
-    ),
-    line_generator=sparse_line_generator(),
-    number_of_agents=7,
-    obs_builder_object=TreeObsForRailEnv(
-        max_depth=3, predictor=ShortestPathPredictorForRailEnv()
-    ),
-)
+# import random env generator
+from .scenario.random import create_random_env
+
+# create a random Flatland environment
+env = create_random_env(width=32, height=32)
+
 
 # Import the RandomPolicy from the policies module
 from .policy.random_policy import RandomPolicy
