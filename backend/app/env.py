@@ -1,12 +1,12 @@
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.persistence import RailEnvPersister
 from .scenario.hack4rail import Hack4RailEnvGenerator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flatland.core.policy import Policy
 from flatland.envs.rail_env import RailEnv
-from flatland.envs.agent_utils import load_env_agent
-from dataclasses import dataclass, field
+from flatland.envs.predictions import ShortestPathPredictorForRailEnv
+from flatland.envs.observations import TreeObsForRailEnv
 import tempfile
 
 import random
@@ -31,20 +31,19 @@ class EnvOption:
         if self.env.dones.get("__all__", False):
             raise Exception("Environment done, call reset() to start a new episode")
         actions = self.policy.act_many(self.env.obs_dict)
-        print(f"Actions: {actions}")
         actions.update(
             {
                 a: RailEnvActions.from_value(action)
                 for a, action in explicit_actions.items()
             }
         )
-        self.env.step(actions)
-        self.steps.append(self._step_to_dict())
+        ret = self.env.step(actions)
+        self.steps.append(self._step_to_dict(ret))
     
     
-    def _step_to_dict(self):
+    def _step_to_dict(self, ret):
             return {
-                agent.handle: 
+                str(agent.handle): 
                 {
                     "position": (
                         None
@@ -59,6 +58,7 @@ class EnvOption:
                     ),
                     "malfunction": agent.malfunction_handler.malfunction_down_counter,
                     "elapsed": self.env._elapsed_steps,
+                    # "observation": ret,
                 }
                 for agent in self.env.agents
             }
@@ -74,7 +74,11 @@ class EnvOption:
         """Switch the policy for the environment."""
         tmp_file_name = tempfile.NamedTemporaryFile(suffix='.pkl').name
         RailEnvPersister.save(self.env,tmp_file_name)
-        env_copy, _ = RailEnvPersister.load_new(tmp_file_name)
+        obs_builder=TreeObsForRailEnv(
+                max_depth=1, predictor=ShortestPathPredictorForRailEnv()
+            )
+        env_copy, _ = RailEnvPersister.load_new(tmp_file_name, obs_builder_object=obs_builder,)
+        env_copy.obs_builder.reset()
         copy = EnvOption(policy=new_policy, env=env_copy, steps=self.steps.copy())
         copy.update_env(env_copy)
         return copy
@@ -104,7 +108,6 @@ class InteractiveEnv:
         """Step the environment and return the observations, rewards, done flags, info, and actions."""
         self.history_env = self.history_env.switch_policy(self.plan_envs[plan_index].policy)
         # update history env with the current step
-        self.history_env.step()
         self.history_env.step()
         self.history_env.step()
         # update the plan envs with the current step
