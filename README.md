@@ -52,7 +52,7 @@ npm install
 npm run start
 ```
 
-Open your browser and navigate to `http://localhost:4200` to interact with the Flatland Agent.
+Open your browser and navigate to `http://localhost:8000` to interact with the Flatland Agent.
 
 
 ## Features
