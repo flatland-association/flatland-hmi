@@ -7,6 +7,9 @@ from flatland.core.policy import Policy
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.envs.observations import TreeObsForRailEnv
+from flatland.envs import malfunction_generators as mal_gen
+from dataclasses import dataclass, field
+
 import tempfile
 
 import random
@@ -41,45 +44,51 @@ class EnvOption:
         )
         ret = self.env.step(actions)
         self.steps.append(self._step_to_dict(ret))
-    
-    
+
     def _step_to_dict(self, ret):
-            return {
-                str(agent.handle): 
-                {
-                    "position": (
-                        None
-                        if agent.position is None
-                        else tuple(int(c) for c in agent.position)
-                    ),
-                    "direction": agent.direction,
-                    "moving": agent.moving,
-                    "speed_counter": agent.speed_counter,
-                    "target": (
-                        None if agent.target is None else tuple(int(c) for c in agent.target)
-                    ),
-                    "malfunction": agent.malfunction_handler.malfunction_down_counter,
-                    "elapsed": self.env._elapsed_steps,
-                    # "observation": ret,
-                }
-                for agent in self.env.agents
+        return {
+            str(agent.handle): {
+                "position": (
+                    None
+                    if agent.position is None
+                    else tuple(int(c) for c in agent.position)
+                ),
+                "direction": agent.direction,
+                "moving": agent.moving,
+                "speed_counter": agent.speed_counter,
+                "target": (
+                    None
+                    if agent.target is None
+                    else tuple(int(c) for c in agent.target)
+                ),
+                "malfunction": agent.malfunction_handler.malfunction_down_counter,
+                "elapsed": self.env._elapsed_steps,
+                # "observation": ret,
             }
-    
+            for agent in self.env.agents
+        }
+
     def simulate(self):
         """Run all steps until the environment is done."""
         if self.env.dones.get("__all__", False):
             raise Exception("Environment done, call reset() to start a new episode")
+        malfunction_generator = self.env.malfunction_generator
+        self.env.malfunction_generator = mal_gen.NoMalfunctionGen()
         while not self.env.dones.get("__all__", False):
             self.step()
+        self.env.malfunction_generator = malfunction_generator
 
     def switch_policy(self, new_policy: Policy):
         """Switch the policy for the environment."""
-        tmp_file_name = tempfile.NamedTemporaryFile(suffix='.pkl').name
-        RailEnvPersister.save(self.env,tmp_file_name)
-        obs_builder=TreeObsForRailEnv(
-                max_depth=1, predictor=ShortestPathPredictorForRailEnv()
-            )
-        env_copy, _ = RailEnvPersister.load_new(tmp_file_name, obs_builder_object=obs_builder,)
+        tmp_file_name = tempfile.NamedTemporaryFile(suffix=".pkl").name
+        RailEnvPersister.save(self.env, tmp_file_name)
+        obs_builder = TreeObsForRailEnv(
+            max_depth=1, predictor=ShortestPathPredictorForRailEnv()
+        )
+        env_copy, _ = RailEnvPersister.load_new(
+            tmp_file_name,
+            obs_builder_object=obs_builder,
+        )
         env_copy.obs_builder.reset()
         copy = EnvOption(policy=new_policy, env=env_copy, steps=self.steps.copy())
         copy.update_env(env_copy)
@@ -131,7 +140,7 @@ class InteractiveEnv:
         # placholder returning a random value for the index of plan_env
 
         best_plan_index = random.randint(0, len(self.plan_envs) - 1)
-        
+
         return best_plan_index
 
 
@@ -153,5 +162,8 @@ from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
 interactive_env = InteractiveEnv(
     generator=Hack4RailEnvGenerator(),
     baseline_policy=DeadLockAvoidancePolicy(),
-    plan_policies=[DeadLockAvoidancePolicy(default_eps=0.2,enable_eps=True), DeadLockAvoidancePolicy(enable_eps=True, default_eps=0.8)],
+    plan_policies=[
+        DeadLockAvoidancePolicy(default_eps=0.2, enable_eps=True),
+        DeadLockAvoidancePolicy(default_eps=0.8, enable_eps=True),
+    ],
 )
