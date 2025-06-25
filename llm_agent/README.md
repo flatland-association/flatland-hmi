@@ -6,7 +6,7 @@ An agentic chatbot interfaces.
 >
 > The prompts are not yet fully tuned and may malfunction or produce unexpected results.
 
-**TODO**: Add a preview demo video here.
+https://github.com/user-attachments/assets/57a51fcb-fbf2-40ee-a582-d8f4fdf8bcc0
 
 ## Backend
 
