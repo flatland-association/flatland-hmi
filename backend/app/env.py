@@ -112,7 +112,7 @@ class InteractiveEnv:
         for plan_env in self.plan_envs:
             plan_env.simulate()
 
-    def step(self, plan_index) -> int:
+    def step(self, plan_index) -> int | None:
         """Step the environment and return the observations, rewards, done flags, info, and actions."""
         self.history_env = self.history_env.switch_policy(
             self.plan_envs[plan_index].policy
@@ -131,6 +131,7 @@ class InteractiveEnv:
         # placholder returning a random value for the index of plan_env
 
         best_plan_index = random.randint(0, len(self.plan_envs) - 1)
+        
         return best_plan_index
 
 
@@ -152,5 +153,5 @@ from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
 interactive_env = InteractiveEnv(
     generator=Hack4RailEnvGenerator(),
     baseline_policy=DeadLockAvoidancePolicy(),
-    plan_policies=[DeadLockAvoidancePolicy(), RandomPolicy()],
+    plan_policies=[DeadLockAvoidancePolicy(default_eps=0.2,enable_eps=True), DeadLockAvoidancePolicy(enable_eps=True, default_eps=0.8)],
 )

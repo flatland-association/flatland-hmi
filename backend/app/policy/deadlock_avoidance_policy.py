@@ -110,10 +110,12 @@ class DeadLockAvoidancePolicy(Policy):
         enable_eps: bool = False,
         show_debug_plot: bool = False,
         env: RailEnv = None,
+        default_eps: float = 0.0,
     ):
         super(Policy, self).__init__()
         self.env: RailEnv = None
         self.loss = 0
+        self.default_eps = default_eps
         self.action_size = action_size
         self.agent_can_move = {}
         self.show_debug_plot = show_debug_plot
@@ -125,10 +127,10 @@ class DeadLockAvoidancePolicy(Policy):
         self.agent_positions = None
         self.env = env
 
-    def act_many(self, observations, eps=0.0):
+    def act_many(self, observations, eps=None):
         return {a: self.act(a, obs, eps) for a, obs in observations.items()}
 
-    def act(self, handle, state, eps=0.0):
+    def act(self, handle, state, eps=None):
         if isinstance(state, RailEnv):
             self.env = state
         if handle == 0:
@@ -136,6 +138,8 @@ class DeadLockAvoidancePolicy(Policy):
 
         # Epsilon-greedy action selection
         if self.enable_eps:
+            if eps is None:
+                eps = self.default_eps
             if np.random.random() < eps:
                 return np.random.choice(np.arange(self.action_size))
 
