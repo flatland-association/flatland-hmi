@@ -11,9 +11,10 @@ import tempfile
 
 import random
 
+
 @dataclass
 class EnvOption:
-    policy:Policy
+    policy: Policy
     env: RailEnv
     steps: list = field(default_factory=list)
 
@@ -22,11 +23,12 @@ class EnvOption:
         self.env = env
         if hasattr(self.policy, "env"):
             self.policy.env = env
-    
+
     def reset(self):
         """Reset the environment and policy."""
         self.env.reset()
-        
+        self.steps = []
+
     def step(self, explicit_actions={}):
         if self.env.dones.get("__all__", False):
             raise Exception("Environment done, call reset() to start a new episode")
@@ -40,29 +42,29 @@ class EnvOption:
         )
         self.env.step(actions)
         self.steps.append(self._step_to_dict())
-    
-    
+
     def _step_to_dict(self):
-            return {
-                agent.handle: 
-                {
-                    "position": (
-                        None
-                        if agent.position is None
-                        else tuple(int(c) for c in agent.position)
-                    ),
-                    "direction": agent.direction,
-                    "moving": agent.moving,
-                    "speed_counter": agent.speed_counter,
-                    "target": (
-                        None if agent.target is None else tuple(int(c) for c in agent.target)
-                    ),
-                    "malfunction": agent.malfunction_handler.malfunction_down_counter,
-                    "elapsed": self.env._elapsed_steps,
-                }
-                for agent in self.env.agents
+        return {
+            agent.handle: {
+                "position": (
+                    None
+                    if agent.position is None
+                    else tuple(int(c) for c in agent.position)
+                ),
+                "direction": agent.direction,
+                "moving": agent.moving,
+                "speed_counter": agent.speed_counter,
+                "target": (
+                    None
+                    if agent.target is None
+                    else tuple(int(c) for c in agent.target)
+                ),
+                "malfunction": agent.malfunction_handler.malfunction_down_counter,
+                "elapsed": self.env._elapsed_steps,
             }
-    
+            for agent in self.env.agents
+        }
+
     def simulate(self):
         """Run all steps until the environment is done."""
         if self.env.dones.get("__all__", False):
@@ -72,25 +74,31 @@ class EnvOption:
 
     def switch_policy(self, new_policy: Policy):
         """Switch the policy for the environment."""
-        tmp_file_name = tempfile.NamedTemporaryFile(suffix='.pkl').name
-        RailEnvPersister.save(self.env,tmp_file_name)
+        tmp_file_name = tempfile.NamedTemporaryFile(suffix=".pkl").name
+        RailEnvPersister.save(self.env, tmp_file_name)
         env_copy, _ = RailEnvPersister.load_new(tmp_file_name)
         copy = EnvOption(policy=new_policy, env=env_copy, steps=self.steps.copy())
         copy.update_env(env_copy)
         return copy
 
 
-
 class InteractiveEnv:
-    def __init__(self, generator:Hack4RailEnvGenerator, baseline_policy, plan_policies):
-        self.generator:Hack4RailEnvGenerator = generator
-        self.baseline_env = EnvOption(baseline_policy, generator.create_hack4rail_env(enable_malfunctions=False))
-        self.plan_envs = [EnvOption(plan_policy, generator.create_hack4rail_env()) for plan_policy in plan_policies]
+    def __init__(
+        self, generator: Hack4RailEnvGenerator, baseline_policy, plan_policies
+    ):
+        self.generator: Hack4RailEnvGenerator = generator
+        self.baseline_env = EnvOption(
+            baseline_policy, generator.create_hack4rail_env(enable_malfunctions=False)
+        )
+        self.plan_envs = [
+            EnvOption(plan_policy, generator.create_hack4rail_env())
+            for plan_policy in plan_policies
+        ]
         self.history_env = EnvOption(baseline_policy, generator.create_hack4rail_env())
         self.reset()
 
     def reset(self):
-        for env_option in [self.baseline_env,self.history_env] + self.plan_envs:
+        for env_option in [self.baseline_env, self.history_env] + self.plan_envs:
             env_option.update_env(self.generator.create_hack4rail_env())
             env_option.reset()
 
@@ -102,7 +110,9 @@ class InteractiveEnv:
 
     def step(self, plan_index) -> int:
         """Step the environment and return the observations, rewards, done flags, info, and actions."""
-        self.history_env = self.history_env.switch_policy(self.plan_envs[plan_index].policy)
+        self.history_env = self.history_env.switch_policy(
+            self.plan_envs[plan_index].policy
+        )
         # update history env with the current step
         self.history_env.step()
         self.history_env.step()
@@ -121,12 +131,6 @@ class InteractiveEnv:
         return best_plan_index
 
 
-
-
-
-
-
-
 # Import hack4rail environment generator providing a static environment
 from .scenario.hack4rail import Hack4RailEnvGenerator
 
@@ -141,6 +145,9 @@ random_policy = RandomPolicy()
 from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
 
 
-
 # Initialize the interactive environment with env and policy
-interactive_env = InteractiveEnv(generator=Hack4RailEnvGenerator(), baseline_policy=DeadLockAvoidancePolicy(), plan_policies=[DeadLockAvoidancePolicy(), RandomPolicy()])
+interactive_env = InteractiveEnv(
+    generator=Hack4RailEnvGenerator(),
+    baseline_policy=DeadLockAvoidancePolicy(),
+    plan_policies=[DeadLockAvoidancePolicy(), RandomPolicy()],
+)
