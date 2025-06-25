@@ -8,6 +8,12 @@ An agentic chatbot interfaces.
 
 https://github.com/user-attachments/assets/57a51fcb-fbf2-40ee-a582-d8f4fdf8bcc0
 
+## TODOs
+- Add frontend code
+- Tune prompts
+- Add tests
+- docker-compose setup for backend and frontend
+
 ## Backend
 
 Implemented via flask-api and langraph framwork.
