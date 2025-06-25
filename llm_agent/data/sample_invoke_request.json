@@ -1,0 +1,110 @@
+{
+  "variants": [
+    {
+      "tours": [
+        {
+          "agent_id": "A",
+          "stops": [
+            {"location": "C1", "time": 10},
+            {"location": "C2", "time": 11},
+            {"location": "C2", "time": 12}
+          ],
+          "target": "C2",
+          "latest_arrival": 14
+        },
+        {
+          "agent_id": "B",
+          "stops": [
+            {"location": "C0", "time": 8},
+            {"location": "C2", "time": 9},
+            {"location": "C2", "time": 10}
+          ],
+          "target": "C2",
+          "latest_arrival": 10
+        },
+        {
+          "agent_id": "C",
+          "stops": [
+            {"location": "C0", "time": 10},
+            {"location": "C0", "time": 11},
+            {"location": "C0", "time": 12},
+            {"location": "C0", "time": 13},
+            {"location": "C3", "time": 14}
+          ],
+          "target": "C3",
+          "latest_arrival": 13
+        }
+      ]
+    },
+    {
+      "tours": [
+        {
+          "agent_id": "A",
+          "stops": [
+            {"location": "C1", "time": 10},
+            {"location": "C2", "time": 11},
+            {"location": "C2", "time": 12}
+          ],
+          "target": "C2",
+          "latest_arrival": 14
+        },
+        {
+          "agent_id": "B",
+          "stops": [
+            {"location": "C0", "time": 8},
+            {"location": "C1", "time": 9},
+            {"location": "C2", "time": 10}
+          ],
+          "target": "C2",
+          "latest_arrival": 10
+        },
+        {
+          "agent_id": "C",
+          "stops": [
+            {"location": "C0", "time": 10},
+            {"location": "C3", "time": 11},
+            {"location": "C4", "time": 12},
+            {"location": "C3", "time": 13}
+          ],
+          "target": "C3",
+          "latest_arrival": 13
+        }
+      ]
+    },
+    {
+      "tours": [
+        {
+          "agent_id": "A",
+          "stops": [
+            {"location": "C1", "time": 10},
+            {"location": "C3", "time": 11},
+            {"location": "C3", "time": 12}
+          ],
+          "target": "C2",
+          "latest_arrival": 14
+        },
+        {
+          "agent_id": "B",
+          "stops": [
+            {"location": "C0", "time": 8},
+            {"location": "C1", "time": 9},
+            {"location": "C2", "time": 10}
+          ],
+          "target": "C2",
+          "latest_arrival": 10
+        },
+        {
+          "agent_id": "C",
+          "stops": [
+            {"location": "C0", "time": 10},
+            {"location": "C3", "time": 11},
+            {"location": "C4", "time": 12},
+            {"location": "C3", "time": 13}
+          ],
+          "target": "C3",
+          "latest_arrival": 13
+        }
+      ]
+    }
+  ]
+}
