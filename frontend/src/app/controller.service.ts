@@ -22,8 +22,8 @@ export class ControllerService {
     this.resetEnv()
   }
 
-  public stepEnv() {
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}))
+  public stepEnv(policyIndex: number = 0) {
+    return firstValueFrom(this.http.post<number>(`${BACKEND_URL}/step?plan_index=${policyIndex}`, {}))
   }
 
   public resetEnv() {

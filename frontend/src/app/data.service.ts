@@ -29,4 +29,8 @@ export class DataService {
   public getAgents() {
     return firstValueFrom(this.http.get<Array<Agent>>(`${BACKEND_URL}/agents`))
   }
+
+  public getHistory() {
+    return firstValueFrom(this.http.get<Array<Array<Agent>>>(`${BACKEND_URL}/history`))
+  }
 }

@@ -12,6 +12,9 @@ export class StateService {
   private state = new ReplaySubject<State>(1)
   private interval?: number
 
+  private history = new Subject<Array<Array<Agent>>>()
+  private currentPolicyIndex = 0
+
   public get playing() {
     return this.interval !== undefined
   }
@@ -23,8 +26,11 @@ export class StateService {
     this.dataService.getTransitions().then((transitions) => {
       this.transitions.next(transitions)
     })
-    this.dataService.getAgents().then((agents) => {
-      this.agents.next(agents)
+    // this.dataService.getAgents().then((agents) => {
+    //   this.agents.next(agents)
+    // })
+    this.dataService.getHistory().then((history) => {
+      this.history.next(history)
     })
   }
 
@@ -41,35 +47,30 @@ export class StateService {
   }
 
   public next() {
-    return this.controllerService.stepEnv().then((state) => {
-      this.dataService.getAgents().then((agents) => {
-        this.agents.next(agents)
-        this.state.next(state)
+    return this.controllerService.stepEnv(this.currentPolicyIndex).then((nextPolicyIndex) => {
+      this.currentPolicyIndex = nextPolicyIndex
+      this.dataService.getHistory().then((history) => {
+        this.agents.next(Object.values(history[history.length - 1]))
       })
-      return state
     })
   }
 
   public reset() {
     this.stop()
     this.controllerService.resetEnv().then((state) => {
-      this.dataService.getTransitions().then((transitions) => {
-        this.dataService.getAgents().then((agents) => {
-          this.agents.next(agents)
+      this.dataService.getTransitions().then((transitions) => 
+        this.dataService.getHistory().then((history) => {
           this.transitions.next(transitions)
+          this.agents.next([])
         })
-      })
+      )
       this.state.next(state)
     })
   }
 
   public play() {
     this.interval = window.setInterval(() => {
-      this.next().then(({ done }) => {
-        if (done.__all__) {
-          this.stop()
-        }
-      })
+      this.next()
     }, 100)
   }
 
@@ -78,5 +79,9 @@ export class StateService {
       clearInterval(this.interval)
       this.interval = undefined
     }
+  }
+
+  public getHistory() {
+    return this.history.asObservable()
   }
 }
