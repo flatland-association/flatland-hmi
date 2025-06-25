@@ -35,6 +35,10 @@ Open your browser and navigate to `http://localhost:4200` to interact with the F
 
 ### LLM Agent
 
+> ⚠️ **Important!** 
+>
+> The prompts are not yet fully tuned and may malfunction or produce unexpected results.
+
 1. Start LLM Agent Rest-API
 
 ```bash
