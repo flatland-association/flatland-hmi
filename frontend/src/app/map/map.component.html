@@ -1,3 +1,16 @@
+<div class="plans" [class.interrupted]="interrupted">
+  @for (plan of plans; let i = $index; track $index) {
+    <div
+      class="plan"
+      [class.selected]="this.selectedPlan === i"
+      (mouseenter)="stateService.setPlan(i)"
+      (mouseleave)="stateService.setPlan(undefined)"
+      (mousedown)="selectPlan(i)"
+    >
+      <span>Variant {{ i + 1 }}</span>
+    </div>
+  }
+</div>
 
 <div class="map">
   <div class="environment">
@@ -21,7 +34,7 @@
           [class]="rendererService.getAgentClasses(agent)"
           [style.left]="agent.position[1] * 20 + 'px'"
           [style.top]="agent.position[0] * 20 + 'px'"
-          [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+          [style.filter]="'hue-rotate(' + (i / agents.length) * 360 + 'deg)'"
         ></div>
       }
     }
@@ -29,14 +42,6 @@
 </div>
 
 <div class="controller">
-  <button (click)="stateService.next()">Step</button>
+  <button (click)="stateService.play()">Run</button>
   <button (click)="stateService.reset()">Reset</button>
-  @if (stateService.playing) {
-    <button (click)="stateService.stop()">Stop</button>
-  } @else {
-    <button (click)="stateService.play()">Play</button>
-  }
-  @if (state) {
-    <div>{{ state.steps }}</div>
-  }
 </div>

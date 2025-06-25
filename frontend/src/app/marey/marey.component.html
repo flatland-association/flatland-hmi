@@ -161,16 +161,3 @@
     </g>
   }
 </svg>
-
-<div class="plans">
-  @for (plan of plannedRuns; let i = $index; track $index) {
-    <div
-      class="plan"
-      [class.selected]="this.selectedPlan === i"
-      (mouseenter)="this.selectedPlan = i"
-      (mouseleave)="this.selectedPlan = undefined"
-    >
-      <span>Variant {{ i + 1 }}</span>
-    </div>
-  }
-</div>

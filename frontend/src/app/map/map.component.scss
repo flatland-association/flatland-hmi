@@ -4,6 +4,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
 .controller {
@@ -174,5 +175,58 @@
         background-color: rgba(150, 150, 150, 0.5);
       }
     }
+  }
+}
+
+.plans {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  height: 120px;
+  width: 100%;
+  opacity: 0.5;
+  border-radius: 5px;
+  border: 2px solid #ccc;
+
+  &.interrupted {
+    opacity: 1;
+    border-color: #007bff;
+    .plan {
+      background-color: #007bff;
+    }
+  }
+
+  .plan {
+    border-radius: 3px;
+    background-color: lightgrey;
+    padding: 10px;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80px;
+    width: 200px;
+    cursor: pointer;
+    &:hover {
+      background-color: #0056b3;
+    }
+    &.selected {
+      background-color: #0056b3;
+    }
+  }
+}
+
+button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+
+  &:hover {
+    background-color: #0056b3;
   }
 }

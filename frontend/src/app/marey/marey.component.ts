@@ -65,6 +65,9 @@ export class MareyComponent {
   ) {}
 
   ngOnInit() {
+    this.stateService.getPlan().subscribe((planIndex) => {
+      this.selectedPlan = planIndex
+    })
     this.stateService.getTransitions().subscribe((transitions) => (this.maxDistance = transitions[0].length - 1))
     this.stateService.getHistory().subscribe((history) => {
       this.timestep = history.length
@@ -90,7 +93,7 @@ export class MareyComponent {
     this.stateService.getPlans().subscribe((plans) => {
       this.plannedRuns = plans.map((plan) => {
         const agentHistories = plan
-          .filter((_, index) => index > this.timestep)
+          .filter((_, index) => index >= this.timestep)
           .reduce((agentHistory: Record<string, Agent[]>, timestep) => {
             for (const agent in timestep) {
               agentHistory[agent] ??= []
@@ -104,7 +107,7 @@ export class MareyComponent {
             coordinates: coordinates
               .map(({ position }, index) => ({
                 x: position?.[1] ?? undefined,
-                y: this.timestep + 1 + index,
+                y: this.timestep + index,
               }))
               .filter(
                 (coord, index): coord is { x: number; y: number } => coord.x !== undefined && index < PLAN_CUTTOFF,
@@ -116,6 +119,7 @@ export class MareyComponent {
     this.controllerService.observeReset().subscribe(() => {
       this.trainRuns = []
       this.plannedRuns = []
+      this.timestep = 0
     })
   }
 

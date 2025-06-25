@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core'
 import { Agent, DataService, Transitions } from './data.service'
-import { ReplaySubject, Subject } from 'rxjs'
+import { BehaviorSubject, firstValueFrom, ReplaySubject, Subject } from 'rxjs'
 import { ControllerService, State } from './controller.service'
 
 @Injectable({
@@ -15,6 +15,10 @@ export class StateService {
   private plans = new Subject<Array<Array<Record<string, Agent>>>>()
   private history = new Subject<Array<Record<string, Agent>>>()
   private currentPolicyIndex = 0
+  private selectedPlan = new BehaviorSubject<number | undefined>(undefined)
+
+  private malfunctions: Record<number, boolean> = {}
+  private newMalfunction = new Subject<void>()
 
   public get playing() {
     return this.interval !== undefined
@@ -30,6 +34,22 @@ export class StateService {
     this.dataService.getHistory().then((history) => {
       this.history.next(history)
     })
+  }
+
+  public getNewMalfunction() {
+    return this.newMalfunction.asObservable()
+  }
+
+  public setCurrentPolicyIndex(index: number) {
+    this.currentPolicyIndex = index
+  }
+
+  public setPlan(planIndex: number | undefined) {
+    this.selectedPlan.next(planIndex)
+  }
+
+  public getPlan() {
+    return this.selectedPlan.asObservable()
   }
 
   public getPlans() {
@@ -51,11 +71,29 @@ export class StateService {
   public next() {
     return this.controllerService.stepEnv(this.currentPolicyIndex).then((nextPolicyIndex) => {
       this.currentPolicyIndex = nextPolicyIndex
-      this.dataService.getPlans().then((plans) =>
+      return this.dataService.getPlans().then((plans) =>
         this.dataService.getHistory().then((history) => {
-          this.agents.next(Object.values(history[history.length - 1]))
+          const agents = Object.values(history[history.length - 1])
+          this.agents.next(agents)
           this.plans.next(plans)
           this.history.next(history)
+
+          const malfunctions = agents.reduce((acc: Record<number, boolean>, agent) => {
+            acc[agent.direction] = agent.malfunction > 0
+            return acc
+          }, {})
+          let newMalfunction = false
+          for (const agentId in malfunctions) {
+            if (malfunctions[agentId] && !this.malfunctions[agentId]) {
+              newMalfunction = true
+              break
+            }
+          }
+          if (newMalfunction) {
+            this.newMalfunction.next()
+          }
+          this.malfunctions = malfunctions
+          return newMalfunction
         }),
       )
     })
@@ -65,7 +103,7 @@ export class StateService {
     this.stop()
     this.controllerService.resetEnv().then((state) => {
       this.dataService.getTransitions().then((transitions) =>
-        this.dataService.getHistory().then((history) => {
+        this.dataService.getHistory().then(() => {
           this.transitions.next(transitions)
           this.agents.next([])
         }),
@@ -75,15 +113,22 @@ export class StateService {
   }
 
   public play() {
-    this.interval = window.setInterval(() => {
-      this.next()
-    }, 100)
+    this.next().then((newMalfunction) => {
+      if (newMalfunction) {
+        this.stop()
+      } else {
+        this.interval = window.setTimeout(() => {
+          this.play()
+        }, 500)
+      }
+    })
   }
 
   public stop() {
     if (this.interval) {
-      clearInterval(this.interval)
+      clearTimeout(this.interval)
       this.interval = undefined
+      this.malfunctions = {}
     }
   }
 

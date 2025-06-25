@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core'
+import { firstValueFrom } from 'rxjs'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
-import { firstValueFrom } from 'rxjs'
-import { State } from '../controller.service'
 import { Agent } from '../data.service'
+import { ControllerService } from '../controller.service'
 
 @Component({
   selector: 'app-map',
@@ -14,29 +14,45 @@ import { Agent } from '../data.service'
 export class MapComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
-  public state: State = {
-    steps: 0,
-    done: {
-      __all__: false,
-    },
-  }
+
+  public plans: Array<Array<Record<string, Agent>>> = []
+  public selectedPlan?: number
+
+  public interrupted: boolean = false
+  public hasMalfunction: boolean = false
 
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
+    public controllerService: ControllerService,
   ) {}
 
   ngOnInit() {
-    this.stateService.getState().subscribe((state) => (this.state = state))
+    this.stateService.getPlan().subscribe((planIndex) => {
+      this.selectedPlan = planIndex
+    })
+    this.stateService.getNewMalfunction().subscribe(() => {
+      this.interrupted = true
+    })
     this.stateService.getTransitions().subscribe((transitions) =>
       firstValueFrom(this.stateService.getAgents()).then((agents) => {
         this.mapClasses = this.rendererService.renderMap(transitions, agents)
       }),
     )
-    this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
+    this.stateService.getAgents().subscribe((agents) => {
+      this.agents = agents
+      this.hasMalfunction = agents.some((agent) => agent.malfunction > 0)
+    })
+    this.stateService.getPlans().subscribe((plans) => (this.plans = plans))
+    this.controllerService.observeReset().subscribe(() => {
+      this.interrupted = false
+      this.selectedPlan = undefined
+    })
   }
 
-  public getSteps() {
-    return this.state?.steps ?? 0
+  public selectPlan(planIndex: number | undefined) {
+    this.interrupted = false
+    this.stateService.setPlan(planIndex)
+    this.stateService.play()
   }
 }
