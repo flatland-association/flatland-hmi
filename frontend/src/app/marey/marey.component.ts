@@ -14,6 +14,8 @@ export interface TrainRun {
   coordinates: TrainCoordinate[]
 }
 
+const PLAN_CUTTOFF = 20
+
 @Component({
   selector: 'app-marey',
   imports: [DecimalPipe],
@@ -45,14 +47,17 @@ export class MareyComponent {
         max = Math.max(max, coord.y)
       })
     })
-    return Math.max(max, 20)
+    return max + PLAN_CUTTOFF
   }
 
   public maxDistance: number = 0
 
-  public trainRuns: TrainRun[] = []
+  public trainRuns: Array<TrainRun> = []
   public agents: Array<Agent> = []
-  public history?: Array<Array<{ x: number; y: number }>>
+  public timestep: number = 0
+
+  public plannedRuns: Array<Array<TrainRun>> = []
+  public selectedPlan?: number
 
   constructor(
     public stateService: StateService,
@@ -61,26 +66,56 @@ export class MareyComponent {
 
   ngOnInit() {
     this.stateService.getTransitions().subscribe((transitions) => (this.maxDistance = transitions[0].length - 1))
-    this.stateService.getAgents().subscribe((agents) => {
-      this.agents = agents
-      if (!this.history) {
-        this.history = agents.map(() => [])
-      }
-      for (let i = 0; i < agents.length; i++) {
-        const agent = agents[i]
-        if (agent.position) {
-          const x = agent.position[1]
-          const y = this.history.reduce((maxY, coords) => Math.max(coords.length, maxY), 0)
-          this.history[i].push({ x, y })
+    this.stateService.getHistory().subscribe((history) => {
+      this.timestep = history.length
+      const agentHistories = history.reduce((agentHistory: Record<string, Agent[]>, timestep) => {
+        for (const agent in timestep) {
+          agentHistory[agent] ??= []
+          agentHistory[agent].push(timestep[agent])
         }
-      }
-      this.trainRuns = agents.map((_, index) => ({
-        name: `${index}`,
-        coordinates: this.history?.[index] ?? [],
-      }))
+        return agentHistory
+      }, {})
+      this.trainRuns = Object.entries(agentHistories).map(([name, coordinates]) => {
+        return {
+          name,
+          coordinates: coordinates
+            .map(({ position }, index) => ({
+              x: position?.[1] ?? undefined,
+              y: index,
+            }))
+            .filter((coord): coord is { x: number; y: number } => coord.x !== undefined),
+        }
+      })
+    })
+    this.stateService.getPlans().subscribe((plans) => {
+      this.plannedRuns = plans.map((plan) => {
+        const agentHistories = plan
+          .filter((_, index) => index > this.timestep)
+          .reduce((agentHistory: Record<string, Agent[]>, timestep) => {
+            for (const agent in timestep) {
+              agentHistory[agent] ??= []
+              agentHistory[agent].push(timestep[agent])
+            }
+            return agentHistory
+          }, {})
+        return Object.entries(agentHistories).map(([name, coordinates]) => {
+          return {
+            name,
+            coordinates: coordinates
+              .map(({ position }, index) => ({
+                x: position?.[1] ?? undefined,
+                y: this.timestep + 1 + index,
+              }))
+              .filter(
+                (coord, index): coord is { x: number; y: number } => coord.x !== undefined && index < PLAN_CUTTOFF,
+              ),
+          }
+        })
+      })
     })
     this.controllerService.observeReset().subscribe(() => {
-      this.history = undefined
+      this.trainRuns = []
+      this.plannedRuns = []
     })
   }
 

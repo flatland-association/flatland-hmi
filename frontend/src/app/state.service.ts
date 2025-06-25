@@ -12,7 +12,8 @@ export class StateService {
   private state = new ReplaySubject<State>(1)
   private interval?: number
 
-  private history = new Subject<Array<Array<Agent>>>()
+  private plans = new Subject<Array<Array<Record<string, Agent>>>>()
+  private history = new Subject<Array<Record<string, Agent>>>()
   private currentPolicyIndex = 0
 
   public get playing() {
@@ -26,12 +27,13 @@ export class StateService {
     this.dataService.getTransitions().then((transitions) => {
       this.transitions.next(transitions)
     })
-    // this.dataService.getAgents().then((agents) => {
-    //   this.agents.next(agents)
-    // })
     this.dataService.getHistory().then((history) => {
       this.history.next(history)
     })
+  }
+
+  public getPlans() {
+    return this.plans.asObservable()
   }
 
   public getTransitions() {
@@ -49,20 +51,24 @@ export class StateService {
   public next() {
     return this.controllerService.stepEnv(this.currentPolicyIndex).then((nextPolicyIndex) => {
       this.currentPolicyIndex = nextPolicyIndex
-      this.dataService.getHistory().then((history) => {
-        this.agents.next(Object.values(history[history.length - 1]))
-      })
+      this.dataService.getPlans().then((plans) =>
+        this.dataService.getHistory().then((history) => {
+          this.agents.next(Object.values(history[history.length - 1]))
+          this.plans.next(plans)
+          this.history.next(history)
+        }),
+      )
     })
   }
 
   public reset() {
     this.stop()
     this.controllerService.resetEnv().then((state) => {
-      this.dataService.getTransitions().then((transitions) => 
+      this.dataService.getTransitions().then((transitions) =>
         this.dataService.getHistory().then((history) => {
           this.transitions.next(transitions)
           this.agents.next([])
-        })
+        }),
       )
       this.state.next(state)
     })

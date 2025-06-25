@@ -1,3 +1,25 @@
 :host {
   display: block;
 }
+
+.plans {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+
+  .plan {
+    border-radius: 3px;
+    background-color: lightgrey;
+    padding: 10px;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
+    width: 200px;
+    cursor: pointer;
+    &.selected {
+      background-color: grey;
+    }
+  }
+}

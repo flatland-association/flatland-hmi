@@ -21,9 +21,7 @@ export class DataService {
   constructor(private http: HttpClient) {}
 
   public getTransitions() {
-    return firstValueFrom(
-      this.http.get<Transitions>(`${BACKEND_URL}/transitions`),
-    )
+    return firstValueFrom(this.http.get<Transitions>(`${BACKEND_URL}/transitions`))
   }
 
   public getAgents() {
@@ -31,6 +29,10 @@ export class DataService {
   }
 
   public getHistory() {
-    return firstValueFrom(this.http.get<Array<Array<Agent>>>(`${BACKEND_URL}/history`))
+    return firstValueFrom(this.http.get<Array<Record<string, Agent>>>(`${BACKEND_URL}/history`))
+  }
+
+  public getPlans() {
+    return firstValueFrom(this.http.get<Array<Array<Record<string, Agent>>>>(`${BACKEND_URL}/plans`))
   }
 }
