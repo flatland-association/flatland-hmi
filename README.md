@@ -6,10 +6,7 @@ A simple prototype demonstrating how to create a Human-Machine Interface (HMI) t
 
 ## Demo
 
-<video width="100%" controls>
-  <source src="https://github.com/flatland-association/flatland-hmi/raw/main/ui-demo.mov" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/flatland-association/flatland-hmi/raw/main/ui-demo.mov
 
 ## Overview
 
