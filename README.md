@@ -6,7 +6,8 @@ A simple prototype demonstrating how to create a Human-Machine Interface (HMI) t
 
 ## Demo
 
-https://github.com/flatland-association/flatland-hmi/raw/main/ui-demo.mov
+https://github.com/user-attachments/assets/6cec2f96-a897-462d-9cb6-9f79216a0436
+
 
 ## Overview
 
