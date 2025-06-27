@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes2 import router as router
+from app.routes import router
 
 middleware_config = {
     "allow_origins": [

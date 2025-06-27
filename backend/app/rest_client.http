@@ -1,7 +1,0 @@
-
-POST http://localhost:8000/step HTTP/1.1
-content-type: application/json
-
-{
-    "plan_index": "1"
-}

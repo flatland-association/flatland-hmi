@@ -1,18 +1,21 @@
+from dataclasses import dataclass, field
+import tempfile
+import random
+
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.persistence import RailEnvPersister
-from .scenario.hack4rail import Hack4RailEnvGenerator
-from dataclasses import dataclass, field
 
 from flatland.core.policy import Policy
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.envs.observations import TreeObsForRailEnv
 from flatland.envs import malfunction_generators as mal_gen
-from dataclasses import dataclass, field
 
-import tempfile
+from .scenario.hack4rail import Hack4RailEnvGenerator
 
-import random
+
+class EnvDoneException(Exception):
+    """Exception raised when the environment is done."""
 
 
 @dataclass
@@ -32,9 +35,12 @@ class EnvOption:
         self.env.reset()
         self.steps = []
 
-    def step(self, explicit_actions={}):
+    def step(self, explicit_actions=None) -> None:
+        """Exeecute the next step in the environment based on the policy."""
+        if explicit_actions is None:
+            explicit_actions = {}
         if self.env.dones.get("__all__", False):
-            raise Exception("Environment done, call reset() to start a new episode")
+            raise EnvDoneException("Environment done, call reset() to start a new episode")
         actions = self.policy.act_many(self.env.obs_dict)
         actions.update(
             {
@@ -42,10 +48,10 @@ class EnvOption:
                 for a, action in explicit_actions.items()
             }
         )
-        ret = self.env.step(actions)
-        self.steps.append(self._step_to_dict(ret))
+        self.env.step(actions)
+        self.steps.append(self._step_to_dict())
 
-    def _step_to_dict(self, ret):
+    def _step_to_dict(self):
         return {
             str(agent.handle): {
                 "position": (
@@ -62,8 +68,6 @@ class EnvOption:
                     else tuple(int(c) for c in agent.target)
                 ),
                 "malfunction": agent.malfunction_handler.malfunction_down_counter,
-                "elapsed": self.env._elapsed_steps,
-                # "observation": ret,
             }
             for agent in self.env.agents
         }
@@ -71,7 +75,7 @@ class EnvOption:
     def simulate(self):
         """Run all steps until the environment is done."""
         if self.env.dones.get("__all__", False):
-            raise Exception("Environment done, call reset() to start a new episode")
+            raise EnvDoneException("Environment done, call reset() to start a new episode")
         malfunction_generator = self.env.malfunction_generator
         self.env.malfunction_generator = mal_gen.NoMalfunctionGen()
         while not self.env.dones.get("__all__", False):
@@ -127,6 +131,7 @@ class InteractiveEnv:
             self.plan_envs[plan_index].policy
         )
         # update history env with the current step
+        #TODO: Investigate why we need to step twice. Reloaded env seems to be in a wierd state.
         self.history_env.step()
         self.history_env.step()
         # update the plan envs with the current step
@@ -138,7 +143,6 @@ class InteractiveEnv:
 
         # evaluate the plans to determine the best solution
         # placholder returning a random value for the index of plan_env
-
         best_plan_index = random.randint(0, len(self.plan_envs) - 1)
 
         return best_plan_index
@@ -149,10 +153,10 @@ from .scenario.hack4rail import Hack4RailEnvGenerator
 
 
 # Import the RandomPolicy from the policies module
-from .policy.random_policy import RandomPolicy
+# from .policy.random_policy import RandomPolicy
 
 # Create a random agent policy
-random_policy = RandomPolicy()
+# random_policy = RandomPolicy()
 
 # Import the DeadLockAvoidancePolicy from the policies module
 from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
