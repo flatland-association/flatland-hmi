@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "flatland-agent"
+version = "0.1.0"
+description = "An AI agent for the flatland project."
+authors = [
+    "KilianZimmerer <kilian.zimmerer@deutschebahn.com>",
+    ]
+readme = "README.md"
+packages = [{ include = "flatland_agent", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11,<4.0"
+langgraph = "^0.4.0"
+langchain-openai = "^0.3.12"
+python-dotenv = "^1.0.0"
+uvicorn = "^0.34.2"
+fastapi = "^0.115.8"
+pydantic = "^2.11.4"
+requests = "^2.32.3"
+mangum = "^0.19.0"
+
+[tool.poetry.group.linting.dependencies]
+ruff = "^0.12.0"
+
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "PD901", # `df` is a bad variable name. Be kinder to your future self. <- it's a great name
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[[tool.poetry.source]]
+name = "artifactory"
+url = "https://bahnhub.tech.rz.db.de/artifactory/api/pypi/default-pypi-3rdparty/simple"
+priority = "primary"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

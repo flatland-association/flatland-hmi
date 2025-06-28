@@ -1,0 +1,4 @@
+__pycache__
+*.crt
+*.env
+.venv
