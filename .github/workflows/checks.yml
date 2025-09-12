@@ -1,0 +1,25 @@
+name: Test Flatland HMI Frontend and Backend
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [ "main" ]
+  # Scheduled workflows will only run on the default branch.
+  schedule:
+    - cron: '30 5 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  build-frontend:
+    name: Test Flatland HMI Frontend
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      run: |
+        echo TODO
