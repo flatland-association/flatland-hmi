@@ -16,10 +16,25 @@ concurrency:
 jobs:
   build-frontend:
     name: Test Flatland HMI Frontend
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.13" ]
+        node-version: [ "22.x" ]
     steps:
-      run: |
-        echo TODO
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          npm install
+          npm ci
+      - name: Run build
+        working-directory: frontend
+        run: |
+          set -euxo pipefail
+          npm run build
