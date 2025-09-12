@@ -1,12 +1,13 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.routes import router
 
+ALLOW_ORIGINS = os.environ.get("ALLOW_ORIGINS", "http://localhost:4200,http://localhost")
 middleware_config = {
-    "allow_origins": [
-        "http://localhost:4200",
-        "http://localhost",
-    ],
+    "allow_origins": ALLOW_ORIGINS.split(","),
     "allow_credentials": True,
     "allow_methods": ["*"],
     "allow_headers": ["*"],
