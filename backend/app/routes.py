@@ -1,5 +1,5 @@
-from fastapi import APIRouter
 from app.env import interactive_env
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -53,3 +53,14 @@ def reset_env():
         "done": {"__all__": False},
         "steps": interactive_env.env._elapsed_steps,
     }
+
+
+# https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
+@router.get("/health/live")
+def health_check():
+    return {"status": "UP", "checks": []}
+
+
+@router.get("/health/ready")
+def health_check():
+    return {"status": "UP", "checks": []}
