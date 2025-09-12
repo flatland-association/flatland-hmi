@@ -2,7 +2,8 @@
 
 ![Flatland HMI](flatland-hmi.png)
 
-A simple prototype demonstrating how to create a Human-Machine Interface (HMI) that can interact with a Flatland simulation environment. This repository showcases the integration between a web-based frontend and a Python backend running Flatland railway simulations.
+A simple prototype demonstrating how to create a Human-Machine Interface (HMI) that can interact with a Flatland simulation environment. This repository
+showcases the integration between a web-based frontend and a Python backend running Flatland railway simulations.
 
 ## Overview
 
@@ -16,6 +17,7 @@ The HMI allows users to visualize railway networks, observe train movements, and
 ## Quick Start
 
 ### Backend
+
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -23,6 +25,7 @@ uvicorn main:app --reload
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
 npm install
@@ -30,6 +33,13 @@ npm run start
 ```
 
 Open your browser and navigate to `http://localhost:4200` to interact with the Flatland simulation.
+
+## Quick Start Docker Pre-Built Images from GitHub Container Registry
+
+```bash
+docker run -p 8000:8000 ghcr.io/flatland-association/flatland-hmi-backend:latest 
+docker run -p 80:80 ghcr.io/flatland-association/flatland-hmi-frontend:latest 
+```
 
 ## Features
 

@@ -5,6 +5,7 @@ from app.routes import router
 middleware_config = {
     "allow_origins": [
         "http://localhost:4200",
+        "http://localhost",
     ],
     "allow_credentials": True,
     "allow_methods": ["*"],
