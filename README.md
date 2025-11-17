@@ -21,7 +21,7 @@ The HMI allows users to visualize railway networks, observe train movements, and
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 ### Frontend
