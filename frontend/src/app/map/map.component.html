@@ -39,4 +39,15 @@
   @if (state) {
     <div>{{ state.steps }}</div>
   }
+
+  <mat-form-field>
+    <mat-label>Favorite food</mat-label>
+    <mat-select (selectionChange)="onChangeFood($event.value)">
+      @for (food of foods; track food) {
+      <mat-option [value]="food.value">{{food.viewValue}}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
 </div>
+
