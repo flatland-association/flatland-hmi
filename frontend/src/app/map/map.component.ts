@@ -35,7 +35,7 @@ export class MapComponent implements OnInit {
 
   public envOptions: SelectOption[] = [
     {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
-    {value: 'generated-1', label: 'Generated environment 50 x 50, 7 agents'}
+    {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'}
   ]
   public currentEnv = this.envOptions[0].value
 

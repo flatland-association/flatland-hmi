@@ -33,7 +33,7 @@ class InteractiveEnv:
 
 env_map = {
     'generated-0': env_generator()[0],
-    'generated-1': env_generator(x_dim=50, y_dim=50)[0],
+    'generated-1': env_generator(x_dim=50, y_dim=50, n_agents=10)[0],
 }
 policy_map = {
     'policy-0': RandomPolicy(),
