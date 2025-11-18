@@ -28,14 +28,14 @@ export class MapComponent implements OnInit {
   }
 
   public policyOptions: SelectOption[] = [
-    {value: 'policy-1', label: 'Policy Alpha'},
-    {value: 'policy-2', label: 'Policy Beta'},
+    {value: 'policy-0', label: 'Random Policy'},
+    {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
   ]
   public currentPolicy = this.policyOptions[0].value
 
   public envOptions: SelectOption[] = [
-    {value: 'generated-0', label: 'Generated environment 0'},
-    {value: 'generated-1', label: 'Generated environment 1'}
+    {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
+    {value: 'generated-1', label: 'Generated environment 50 x 50, 7 agents'}
   ]
   public currentEnv = this.envOptions[0].value
 

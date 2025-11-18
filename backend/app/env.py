@@ -2,6 +2,9 @@ from flatland.env_generation.env_generator import env_generator
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
 
+from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
+from .policy.random_policy import RandomPolicy
+
 
 class InteractiveEnv:
     def __init__(self, env: RailEnv, policy):
@@ -28,25 +31,21 @@ class InteractiveEnv:
         return self.obs, self.rewards, self.done, self.info, actions
 
 
-# Import hack4rail environment generator providing a static environment
-#from .scenario.hack4rail import create_hack4rail_env
+env_map = {
+    'generated-0': env_generator()[0],
+    'generated-1': env_generator(x_dim=50, y_dim=50)[0],
+}
+policy_map = {
+    'policy-0': RandomPolicy(),
+    # TODO fix dla with new flatland version
+    'policy-1': DeadLockAvoidancePolicy(),
+}
 
-# Create the hack4rail environment
-#env = create_hack4rail_env()
-env = env_generator()[0]
 
-# Import the RandomPolicy from the policies module
-from .policy.random_policy import RandomPolicy
+def reset_global_interactive_env(env_id, policy_id):
+    global interactive_env
+    interactive_env =  InteractiveEnv(env_map[env_id], policy_map[policy_id])
+    return interactive_env
 
-# Create a random agent policy
-random_policy = RandomPolicy()
 
-# Import the DeadLockAvoidancePolicy from the policies module
-from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
-
-# Create a deadlock avoidance policy
-deadlock_avoidance_policy = DeadLockAvoidancePolicy(env=env)
-
-# Initialize the interactive environment with env and policy
-# TODO fix dla with new flatland version
-interactive_env = InteractiveEnv(env, random_policy)
+interactive_env = reset_global_interactive_env("generated-0", "policy-0")

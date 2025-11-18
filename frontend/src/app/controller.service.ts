@@ -20,16 +20,16 @@ export class ControllerService {
 
   public stepEnv(policy?: string) {
     let params = new HttpParams()
-    if (policy) {
-      params = params.append('policy', policy)
-    }
     return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}, {params}))
   }
 
-  public resetEnv(environment?: string) {
+  public resetEnv(environment?: string, policy?: string) {
     let params = new HttpParams()
     if (environment) {
       params = params.append('environment', environment)
+    }
+    if (policy) {
+        params = params.append('policy', policy)
     }
     return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}, {params}))
   }

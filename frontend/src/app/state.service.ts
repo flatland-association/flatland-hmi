@@ -50,9 +50,9 @@ export class StateService {
     })
   }
 
-  public reset(environment?: string) {
+  public reset(environment?: string, policy?: string) {
     this.stop()
-    this.controllerService.resetEnv(environment).then((state) => {
+    this.controllerService.resetEnv(environment, policy).then((state) => {
       this.dataService.getTransitions().then((transitions) => {
         this.dataService.getAgents().then((agents) => {
           this.agents.next(agents)

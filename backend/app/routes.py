@@ -1,5 +1,7 @@
-from app.env import interactive_env
 from fastapi import APIRouter
+from fastapi import Request
+
+from app.env import interactive_env, reset_global_interactive_env
 
 router = APIRouter()
 
@@ -46,7 +48,8 @@ def step_env(actions: dict = {}):
 
 
 @router.post("/reset")
-def reset_env():
+def reset_env(request: Request):
+    reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
     _, info = interactive_env.reset()
     return {
         "info": info,
