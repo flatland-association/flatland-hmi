@@ -37,7 +37,6 @@ env_map = {
 }
 policy_map = {
     'policy-0': RandomPolicy(),
-    # TODO fix dla with new flatland version
     'policy-1': DeadLockAvoidancePolicy(),
 }
 
