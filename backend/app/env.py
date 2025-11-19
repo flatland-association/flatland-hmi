@@ -1,9 +1,9 @@
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
-
-from .policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
-from .policy.random_policy import RandomPolicy
+from flatland_baselines.deadlock_avoidance_heuristic.policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
+# TODO use random policy from baselines instead
+from tests.trajectories.test_policy_runner import RandomPolicy
 
 
 class InteractiveEnv:
@@ -43,7 +43,7 @@ policy_map = {
 
 def reset_global_interactive_env(env_id, policy_id):
     global interactive_env
-    interactive_env =  InteractiveEnv(env_map[env_id], policy_map[policy_id])
+    interactive_env = InteractiveEnv(env_map[env_id], policy_map[policy_id])
     return interactive_env
 
 
