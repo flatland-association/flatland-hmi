@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install gcc build-essential wget zip -y
+RUN apt-get update && apt-get install gcc build-essential wget zip git -y
 
 # Use non-root user
 RUN useradd appuser --home-dir /app --create-home
