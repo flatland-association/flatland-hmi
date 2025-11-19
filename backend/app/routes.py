@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Request
+from flatland.envs.rail_env_action import RailEnvActions
 
 from app.env import interactive_env, reset_global_interactive_env
 
@@ -39,7 +40,7 @@ def step_env(actions: dict = {}):
         "info": info,
         "done": done,
         "actions": {
-            a: {"name": action.name, "value": action.value}
+            a: {"name": RailEnvActions.from_value(action).name, "value": RailEnvActions.from_value(action).value}
             for a, action in actions.items()
         },
         "steps": interactive_env.env._elapsed_steps,
