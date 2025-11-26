@@ -40,8 +40,8 @@ export class StateService {
     return this.state.asObservable()
   }
 
-  public next() {
-    return this.controllerService.stepEnv().then((state) => {
+  public next(policy?: string) {
+    return this.controllerService.stepEnv(policy).then((state) => {
       this.dataService.getAgents().then((agents) => {
         this.agents.next(agents)
         this.state.next(state)
@@ -50,9 +50,9 @@ export class StateService {
     })
   }
 
-  public reset() {
+  public reset(environment?: string, policy?: string) {
     this.stop()
-    this.controllerService.resetEnv().then((state) => {
+    this.controllerService.resetEnv(environment, policy).then((state) => {
       this.dataService.getTransitions().then((transitions) => {
         this.dataService.getAgents().then((agents) => {
           this.agents.next(agents)
@@ -63,9 +63,9 @@ export class StateService {
     })
   }
 
-  public play() {
+  public play(policy?: string) {
     this.interval = window.setInterval(() => {
-      this.next().then(({ done }) => {
+      this.next(policy).then(({ done }) => {
         if (done.__all__) {
           this.stop()
         }

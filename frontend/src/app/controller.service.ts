@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http'
+import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { firstValueFrom } from 'rxjs'
 
@@ -18,11 +18,19 @@ export interface State {
 export class ControllerService {
   constructor(private http: HttpClient) {}
 
-  public stepEnv() {
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}))
+  public stepEnv(policy?: string) {
+    let params = new HttpParams()
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}, {params}))
   }
 
-  public resetEnv() {
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}))
+  public resetEnv(environment?: string, policy?: string) {
+    let params = new HttpParams()
+    if (environment) {
+      params = params.append('environment', environment)
+    }
+    if (policy) {
+        params = params.append('policy', policy)
+    }
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}, {params}))
   }
 }

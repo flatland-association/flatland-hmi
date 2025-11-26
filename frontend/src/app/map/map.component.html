@@ -30,13 +30,27 @@
 
 <div class="controller">
   <button (click)="stateService.next()">Step</button>
-  <button (click)="stateService.reset()">Reset</button>
+  <button (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
   @if (stateService.playing) {
     <button (click)="stateService.stop()">Stop</button>
   } @else {
-    <button (click)="stateService.play()">Play</button>
+    <button (click)="stateService.play(currentPolicy)">Play</button>
   }
   @if (state) {
     <div>{{ state.steps }}</div>
   }
+
+  <select [(ngModel)]="currentPolicy" (ngModelChange)="stateService.reset(currentEnv, $event)">
+    @for (policyOption of policyOptions; track $index) {
+      <option [value]="policyOption.value">{{ policyOption.label }}</option>
+    }
+  </select>
+
+  <select [(ngModel)]="currentEnv" (ngModelChange)="stateService.reset($event, currentPolicy)">
+    @for (envOption of envOptions; track $index) {
+      <option [value]="envOption.value">{{ envOption.label }}</option>
+    }
+  </select>
+
 </div>
+

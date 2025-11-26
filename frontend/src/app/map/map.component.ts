@@ -4,10 +4,16 @@ import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
 import { State } from '../controller.service'
 import { Agent } from '../data.service'
+import {FormsModule} from '@angular/forms';
+
+interface SelectOption {
+  value: string
+  label: string
+}
 
 @Component({
   selector: 'app-map',
-  imports: [],
+  imports: [FormsModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss',
 })
@@ -20,6 +26,18 @@ export class MapComponent implements OnInit {
       __all__: false,
     },
   }
+
+  public policyOptions: SelectOption[] = [
+    {value: 'policy-0', label: 'Random Policy'},
+    {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
+  ]
+  public currentPolicy = this.policyOptions[0].value
+
+  public envOptions: SelectOption[] = [
+    {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
+    {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'}
+  ]
+  public currentEnv = this.envOptions[0].value
 
   constructor(
     public stateService: StateService,
@@ -39,4 +57,6 @@ export class MapComponent implements OnInit {
   public getSteps() {
     return this.state?.steps ?? 0
   }
+
+
 }
