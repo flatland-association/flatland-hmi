@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs'
 import { State } from '../controller.service'
 import { Agent } from '../data.service'
 import {FormsModule} from '@angular/forms';
+import { FlatlandGridworldComponent } from "../flatland-grid/flatland-gridworld.component";
 
 interface SelectOption {
   value: string
@@ -13,7 +14,7 @@ interface SelectOption {
 
 @Component({
   selector: 'app-map',
-  imports: [FormsModule],
+  imports: [FormsModule, FlatlandGridworldComponent],
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss',
 })

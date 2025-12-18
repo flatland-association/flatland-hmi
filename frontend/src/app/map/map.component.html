@@ -1,5 +1,5 @@
 
-<div class="map">
+<!-- <div class="map">
   <div class="environment">
     @for (row of mapClasses; track $index) {
       <div class="row">
@@ -26,7 +26,9 @@
       }
     }
   </div>
-</div>
+</div> -->
+
+<app-flatland-gridworld [map]="mapClasses" [agents]="agents"></app-flatland-gridworld>
 
 <div class="controller">
   <button (click)="stateService.next()">Step</button>

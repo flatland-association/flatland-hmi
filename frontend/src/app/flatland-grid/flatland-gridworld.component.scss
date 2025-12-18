@@ -1,0 +1,10 @@
+div {
+  display: grid;
+  width: 400px;
+  height: 400px;
+  
+  svg {
+    grid-row: 1;
+    grid-column: 1;
+  }
+}
