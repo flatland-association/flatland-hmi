@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi import Request
 from flatland.envs.rail_env_action import RailEnvActions
 
-from app.env import reset_global_interactive_env
+from app.env import interactive_env, reset_global_interactive_env
 
 router = APIRouter()
 
