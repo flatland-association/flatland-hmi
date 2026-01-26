@@ -7,6 +7,7 @@ const BACKEND_URL = 'http://localhost:8000'
 export type Transitions = Array<Array<number>>
 
 export interface Agent {
+  handle: number
   position: [number, number] | null
   direction: number
   moving: boolean
@@ -27,6 +28,7 @@ export class DataService {
   }
 
   public getAgents() {
+
     return firstValueFrom(this.http.get<Array<Agent>>(`${BACKEND_URL}/agents`))
   }
 }

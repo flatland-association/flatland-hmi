@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi import Request
 from flatland.envs.rail_env_action import RailEnvActions
 
-from app.env import interactive_env, reset_global_interactive_env
+from app.env import reset_global_interactive_env
 
 router = APIRouter()
 
@@ -16,6 +16,7 @@ def get_transitions():
 def get_map():
     return [
         {
+            "handle": agent.handle,
             "position": (
                 None
                 if agent.position is None
