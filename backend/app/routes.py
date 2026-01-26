@@ -1,19 +1,29 @@
+from pathlib import Path
+
 from fastapi import APIRouter
 from fastapi import Request
-from flatland.envs.rail_env_action import RailEnvActions
 
-from app.env import reset_global_interactive_env
+from flatland.envs.rail_env import RailEnv
+from flatland.trajectories.trajectories import Trajectory
 
 router = APIRouter()
+
+# TODO encapsulate in state
+trajectory: Trajectory = None
+initial_env: RailEnv = None
+elapsed_steps = None
 
 
 @router.get("/transitions")
 def get_transitions():
-    return interactive_env.env.rail.grid.tolist()
+    return initial_env.rail.grid.tolist()
 
 
 @router.get("/agents")
 def get_map():
+    global trajectory
+    global elapsed_steps
+    curr_env = trajectory.load_env(start_step=elapsed_steps)
     return [
         {
             "handle": agent.handle,
@@ -30,35 +40,71 @@ def get_map():
             ),
             "malfunction": agent.malfunction_handler.malfunction_down_counter,
         }
-        for agent in interactive_env.env.agents
+        for agent in curr_env.agents
     ]
 
 
 @router.post("/step")
-def step_env(actions: dict = {}):
-    _, _, done, info, actions = interactive_env.step(actions)
-    return {
-        "info": info,
-        "done": done,
-        "actions": {
-            a: {"name": RailEnvActions.from_value(action).name, "value": RailEnvActions.from_value(action).value}
-            for a, action in actions.items()
-        },
-        "steps": interactive_env.env._elapsed_steps,
-        "max_steps": interactive_env.env._max_episode_steps,
+def step_env(env_time:int):
+    global trajectory
+    global initial_env
+    global elapsed_steps
+    elapsed_steps = env_time
+    d = {
+        "info": _get_info_dict(env_time),
+        "done": _get_done_dict(env_time),
+        # "actions": {
+        #     a: {"name": RailEnvActions.from_value(action).name, "value": RailEnvActions.from_value(action).value}
+        #     for a, action in actions.items()
+        # },
+        "steps": env_time,
+        "max_steps": initial_env._max_episode_steps,
     }
+    env_time += 1
+    return d
+
+
+def _get_done_dict(env_time):
+    global trajectory
+    global initial_env
+    global elapsed_steps
+    # TODO improve Trajectory API to include env_time 0
+    if env_time == 0:
+        return {}
+    return {agent_id: bool(trajectory.trains_rewards_dones_infos_lookup(env_time=env_time, agent_id=agent_id)[1]) for agent_id in
+            initial_env.get_agent_handles()}
+
+
+def _get_info_dict(env_time: int):
+    global trajectory
+    global initial_env
+    global elapsed_steps
+    # TODO improve Trajectory API to include env_time 0
+    if env_time == 0:
+        return {}
+    return {agent_id: trajectory.trains_rewards_dones_infos_lookup(env_time=env_time, agent_id=agent_id)[2] for agent_id in initial_env.get_agent_handles()}
 
 
 @router.post("/reset")
 def reset_env(request: Request):
-    global interactive_env
-    interactive_env = reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
-    _, info = interactive_env.reset()
+    global elapsed_steps
+    _reset_env()
     return {
-        "info": info,
+        "info": _get_info_dict(elapsed_steps),
         "done": {"__all__": False},
-        "steps": interactive_env.env._elapsed_steps,
+        "steps": 0,
     }
+
+
+def _reset_env():
+    global trajectory
+    global initial_env
+    global elapsed_steps
+    trajectory = Trajectory.load_existing(Path("/Users/che/workspaces/flatland-scenarios/scenario_generator/results20260126_1341/"), ep_id="scenario_1")
+    initial_env = trajectory.load_env()
+
+    elapsed_steps = 0
+    return elapsed_steps
 
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
@@ -70,3 +116,6 @@ def health_check():
 @router.get("/health/ready")
 def health_check():
     return {"status": "UP", "checks": []}
+
+
+_reset_env()

@@ -18,9 +18,12 @@ export interface State {
 export class ControllerService {
   constructor(private http: HttpClient) {}
 
-  public stepEnv(policy?: string) {
+  public stepEnv(policy?: string, env_time?: number) {
     let params = new HttpParams()
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}, {params}))
+    if (env_time){
+      params = params.append('env_time', env_time)
+    }
+    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step/`, {}, {params}))
   }
 
   public resetEnv(environment?: string, policy?: string) {

@@ -32,10 +32,12 @@ export class MapComponent implements OnInit {
     {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
   ]
   public currentPolicy = this.policyOptions[0].value
+  public currentStep = 0
 
   public envOptions: SelectOption[] = [
     {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
-    {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'}
+    {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'},
+    {value: 'scenario_1', label: 'Scenario 1'},
   ]
   public currentEnv = this.envOptions[0].value
 
@@ -45,7 +47,9 @@ export class MapComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.stateService.getState().subscribe((state) => (this.state = state))
+    this.stateService.getState().subscribe((state) => {
+      this.state = state
+    })
     this.stateService.getTransitions().subscribe((transitions) =>
       firstValueFrom(this.stateService.getAgents()).then((agents) => {
         this.mapClasses = this.rendererService.renderMap(transitions, agents)

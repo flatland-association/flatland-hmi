@@ -1,4 +1,5 @@
 from flatland.env_generation.env_generator import env_generator
+from flatland.envs.persistence import RailEnvPersister
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland_baselines.deadlock_avoidance_heuristic.observation.full_env_observation import FullEnvObservation
@@ -35,6 +36,8 @@ class InteractiveEnv:
 env_map = {
     'generated-0': env_generator(obs_builder_object=FullEnvObservation())[0],
     'generated-1': env_generator(x_dim=50, y_dim=50, n_agents=10, obs_builder_object=FullEnvObservation())[0],
+    'scenario_1':
+        RailEnvPersister.load_new("/Users/che/workspaces/flatland-scenarios/scenario_generator/scenario_1/scenario_1.pkl", obs_builder=FullEnvObservation())[0],
 }
 policy_map = {
     'policy-0': RandomPolicy(),
@@ -44,6 +47,9 @@ policy_map = {
 
 def reset_global_interactive_env(env_id, policy_id):
     global interactive_env
+    assert env_id in env_map
+    assert policy_id in policy_map
+
     interactive_env = InteractiveEnv(env_map[env_id], policy_map[policy_id])
     return interactive_env
 

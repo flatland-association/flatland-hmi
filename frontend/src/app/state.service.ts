@@ -40,8 +40,8 @@ export class StateService {
     return this.state.asObservable()
   }
 
-  public next(policy?: string) {
-    return this.controllerService.stepEnv(policy).then((state) => {
+  public stepAbsolute(env_time: number, policy?: string) {
+    return this.controllerService.stepEnv(policy, env_time).then((state) => {
       this.dataService.getAgents().then((agents) => {
         this.agents.next(agents)
         this.state.next(state)
@@ -63,13 +63,19 @@ export class StateService {
     })
   }
 
-  public play(policy?: string) {
-    this.interval = window.setInterval(() => {
-      this.next(policy).then(({ done }) => {
+  public next(policy?: string){
+    this.getState().subscribe((state) => {
+      this.stepAbsolute(state.steps+1,policy).then(({ done }) => {
         if (done.__all__) {
           this.stop()
         }
       })
+    })
+  }
+
+  public play(policy?: string) {
+    this.interval = window.setInterval(() => {
+      this.next(policy)
     }, 100)
   }
 
