@@ -22,7 +22,7 @@
           [style.left]="agent.position[1] * 20 + 'px'"
           [style.top]="agent.position[0] * 20 + 'px'"
           [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
-        ></div>
+        >{{ agent.handle }}</div>
       }
     }
   </div>
