@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 
 from fastapi import APIRouter
@@ -12,6 +13,9 @@ router = APIRouter()
 trajectory: Trajectory = None
 initial_env: RailEnv = None
 elapsed_steps = None
+_info_dicts = defaultdict(dict)
+_done_dicts = defaultdict(dict)
+_positions_dicts = defaultdict(dict)
 
 
 @router.get("/transitions")
@@ -19,33 +23,41 @@ def get_transitions():
     return initial_env.rail.grid.tolist()
 
 
+# TODO add env_time as param
 @router.get("/agents")
 def get_map():
     global trajectory
     global elapsed_steps
-    curr_env = trajectory.load_env(start_step=elapsed_steps)
+    if elapsed_steps == 0:
+        return [
+            {
+                "handle": agent.handle,
+                "position": None,
+                "direction": None,
+                "moving": False,
+                "speed_counter": agent.speed_counter,
+                "target": (None if agent.target is None else tuple(int(c) for c in agent.target)),
+                "malfunction": 0,
+            }
+            for agent in initial_env.agents
+        ]
+
     return [
         {
             "handle": agent.handle,
-            "position": (
-                None
-                if agent.position is None
-                else tuple(int(c) for c in agent.position)
-            ),
-            "direction": agent.direction,
-            "moving": agent.moving,
-            "speed_counter": agent.speed_counter,
-            "target": (
-                None if agent.target is None else tuple(int(c) for c in agent.target)
-            ),
-            "malfunction": agent.malfunction_handler.malfunction_down_counter,
+            "position": _positions_dicts[elapsed_steps][agent.handle][0],
+            "direction": _positions_dicts[elapsed_steps][agent.handle][1],
+            "moving": _info_dicts[elapsed_steps][agent.handle]["state"] == 3,
+            "speed_counter": _info_dicts[elapsed_steps][agent.handle]["speed"],
+            "target": (None if agent.target is None else tuple(int(c) for c in agent.target)),
+            "malfunction": _info_dicts[elapsed_steps][agent.handle]["malfunction"],
         }
-        for agent in curr_env.agents
+        for agent in initial_env.agents
     ]
 
 
 @router.post("/step")
-def step_env(env_time:int):
+def step_env(env_time: int):
     global trajectory
     global initial_env
     global elapsed_steps
@@ -71,8 +83,7 @@ def _get_done_dict(env_time):
     # TODO improve Trajectory API to include env_time 0
     if env_time == 0:
         return {}
-    return {agent_id: bool(trajectory.trains_rewards_dones_infos_lookup(env_time=env_time, agent_id=agent_id)[1]) for agent_id in
-            initial_env.get_agent_handles()}
+    return _done_dicts[env_time]
 
 
 def _get_info_dict(env_time: int):
@@ -82,7 +93,7 @@ def _get_info_dict(env_time: int):
     # TODO improve Trajectory API to include env_time 0
     if env_time == 0:
         return {}
-    return {agent_id: trajectory.trains_rewards_dones_infos_lookup(env_time=env_time, agent_id=agent_id)[2] for agent_id in initial_env.get_agent_handles()}
+    return _info_dicts[env_time]
 
 
 @router.post("/reset")
@@ -102,9 +113,14 @@ def _reset_env():
     global trajectory
     global initial_env
     global elapsed_steps
-    trajectory = Trajectory.load_existing(Path("/Users/che/workspaces/flatland-scenarios/scenario_generator/results_scenario_1_20260128_121434"), ep_id="scenario_1")
+    trajectory = Trajectory.load_existing(Path("/Users/che/workspaces/flatland-scenarios/scenario_generator/results_scenario_1_20260128_160703"),
+                                          ep_id="scenario_1")
+    for _, row in trajectory.trains_rewards_dones_infos.iterrows():
+        _info_dicts[row["env_time"]][row["agent_id"]] = row["info"]
+        _done_dicts[row["env_time"]][row["agent_id"]] = row["done"]
+    for _, row in trajectory.trains_positions.iterrows():
+        _positions_dicts[row["env_time"]][row["agent_id"]] = row["position"]
     initial_env = trajectory.load_env()
-
     elapsed_steps = 0
     return elapsed_steps
 
