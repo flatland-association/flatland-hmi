@@ -38,11 +38,11 @@
   </mat-slider>
   <p>{{ desiredStep }}</p>
 
-  <button (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
-  @if (stateService.playing) {
-  <button (click)="stateService.stop()">Stop</button>
+  <button (click)="reset()">Reset</button>
+  @if (this.playing) {
+  <button (click)="stop()">Stop</button>
   } @else {
-  <button (click)="stateService.play(currentPolicy)">Play</button>
+  <button (click)="play(currentPolicy)">Play</button>
   }
   @if (state) {
   <div>{{ state.steps }}</div>
@@ -54,7 +54,7 @@
     }
   </select>
 
-  <select [(ngModel)]="currentEnv" (ngModelChange)="stateService.reset($event, currentPolicy)">
+  <select [(ngModel)]="currentEnv" (ngModelChange)="reset()">
     @for (envOption of envOptions; track $index) {
     <option [value]="envOption.value">{{ envOption.label }}</option>
     }

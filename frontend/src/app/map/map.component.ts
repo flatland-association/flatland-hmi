@@ -12,6 +12,8 @@ interface SelectOption {
   label: string
 }
 
+
+
 @Component({
   selector: 'app-map',
   imports: [FormsModule,MatSliderModule],
@@ -29,12 +31,17 @@ export class MapComponent implements OnInit {
     max_steps: 0,
   }
 
+  public get playing() {
+    return this.interval !== undefined
+  }
+
   public policyOptions: SelectOption[] = [
     {value: 'policy-0', label: 'Random Policy'},
     {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
   ]
   public currentPolicy = this.policyOptions[0].value
   public desiredStep = 0
+  private interval?: number
 
   public envOptions: SelectOption[] = [
     {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
@@ -64,5 +71,27 @@ export class MapComponent implements OnInit {
     return this.state?.steps ?? 0
   }
 
+  public play(policy?: string) {
+    this.interval = window.setInterval(() => {
+      this.desiredStep = this.desiredStep+1
+      this.stateService.stepAbsolute(this.desiredStep,policy).then(({ done }) => {
+        if (done.__all__) {
+          this.stop()
+        }
+      })
+    }, 100)
+  }
 
+  public stop() {
+    if (this.interval) {
+      clearInterval(this.interval)
+      this.interval = undefined
+    }
+  }
+
+  public reset() {
+    this.stop()
+    this.desiredStep = 0
+    this.stateService.reset(this.currentEnv, this.currentPolicy)
+  }
 }

@@ -10,11 +10,6 @@ export class StateService {
   private transitions = new ReplaySubject<Transitions>(1)
   private agents = new ReplaySubject<Array<Agent>>(1)
   private state = new ReplaySubject<State>(1)
-  private interval?: number
-
-  public get playing() {
-    return this.interval !== undefined
-  }
 
   constructor(
     private dataService: DataService,
@@ -51,7 +46,6 @@ export class StateService {
   }
 
   public reset(environment?: string, policy?: string) {
-    this.stop()
     this.controllerService.resetEnv(environment, policy).then((state) => {
       this.dataService.getTransitions().then((transitions) => {
         this.dataService.getAgents().then((agents) => {
@@ -63,26 +57,4 @@ export class StateService {
     })
   }
 
-  public next(policy?: string){
-    this.getState().subscribe((state) => {
-      this.stepAbsolute(state.steps+1,policy).then(({ done }) => {
-        if (done.__all__) {
-          this.stop()
-        }
-      })
-    })
-  }
-
-  public play(policy?: string) {
-    this.interval = window.setInterval(() => {
-      this.next(policy)
-    }, 100)
-  }
-
-  public stop() {
-    if (this.interval) {
-      clearInterval(this.interval)
-      this.interval = undefined
-    }
-  }
 }
