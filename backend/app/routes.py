@@ -88,11 +88,13 @@ def _get_info_dict(env_time: int):
 @router.post("/reset")
 def reset_env(request: Request):
     global elapsed_steps
+    global initial_env
     _reset_env()
     return {
         "info": _get_info_dict(elapsed_steps),
         "done": {"__all__": False},
         "steps": 0,
+        "max_steps": initial_env._max_episode_steps
     }
 
 
@@ -100,7 +102,7 @@ def _reset_env():
     global trajectory
     global initial_env
     global elapsed_steps
-    trajectory = Trajectory.load_existing(Path("/Users/che/workspaces/flatland-scenarios/scenario_generator/results20260126_1341/"), ep_id="scenario_1")
+    trajectory = Trajectory.load_existing(Path("/Users/che/workspaces/flatland-scenarios/scenario_generator/results_scenario_1_20260128_121434"), ep_id="scenario_1")
     initial_env = trajectory.load_env()
 
     elapsed_steps = 0

@@ -25,6 +25,7 @@ export class MapComponent implements OnInit {
     done: {
       __all__: false,
     },
+    max_steps: 0,
   }
 
   public policyOptions: SelectOption[] = [

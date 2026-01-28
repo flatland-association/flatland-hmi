@@ -9,7 +9,8 @@ export interface State {
   done: {
     __all__: boolean
     [key: string]: boolean
-  }
+  },
+  max_steps: number
 }
 
 @Injectable({
