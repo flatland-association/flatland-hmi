@@ -28,7 +28,7 @@ export class MapComponent implements OnInit {
     done: {
       __all__: false,
     },
-    max_steps: 0,
+    max_steps: 99, // TODO data for step 0 should come from backend instead.
   }
 
   public get playing() {
