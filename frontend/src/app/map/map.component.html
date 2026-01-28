@@ -36,7 +36,9 @@
   <mat-slider min="0" [max]="state.max_steps" step="1">
     <input matSliderThumb [(ngModel)]="desiredStep" (ngModelChange)="stateService.stepAbsolute($event)">
   </mat-slider>
-  <p>{{ desiredStep }}</p>
+  <mat-form-field>
+    <input matInput type="number" [(ngModel)]="desiredStep" (ngModelChange)="stateService.stepAbsolute($event)">
+  </mat-form-field>
 
   <button (click)="reset()">Reset</button>
   @if (this.playing) {

@@ -6,6 +6,8 @@ import { State } from '../controller.service'
 import { Agent } from '../data.service'
 import { FormsModule } from '@angular/forms';
 import { MatSliderModule } from '@angular/material/slider';
+import { MatInputModule } from '@angular/material/input'
+import { MatFormFieldModule } from '@angular/material/form-field';
 
 interface SelectOption {
   value: string
@@ -16,7 +18,7 @@ interface SelectOption {
 
 @Component({
   selector: 'app-map',
-  imports: [FormsModule,MatSliderModule],
+  imports: [FormsModule,MatSliderModule,MatFormFieldModule,MatInputModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss',
 })
