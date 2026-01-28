@@ -34,7 +34,7 @@ export class MapComponent implements OnInit {
     {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
   ]
   public currentPolicy = this.policyOptions[0].value
-  public currentStep = 0
+  public desiredStep = 0
 
   public envOptions: SelectOption[] = [
     {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},

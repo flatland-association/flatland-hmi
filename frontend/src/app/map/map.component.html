@@ -29,14 +29,14 @@
 </div>
 
 <div class="controller">
-  <button (click)="currentStep=currentStep-1; stateService.stepAbsolute(currentStep)">Back</button>
-  <button (click)="currentStep=currentStep+1; stateService.stepAbsolute(currentStep)">Step</button>
+  <button (click)="desiredStep=desiredStep-1; stateService.stepAbsolute(desiredStep)">Back</button>
+  <button (click)="desiredStep=desiredStep+1; stateService.stepAbsolute(desiredStep)">Step</button>
   <!-- https://material.angular.dev/components/slider/overview -->
   <!-- https://v19.material.angular.dev/components/slider/examples -->
   <mat-slider min="0" [max]="state.max_steps" step="1">
-    <input matSliderThumb [(ngModel)]="currentStep" (ngModelChange)="stateService.stepAbsolute($event)">
+    <input matSliderThumb [(ngModel)]="desiredStep" (ngModelChange)="stateService.stepAbsolute($event)">
   </mat-slider>
-  <p>{{ currentStep }}</p>
+  <p>{{ desiredStep }}</p>
 
   <button (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
   @if (stateService.playing) {
