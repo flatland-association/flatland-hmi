@@ -4,7 +4,8 @@ import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
 import { State } from '../controller.service'
 import { Agent } from '../data.service'
-import {FormsModule} from '@angular/forms';
+import { FormsModule } from '@angular/forms';
+import { MatSliderModule } from '@angular/material/slider';
 
 interface SelectOption {
   value: string
@@ -13,7 +14,7 @@ interface SelectOption {
 
 @Component({
   selector: 'app-map',
-  imports: [FormsModule],
+  imports: [FormsModule,MatSliderModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss',
 })

@@ -1,54 +1,62 @@
 <div class="map" xmlns="http://www.w3.org/1999/html">
   <div class="environment">
     @for (row of mapClasses; track $index) {
-      <div class="row">
-        @for (col of row; track $index) {
-          <div class="cell" [class]="col.ground">
-            @if (col.objects) {
-              <div class="target" [class]="col.objects"></div>
-            }
-          </div>
+    <div class="row">
+      @for (col of row; track $index) {
+      <div class="cell" [class]="col.ground">
+        @if (col.objects) {
+        <div class="target" [class]="col.objects"></div>
         }
       </div>
+      }
+    </div>
     }
   </div>
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
-      @if (agent.position) {
-        <div
-          class="agent"
-          [class]="rendererService.getAgentClasses(agent)"
-          [style.left]="agent.position[1] * 20 + 'px'"
-          [style.top]="agent.position[0] * 20 + 'px'"
-          [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
-        >{{ agent.handle }}</div>
-      }
+    @if (agent.position) {
+    <div
+      class="agent"
+      [class]="rendererService.getAgentClasses(agent)"
+      [style.left]="agent.position[1] * 20 + 'px'"
+      [style.top]="agent.position[0] * 20 + 'px'"
+      [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+    >{{ agent.handle }}
+    </div>
+    }
     }
   </div>
 </div>
 
 <div class="controller">
+  <button (click)="currentStep=currentStep-1; stateService.stepAbsolute(currentStep)">Back</button>
   <button (click)="currentStep=currentStep+1; stateService.stepAbsolute(currentStep)">Step</button>
-  <input [(ngModel)]="currentStep" type="number" (ngModelChange)="stateService.stepAbsolute($event)"/>
+  <!-- https://material.angular.dev/components/slider/overview -->
+  <!-- https://v19.material.angular.dev/components/slider/examples -->
+  <mat-slider min="0" [max]="state.max_steps" step="1">
+    <input matSliderThumb [(ngModel)]="currentStep" (ngModelChange)="stateService.stepAbsolute($event)">
+  </mat-slider>
+  <p>{{ currentStep }}</p>
+
   <button (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
   @if (stateService.playing) {
-    <button (click)="stateService.stop()">Stop</button>
+  <button (click)="stateService.stop()">Stop</button>
   } @else {
-    <button (click)="stateService.play(currentPolicy)">Play</button>
+  <button (click)="stateService.play(currentPolicy)">Play</button>
   }
   @if (state) {
-    <div>{{ state.steps }}</div>
+  <div>{{ state.steps }}</div>
   }
 
   <select [(ngModel)]="currentPolicy" (ngModelChange)="stateService.reset(currentEnv, $event)">
     @for (policyOption of policyOptions; track $index) {
-      <option [value]="policyOption.value">{{ policyOption.label }}</option>
+    <option [value]="policyOption.value">{{ policyOption.label }}</option>
     }
   </select>
 
   <select [(ngModel)]="currentEnv" (ngModelChange)="stateService.reset($event, currentPolicy)">
     @for (envOption of envOptions; track $index) {
-      <option [value]="envOption.value">{{ envOption.label }}</option>
+    <option [value]="envOption.value">{{ envOption.label }}</option>
     }
   </select>
 

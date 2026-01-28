@@ -21,7 +21,7 @@ export class ControllerService {
 
   public stepEnv(policy?: string, env_time?: number) {
     let params = new HttpParams()
-    if (env_time){
+    if (env_time !== undefined && env_time !== null){
       params = params.append('env_time', env_time)
     }
     return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step/`, {}, {params}))
