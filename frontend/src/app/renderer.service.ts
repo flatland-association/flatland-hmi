@@ -115,8 +115,8 @@ export class RendererService {
     return TRANSITION_CLASSES_MAP[transition]?.[0] ?? 'error'
   }
 
-  public getAgentClasses(agent: Agent | undefined): string {
-    return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
+  public getAgentClasses(agent: Agent | undefined, selected: boolean): string {
+    return agent ? `direction_${agent.direction} ${selected ? 'agent_selected' : ''} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
   public renderMap(transitions: Transitions, agents: Array<Agent>) {

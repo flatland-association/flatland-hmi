@@ -45,6 +45,8 @@ export class MapComponent implements OnInit {
   public desiredStep = 0
   private interval?: number
 
+  public selectedAgent?: number = 0
+
   public envOptions: SelectOption[] = [
     {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
     {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'},

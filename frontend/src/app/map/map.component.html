@@ -1,9 +1,10 @@
 <div class="map" xmlns="http://www.w3.org/1999/html">
   <div class="environment">
-    @for (row of mapClasses; track $index) {
+    @for (row of mapClasses; track $index; let ridx = $index) {
     <div class="row">
-      @for (col of row; track $index) {
-      <div class="cell" [class]="col.ground">
+      @for (col of row; track $index; let cidx = $index) {
+      <div class="cell" [class]="col.ground" title="{{ ridx }}, {{ cidx }}">
+
         @if (col.objects) {
         <div class="target" [class]="col.objects"></div>
         }
@@ -17,10 +18,11 @@
     @if (agent.position) {
     <div
       class="agent"
-      [class]="rendererService.getAgentClasses(agent)"
+      [class]="rendererService.getAgentClasses(agent, agent.handle == selectedAgent)"
       [style.left]="agent.position[1] * 20 + 'px'"
       [style.top]="agent.position[0] * 20 + 'px'"
       [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+      title="{{agent.position}}"
     >{{ agent.handle }}
     </div>
     }
@@ -36,7 +38,8 @@
   <mat-slider min="0" [max]="state.max_steps" step="1">
     <input matSliderThumb [(ngModel)]="desiredStep" (ngModelChange)="stateService.stepAbsolute($event)">
   </mat-slider>
-  <mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Desired Timestep</mat-label>
     <input matInput type="number" [(ngModel)]="desiredStep" (ngModelChange)="stateService.stepAbsolute($event)">
   </mat-form-field>
 
@@ -48,6 +51,10 @@
   }
   @if (state) {
   <div>{{ state.steps }}</div>
+  <mat-form-field appearance="outline">
+    <mat-label>Selected Agent</mat-label>
+    <input matInput type="number" [(ngModel)]="selectedAgent">
+  </mat-form-field>
   }
 
   <select [(ngModel)]="currentPolicy" (ngModelChange)="stateService.reset(currentEnv, $event)">

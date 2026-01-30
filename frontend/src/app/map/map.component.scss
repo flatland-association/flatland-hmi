@@ -200,6 +200,11 @@
       &.malfunction {
         background-color: rgba(150,150,150,0.5);
       }
+
+      &.agent_selected {
+        border: solid red 2px;
+      }
+
     }
   }
 }
