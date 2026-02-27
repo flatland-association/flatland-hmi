@@ -38,7 +38,7 @@ jobs:
           set -euxo pipefail
           npm run build
   test-backend:
-    name: Test Flatland HMI Frontend
+    name: Test Flatland HMI Backend
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
