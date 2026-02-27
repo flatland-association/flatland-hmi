@@ -1,19 +1,21 @@
 from fastapi import APIRouter
 from fastapi import Request
-from flatland.envs.rail_env_action import RailEnvActions
 
-from app.env import interactive_env, reset_global_interactive_env
+from app.env import reset_global_interactive_env, get_global_interactive_env
+from flatland.envs.rail_env_action import RailEnvActions
 
 router = APIRouter()
 
 
 @router.get("/transitions")
 def get_transitions():
-    return interactive_env.env.rail.grid.tolist()
+    global_interactive_env = get_global_interactive_env()
+    return global_interactive_env.env.rail.grid.tolist()
 
 
 @router.get("/agents")
 def get_map():
+    global_interactive_env = get_global_interactive_env()
     return [
         {
             "handle": agent.handle,
@@ -30,13 +32,14 @@ def get_map():
             ),
             "malfunction": agent.malfunction_handler.malfunction_down_counter,
         }
-        for agent in interactive_env.env.agents
+        for agent in global_interactive_env.env.agents
     ]
 
 
 @router.post("/step")
 def step_env(actions: dict = {}):
-    _, _, done, info, actions = interactive_env.step(actions)
+    global_interactive_env = get_global_interactive_env()
+    _, _, done, info, actions = global_interactive_env.step(actions)
     return {
         "info": info,
         "done": done,
@@ -44,20 +47,19 @@ def step_env(actions: dict = {}):
             a: {"name": RailEnvActions.from_value(action).name, "value": RailEnvActions.from_value(action).value}
             for a, action in actions.items()
         },
-        "steps": interactive_env.env._elapsed_steps,
-        "max_steps": interactive_env.env._max_episode_steps,
+        "steps": global_interactive_env.env._elapsed_steps,
+        "max_steps": global_interactive_env.env._max_episode_steps,
     }
 
 
 @router.post("/reset")
 def reset_env(request: Request):
-    global interactive_env
-    interactive_env = reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
-    _, info = interactive_env.reset()
+    global_interactive_env = reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
+    _, info = global_interactive_env.reset()
     return {
         "info": info,
         "done": {"__all__": False},
-        "steps": interactive_env.env._elapsed_steps,
+        "steps": global_interactive_env.env._elapsed_steps,
     }
 
 

@@ -47,5 +47,8 @@ def reset_global_interactive_env(env_id, policy_id):
     interactive_env = InteractiveEnv(env_map[env_id], policy_map[policy_id])
     return interactive_env
 
+def get_global_interactive_env():
+    global interactive_env
+    return interactive_env
 
 interactive_env = reset_global_interactive_env("generated-0", "policy-0")
