@@ -54,7 +54,8 @@ def step_env(actions: dict = {}):
 
 @router.post("/reset")
 def reset_env(request: Request):
-    global_interactive_env = reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
+    reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
+    global_interactive_env = get_global_interactive_env()
     _, info = global_interactive_env.reset()
     return {
         "info": info,
