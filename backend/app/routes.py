@@ -16,6 +16,7 @@ def get_transitions():
 def get_map():
     return [
         {
+            "handle": agent.handle,
             "position": (
                 None
                 if agent.position is None
