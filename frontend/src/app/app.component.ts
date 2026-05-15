@@ -1,10 +1,92 @@
-import { Component } from '@angular/core'
-import { RouterOutlet } from '@angular/router'
+import { Component, effect, inject, OnInit } from '@angular/core'
+import { Router, RouterOutlet } from '@angular/router'
+import {
+  FooterNavLink,
+  HeaderNavLink,
+  HeaderUserMenu,
+  LayoutComponent,
+  ModalComponent,
+} from '@flatland-association/flatland-ui'
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons'
+import { OAuthModule } from 'angular-oauth2-oidc'
+import { AuthService } from './features/auth/auth.service'
+import { ErrorMessage, ErrorMessageService } from './features/error-message/error-message.service'
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, LayoutComponent, ModalComponent, OAuthModule], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {}
+export class AppComponent implements OnInit {
+  private authService = inject(AuthService)
+  private router = inject(Router)
+  private errorMessageService = inject(ErrorMessageService)
+
+  headerNavItems: HeaderNavLink[] = []
+  headerUserMenu?: HeaderUserMenu
+  footerNavItems: FooterNavLink[] = [
+    { path: '/impressum', label: 'Impressum' },
+    { path: '/privacy', label: 'Privacy' },
+  ]
+  errorMessage: ErrorMessage | undefined
+  showErrorMessage = false
+
+  constructor() {
+    // Can't use computed() here because somehow the computed signal is not
+    // listened to..?
+    effect(() => {
+      this.errorMessage = this.errorMessageService.errorMessage()
+      this.showErrorMessage = true
+    })
+  }
+
+  async ngOnInit() {
+    this.headerNavItems = [
+      {
+        path: '/home',
+        label: 'Home',
+      },
+      { path: '/hub', label: 'Hub', icon: faArrowUpRightFromSquare },
+    ]
+
+    // initially show the user menu without active user
+    this.showLoggedOutUserMenu()
+    // update user menu when auth state changes
+    this.authService.getAuthState().subscribe((state) => {
+      if (state === 'loggedin') {
+        this.showLoggedInUserMenu()
+      } else {
+        this.showLoggedOutUserMenu()
+      }
+    })
+  }
+
+  // sets the user menu to be shown when a user is logged in
+  showLoggedInUserMenu() {
+    this.headerUserMenu = {
+      username: this.authService.claims.name,
+      items: [
+        // {
+        //   path: '/my-submissions',
+        //   label: 'My submissions',
+        // },
+      ],
+      onLogoutClick: () => {
+        this.authService.logOut()
+      },
+    }
+  }
+
+  // sets the user menu to be shown when no user is logged in
+  showLoggedOutUserMenu() {
+    this.headerUserMenu = {
+      onLoginClick: () => {
+        // pass the current url as state (to navigate back after login) for
+        // seamless login experience
+        this.authService.logIn(this.router.routerState.snapshot.url)
+      },
+    }
+  }
+}
+
