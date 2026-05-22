@@ -23,3 +23,11 @@ def test_get_policies():
     body = response.json()
     assert isinstance(body, list)
     assert set(body) == {"policy-0", "policy-1"}
+
+
+def test_get_envs():
+    response = client.get("/envs")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert set(body) == {"generated-0", "generated-1"}
