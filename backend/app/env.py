@@ -32,8 +32,14 @@ class InteractiveEnv:
 
 
 env_map = {
-    'generated-0': lambda: env_generator(obs_builder_object=FullEnvObservation())[0],
-    'generated-1': lambda: env_generator(x_dim=50, y_dim=50, n_agents=10, obs_builder_object=FullEnvObservation())[0],
+    'generated-0': {
+        'factory': lambda: env_generator(obs_builder_object=FullEnvObservation())[0],
+        'description': 'Generated environment 30 x 30, 7 agents',
+    },
+    'generated-1': {
+        'factory': lambda: env_generator(x_dim=50, y_dim=50, n_agents=10, obs_builder_object=FullEnvObservation())[0],
+        'description': 'Generated environment 50 x 50, 10 agents',
+    },
 }
 policy_map = {
     'policy-0': RandomPolicy,
@@ -45,7 +51,7 @@ trajectory_map = {}
 
 def reset_global_interactive_env(env_id, policy_id):
     global interactive_env
-    interactive_env = InteractiveEnv(env_map[env_id](), policy_map[policy_id]())
+    interactive_env = InteractiveEnv(env_map[env_id]['factory'](), policy_map[policy_id]())
     return interactive_env.reset()
 
 

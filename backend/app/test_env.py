@@ -11,7 +11,7 @@ from app.env import InteractiveEnv, env_map, policy_map
      for n in range(10)]
 )
 def test_loop(env_id, policy_id, n):
-    interactive_env = InteractiveEnv(env_map[env_id](), policy_map[policy_id]())
+    interactive_env = InteractiveEnv(env_map[env_id]["factory"](), policy_map[policy_id]())
     interactive_env.reset()
     while not interactive_env.done.get("__all__", False):
         interactive_env.step()

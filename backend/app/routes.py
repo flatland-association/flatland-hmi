@@ -76,7 +76,7 @@ async def get_policies():
 
 @router.get("/envs")
 async def get_envs():
-    return list(env_map.keys())
+    return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
 
 
 @router.get("/trajectories")

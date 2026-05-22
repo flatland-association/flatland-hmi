@@ -32,7 +32,9 @@ def test_get_envs():
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, list)
-    assert set(body) == {"generated-0", "generated-1"}
+    ids = {e["id"] for e in body}
+    assert ids == {"generated-0", "generated-1"}
+    assert all("description" in e for e in body)
 
 
 def test_get_agents():
