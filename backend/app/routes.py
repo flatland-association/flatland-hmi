@@ -3,7 +3,7 @@ import asyncio
 from fastapi import APIRouter
 from fastapi import Request
 
-from app.env import reset_global_interactive_env, get_global_interactive_env
+from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map
 from flatland.envs.rail_env_action import RailEnvActions
 
 router = APIRouter()
@@ -39,6 +39,11 @@ async def get_map():
             }
             for agent in global_interactive_env.env.agents
         ]
+
+
+@router.get("/policies")
+async def get_policies():
+    return list(policy_map.keys())
 
 
 @router.post("/step")
