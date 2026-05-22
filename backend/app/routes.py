@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map, trajectory_map
 from flatland.envs.rail_env_action import RailEnvActions
+from flatland.envs.step_utils.speed_counter import SpeedCounter
+
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
 # https://github.com/fastapi/fastapi/discussions/8947
@@ -17,6 +19,8 @@ class FractionEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Fraction):
             return {'__fraction__': True, 'as_str': str((obj.numerator, obj.denominator))}
+        if isinstance(obj, SpeedCounter):
+            return {'__speed_counter__': True, 'as_str': obj.__repr__()}
         return super().default(obj)
 
 
