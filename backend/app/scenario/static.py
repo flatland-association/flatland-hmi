@@ -26,15 +26,14 @@ def timetable_generator_from_timetable(timetable):
 
 
 def create_static_env(
-    width=32,
-    height=32,
-    map=None,
-    line=None,
-    timetable=None,
-    obs_builder=None,
-    malfunction_generator=None,
+        width=32,
+        height=32,
+        map=None,
+        line=None,
+        timetable=None,
+        obs_builder=None,
+        malfunction_generator=None,
 ):
-
     assert map is not None, "Grid must be provided"
     assert line is not None, "Line must be provided"
     assert timetable is not None, "Timetable must be provided"

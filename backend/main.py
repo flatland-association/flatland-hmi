@@ -1,13 +1,12 @@
 import os
-import typing
 from fractions import Fraction
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from app.routes import router
+from pydantic import BaseModel
 
 ALLOW_ORIGINS = os.environ.get("ALLOW_ORIGINS", "http://localhost:4200,http://localhost")
 middleware_config = {

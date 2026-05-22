@@ -10,6 +10,7 @@ router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
 
+
 @router.get("/transitions")
 async def get_transitions():
     async with global_interactive_env_lock:
