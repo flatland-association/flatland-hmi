@@ -31,3 +31,16 @@ def test_get_envs():
     body = response.json()
     assert isinstance(body, list)
     assert set(body) == {"generated-0", "generated-1"}
+
+def test_get_agents():
+    response = client.get("/agents")
+    assert response.status_code == 200
+    body = response.json()
+    print(body)
+
+
+def test_get_agents():
+    response = client.post("/step")
+    assert response.status_code == 200
+    body = response.json()
+    print(body)

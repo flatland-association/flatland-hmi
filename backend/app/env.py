@@ -40,6 +40,8 @@ policy_map = {
     'policy-1': DeadLockAvoidancePolicy,
 }
 
+trajectory_map = {}
+
 
 def reset_global_interactive_env(env_id, policy_id):
     global interactive_env
