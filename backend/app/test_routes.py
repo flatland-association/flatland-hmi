@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 from main import app
@@ -32,6 +34,7 @@ def test_get_envs():
     assert isinstance(body, list)
     assert set(body) == {"generated-0", "generated-1"}
 
+
 def test_get_agents():
     response = client.get("/agents")
     assert response.status_code == 200
@@ -44,3 +47,15 @@ def test_get_agents():
     assert response.status_code == 200
     body = response.json()
     print(body)
+
+
+def test_post_get_trajectory():
+    response = client.post("/trajectories")
+    assert response.status_code == 200
+    ep_id = response.json()
+    assert isinstance(ep_id, str)
+    UUID(ep_id)  # assert no fail
+    assert ep_id in client.get("/trajectories").json()
+
+    response = client.get("/trajectories")
+    assert ep_id in response.json()

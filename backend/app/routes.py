@@ -1,7 +1,9 @@
 import asyncio
 import json
+import os
 from fractions import Fraction
 from json import JSONEncoder
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
@@ -11,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map, trajectory_map
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
+from flatland.trajectories.trajectories import Trajectory
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
@@ -32,6 +35,8 @@ class FractionJSONResponse(JSONResponse):
 router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
+
+DATA_DIR=os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
 
 @router.get("/transitions")
 async def get_transitions():
@@ -78,6 +83,15 @@ async def get_envs():
 async def get_trajectories():
     return list(trajectory_map.keys())
 
+@router.post("/trajectories")
+async def get_trajectories():
+    data_dir = Path(DATA_DIR)
+    data_dir.mkdir(exist_ok=True,parents=True)
+    t = Trajectory.create_empty(data_dir)
+    trajectory_map[t.ep_id] = t
+    return t.ep_id
+
+
 
 @router.post("/step")
 async def step_env(actions: dict = {}):
@@ -118,3 +132,4 @@ def health_check():
 @router.get("/health/ready")
 def health_check():
     return {"status": "UP", "checks": []}
+
