@@ -11,6 +11,11 @@ export interface EnvOption {
   description: string
 }
 
+export interface PolicyOption {
+  id: string
+  description: string
+}
+
 export interface Agent {
   handle: number
   position: [number, number] | null
@@ -38,5 +43,9 @@ export class DataService {
 
   public getEnvs() {
     return firstValueFrom(this.http.get<Array<EnvOption>>(`${BACKEND_URL}/envs`))
+  }
+
+  public getPolicies() {
+    return firstValueFrom(this.http.get<Array<PolicyOption>>(`${BACKEND_URL}/policies`))
   }
 }
