@@ -24,7 +24,9 @@ def test_get_policies():
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, list)
-    assert set(body) == {"policy-0", "policy-1"}
+    ids = {p["id"] for p in body}
+    assert ids == {"policy-0", "policy-1"}
+    assert all("description" in p for p in body)
 
 
 def test_get_envs():

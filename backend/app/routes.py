@@ -71,7 +71,7 @@ async def get_agents():
 
 @router.get("/policies")
 async def get_policies():
-    return list(policy_map.keys())
+    return [{"id": k, "description": v["description"]} for k, v in policy_map.items()]
 
 
 @router.get("/envs")

@@ -42,8 +42,14 @@ env_map = {
     },
 }
 policy_map = {
-    'policy-0': RandomPolicy,
-    'policy-1': DeadLockAvoidancePolicy,
+    'policy-0': {
+        'factory': RandomPolicy,
+        'description': 'Random Policy',
+    },
+    'policy-1': {
+        'factory': DeadLockAvoidancePolicy,
+        'description': 'Deadlock Avoidance Heuristic',
+    },
 }
 
 trajectory_map = {}
@@ -51,7 +57,7 @@ trajectory_map = {}
 
 def reset_global_interactive_env(env_id, policy_id):
     global interactive_env
-    interactive_env = InteractiveEnv(env_map[env_id]['factory'](), policy_map[policy_id]())
+    interactive_env = InteractiveEnv(env_map[env_id]['factory'](), policy_map[policy_id]['factory']())
     return interactive_env.reset()
 
 
