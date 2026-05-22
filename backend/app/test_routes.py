@@ -63,3 +63,15 @@ def test_post_get_trajectory():
 
     response = client.get("/trajectories")
     assert ep_id in response.json()
+
+
+def test_get_trajectory_existing():
+    ep_id = client.post("/trajectories").json()
+    response = client.get(f"/trajectories/{ep_id}")
+    assert response.status_code == 200
+    assert response.json()["ep_id"] == ep_id
+
+
+def test_get_trajectory_not_found():
+    response = client.get("/trajectories/nonexistent-id")
+    assert response.status_code == 404

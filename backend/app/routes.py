@@ -6,7 +6,7 @@ from json import JSONEncoder
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -36,7 +36,8 @@ router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
 
-DATA_DIR=os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
+DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
+
 
 @router.get("/transitions")
 async def get_transitions():
@@ -83,14 +84,21 @@ async def get_envs():
 async def get_trajectories():
     return list(trajectory_map.keys())
 
+
 @router.post("/trajectories")
 async def get_trajectories():
     data_dir = Path(DATA_DIR)
-    data_dir.mkdir(exist_ok=True,parents=True)
+    data_dir.mkdir(exist_ok=True, parents=True)
     t = Trajectory.create_empty(data_dir)
     trajectory_map[t.ep_id] = t
     return t.ep_id
 
+
+@router.get("/trajectories/{trajectory_id}")
+async def get_trajectory(trajectory_id: str):
+    if trajectory_id not in trajectory_map:
+        raise HTTPException(status_code=404, detail="Trajectory not found")
+    return FractionJSONResponse(content={"ep_id": trajectory_id})
 
 
 @router.post("/step")
@@ -132,4 +140,3 @@ def health_check():
 @router.get("/health/ready")
 def health_check():
     return {"status": "UP", "checks": []}
-

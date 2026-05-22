@@ -1,6 +1,9 @@
+from typing import Dict
+
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
+from flatland.trajectories.trajectories import Trajectory
 from flatland_baselines.deadlock_avoidance_heuristic.observation.full_env_observation import FullEnvObservation
 from flatland_baselines.deadlock_avoidance_heuristic.policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
 from tests.trajectories.test_policy_runner import RandomPolicy
@@ -52,7 +55,7 @@ policy_map = {
     },
 }
 
-trajectory_map = {}
+trajectory_map: Dict[str,Trajectory] = {}
 
 
 def reset_global_interactive_env(env_id, policy_id):
