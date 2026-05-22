@@ -19,7 +19,7 @@ This is the backend of the Flatland Interactive project, built using FastAPI.
 To run the FastAPI application using Uvicorn, execute the following command:
 
 ```bash
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 - `main` refers to the `main.py` file.
