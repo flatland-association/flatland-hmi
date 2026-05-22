@@ -48,6 +48,7 @@ export class AppComponent implements OnInit {
         label: 'Home',
       },
       { path: '/hub', label: 'Hub', icon: faArrowUpRightFromSquare },
+      { path: `/api-docs/`, label: 'API Docs', icon: faArrowUpRightFromSquare },
     ]
 
     // initially show the user menu without active user
