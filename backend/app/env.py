@@ -55,7 +55,7 @@ policy_map = {
     },
 }
 
-trajectory_map: Dict[str,Trajectory] = {}
+
 
 
 def reset_global_interactive_env(env_id, policy_id):

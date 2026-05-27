@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import uuid
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
@@ -10,15 +11,16 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map, trajectory_map
+from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 from flatland.trajectories.trajectories import Trajectory
+from pydantic import BaseModel
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
 # https://github.com/fastapi/fastapi/discussions/8947
-class FractionEncoder(JSONEncoder):
+class CustomEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Fraction):
             return {'__fraction__': True, 'as_str': str((obj.numerator, obj.denominator))}
@@ -27,9 +29,9 @@ class FractionEncoder(JSONEncoder):
         return super().default(obj)
 
 
-class FractionJSONResponse(JSONResponse):
+class CustomEncodedJSONResponse(JSONResponse):
     def render(self, content: Any) -> bytes:
-        return json.dumps(content, cls=FractionEncoder).encode('utf-8')
+        return json.dumps(content, cls=CustomEncoder).encode('utf-8')
 
 
 router = APIRouter()
@@ -37,6 +39,17 @@ router = APIRouter()
 global_interactive_env_lock = asyncio.Lock()
 
 DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
+
+
+# https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
+@router.get("/health/live")
+def health_check():
+    return {"status": "UP", "checks": []}
+
+
+@router.get("/health/ready")
+def health_check():
+    return {"status": "UP", "checks": []}
 
 
 @router.get("/transitions")
@@ -50,7 +63,7 @@ async def get_transitions():
 async def get_agents():
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
-        return FractionJSONResponse(content=[
+        return CustomEncodedJSONResponse(content=[
             {
                 "handle": agent.handle,
                 "position": (
@@ -80,33 +93,12 @@ async def get_envs():
     return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
 
 
-@router.get("/trajectories")
-async def get_trajectories():
-    return list(trajectory_map.keys())
-
-
-@router.post("/trajectories")
-async def get_trajectories():
-    data_dir = Path(DATA_DIR)
-    data_dir.mkdir(exist_ok=True, parents=True)
-    t = Trajectory.create_empty(data_dir)
-    trajectory_map[t.ep_id] = t
-    return t.ep_id
-
-
-@router.get("/trajectories/{trajectory_id}")
-async def get_trajectory(trajectory_id: str):
-    if trajectory_id not in trajectory_map:
-        raise HTTPException(status_code=404, detail="Trajectory not found")
-    return FractionJSONResponse(content={"ep_id": trajectory_id})
-
-
 @router.post("/step")
 async def step_env(actions: dict = {}):
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
         _, _, done, info, actions = global_interactive_env.step(actions)
-        return FractionJSONResponse(content={
+        return CustomEncodedJSONResponse(content={
             "info": info,
             "done": done,
             "actions": {
@@ -124,19 +116,40 @@ async def reset_env(request: Request):
         reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
         global_interactive_env = get_global_interactive_env()
         _, info = global_interactive_env.reset()
-        return FractionJSONResponse(content={
+        return CustomEncodedJSONResponse(content={
             "info": info,
             "done": {"__all__": False},
             "steps": global_interactive_env.env._elapsed_steps,
         })
 
 
-# https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
-@router.get("/health/live")
-def health_check():
-    return {"status": "UP", "checks": []}
+@router.get("/trajectories")
+async def get_trajectories():
+    return Path(DATA_DIR).glob("*")
 
 
-@router.get("/health/ready")
-def health_check():
-    return {"status": "UP", "checks": []}
+class TrajectoryCreate(BaseModel):
+    policy_id: str
+    env_id: str
+
+
+@router.post("/trajectories")
+async def post_trajectories(body: TrajectoryCreate):
+    ep_id = str(uuid.uuid4())
+    data_dir = Path(DATA_DIR) / ep_id
+    data_dir.mkdir(exist_ok=True, parents=True)
+    t = Trajectory.create_empty(data_dir, ep_id=ep_id)
+    return t.ep_id
+
+
+@router.get("/trajectories/{trajectory_id}")
+async def get_trajectory(trajectory_id: str):
+    p = Path(DATA_DIR) / trajectory_id
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Trajectory not found")
+    t = Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
+    return CustomEncodedJSONResponse(content={
+        "ep_id": trajectory_id,
+        "policy_id": "TODO",
+        "env_id": "TODO",
+    })

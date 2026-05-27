@@ -1,10 +1,20 @@
+import tempfile
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from main import app
+import app.routes
+import pytest
+from main import app as the_app
 
-client = TestClient(app)
+client = TestClient(the_app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def my_fixture():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        app.routes.DATA_DIR = tmpdirname
+        yield
 
 
 def test_health_live():
@@ -54,7 +64,7 @@ def test_get_agents():
 
 
 def test_post_get_trajectory():
-    response = client.post("/trajectories")
+    response = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"})
     assert response.status_code == 200
     ep_id = response.json()
     assert isinstance(ep_id, str)
@@ -66,10 +76,13 @@ def test_post_get_trajectory():
 
 
 def test_get_trajectory_existing():
-    ep_id = client.post("/trajectories").json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
     response = client.get(f"/trajectories/{ep_id}")
     assert response.status_code == 200
-    assert response.json()["ep_id"] == ep_id
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert body["policy_id"] == "TODO"
+    assert body["env_id"] == "TODO"
 
 
 def test_get_trajectory_not_found():
