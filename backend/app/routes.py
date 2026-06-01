@@ -125,7 +125,7 @@ async def reset_env(request: Request):
 
 @router.get("/trajectories")
 async def get_trajectories():
-    return Path(DATA_DIR).glob("*")
+    return [p.name for p in Path(DATA_DIR).glob("*")]
 
 
 class TrajectoryCreate(BaseModel):
