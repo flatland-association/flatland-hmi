@@ -56,7 +56,7 @@ def test_get_agents():
     print(body)
 
 
-def test_get_agents():
+def test_post_step():
     response = client.post("/step")
     assert response.status_code == 200
     body = response.json()
@@ -81,8 +81,21 @@ def test_get_trajectory_existing():
     assert response.status_code == 200
     body = response.json()
     assert body["ep_id"] == ep_id
-    assert body["policy_id"] == "TODO"
-    assert body["env_id"] == "TODO"
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+
+
+def test_get_trajectory_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd")
+    assert response.status_code in (400, 404)
+
+
+def test_reset_invalid_params():
+    response = client.post("/reset")
+    assert response.status_code == 400
+
+    response = client.post("/reset?environment=bad&policy=bad")
+    assert response.status_code == 400
 
 
 def test_get_trajectory_not_found():

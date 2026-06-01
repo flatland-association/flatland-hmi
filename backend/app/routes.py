@@ -43,12 +43,12 @@ DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
 @router.get("/health/live")
-def health_check():
+def health_check_live():
     return {"status": "UP", "checks": []}
 
 
 @router.get("/health/ready")
-def health_check():
+def health_check_ready():
     return {"status": "UP", "checks": []}
 
 
@@ -112,8 +112,14 @@ async def step_env(actions: dict = {}):
 
 @router.post("/reset")
 async def reset_env(request: Request):
+    env_id = request.query_params.get("environment")
+    policy_id = request.query_params.get("policy")
+    if env_id not in env_map:
+        raise HTTPException(status_code=400, detail=f"Unknown environment '{env_id}'. Valid: {list(env_map)}")
+    if policy_id not in policy_map:
+        raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
     async with global_interactive_env_lock:
-        reset_global_interactive_env(request.query_params.get("environment"), request.query_params.get("policy"))
+        reset_global_interactive_env(env_id, policy_id)
         global_interactive_env = get_global_interactive_env()
         _, info = global_interactive_env.reset()
         return CustomEncodedJSONResponse(content={
@@ -139,17 +145,30 @@ async def post_trajectories(body: TrajectoryCreate):
     data_dir = Path(DATA_DIR) / ep_id
     data_dir.mkdir(exist_ok=True, parents=True)
     t = Trajectory.create_empty(data_dir, ep_id=ep_id)
+    (data_dir / "meta.json").write_text(
+        json.dumps({"policy_id": body.policy_id, "env_id": body.env_id})
+    )
     return t.ep_id
+
+
+def _resolve_trajectory_path(trajectory_id: str) -> Path:
+    base = Path(DATA_DIR).resolve()
+    p = (base / trajectory_id).resolve()
+    if not str(p).startswith(str(base)):
+        raise HTTPException(status_code=400, detail="Invalid trajectory ID")
+    return p
 
 
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
-    p = Path(DATA_DIR) / trajectory_id
+    p = _resolve_trajectory_path(trajectory_id)
     if not p.exists():
         raise HTTPException(status_code=404, detail="Trajectory not found")
-    t = Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
+    meta_path = p / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
     return CustomEncodedJSONResponse(content={
         "ep_id": trajectory_id,
-        "policy_id": "TODO",
-        "env_id": "TODO",
+        "policy_id": meta.get("policy_id"),
+        "env_id": meta.get("env_id"),
     })

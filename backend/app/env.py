@@ -13,14 +13,18 @@ class InteractiveEnv:
     def __init__(self, env: RailEnv, policy):
         self.env = env
         self.policy = policy
-        self.reset()
+        self.obs = None
+        self.info = None
+        self.done = {}
 
     def reset(self):
         self.obs, self.info = self.env.reset()
         self.done = {}
         return self.obs, self.info
 
-    def step(self, explicit_actions={}):
+    def step(self, explicit_actions=None):
+        if explicit_actions is None:
+            explicit_actions = {}
         if self.done.get("__all__", False):
             raise Exception("Environment done, call reset() to start a new episode")
         actions = self.policy.act_many(self.env.get_agent_handles(), self.obs)
@@ -70,4 +74,8 @@ def get_global_interactive_env():
 
 
 interactive_env = None
-reset_global_interactive_env("generated-0", "policy-0")
+try:
+    reset_global_interactive_env("generated-0", "policy-0")
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).error("Failed to initialise default environment: %s", e)
