@@ -1,10 +1,11 @@
 import { Routes } from '@angular/router'
 import { MapComponent } from './map/map.component'
 import {environment} from '../environments/environment';
+import {AppComponent} from './app.component';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'map', pathMatch: 'full' },
-  { path: 'map', component: MapComponent },
+  { path: '', redirectTo: 'full', pathMatch: 'full' },
+  { path: 'full', component: AppComponent },
   {
     path: 'api-docs',
     redirectTo: () => {

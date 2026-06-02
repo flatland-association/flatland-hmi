@@ -1,9 +1,9 @@
-from typing import Dict
+import logging
+from typing import Optional
 
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
-from flatland.trajectories.trajectories import Trajectory
 from flatland_baselines.deadlock_avoidance_heuristic.observation.full_env_observation import FullEnvObservation
 from flatland_baselines.deadlock_avoidance_heuristic.policy.deadlock_avoidance_policy import DeadLockAvoidancePolicy
 from tests.trajectories.test_policy_runner import RandomPolicy
@@ -60,22 +60,19 @@ policy_map = {
 }
 
 
-
-
-def reset_global_interactive_env(env_id, policy_id):
+def reset_global_interactive_env(env_id, policy_id) -> InteractiveEnv:
     global interactive_env
     interactive_env = InteractiveEnv(env_map[env_id]['factory'](), policy_map[policy_id]['factory']())
     return interactive_env.reset()
 
 
-def get_global_interactive_env():
+def get_global_interactive_env() -> Optional[InteractiveEnv]:
     global interactive_env
     return interactive_env
 
 
-interactive_env = None
+interactive_env: InteractiveEnv = None
 try:
     reset_global_interactive_env("generated-0", "policy-0")
 except Exception as e:
-    import logging
     logging.getLogger(__name__).error("Failed to initialise default environment: %s", e)

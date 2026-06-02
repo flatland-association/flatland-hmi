@@ -14,11 +14,6 @@ middleware_config = {
     "allow_headers": ["*"],
 }
 
-
-
-
-
-
 app = FastAPI()
 
 app.add_middleware(
