@@ -16,7 +16,7 @@ const authConfig: AuthConfig = {
 
 export const environment = {
   // API base URL
-  apiBase: `${location.protocol}//api-${location.hostname}`,
+  apiBase: `${location.protocol}//${location.hostname}:8000`,
   // auth configuration or null if none is used
   authConfig,
 }

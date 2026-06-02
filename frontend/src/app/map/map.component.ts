@@ -3,7 +3,7 @@ import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
 import { State } from '../controller.service'
-import { Agent } from '../data.service'
+import { Agent, DataService, PolicyOption } from '../data.service'
 import {FormsModule} from '@angular/forms';
 
 interface SelectOption {
@@ -27,24 +27,27 @@ export class MapComponent implements OnInit {
     },
   }
 
-  public policyOptions: SelectOption[] = [
-    {value: 'policy-0', label: 'Random Policy'},
-    {value: 'policy-1', label: 'Deadlock Avoidance Heuristic'},
-  ]
-  public currentPolicy = this.policyOptions[0].value
+  public policyOptions: SelectOption[] = []
+  public currentPolicy = ''
 
-  public envOptions: SelectOption[] = [
-    {value: 'generated-0', label: 'Generated environment 30 x 30, 7 agents'},
-    {value: 'generated-1', label: 'Generated environment 50 x 50, 10 agents'}
-  ]
-  public currentEnv = this.envOptions[0].value
+  public envOptions: SelectOption[] = []
+  public currentEnv = ''
 
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
+    private dataService: DataService,
   ) {}
 
   ngOnInit() {
+    this.dataService.getEnvs().then(envs => {
+      this.envOptions = envs.map(e => ({ value: e.id, label: e.description }))
+      this.currentEnv = this.envOptions[0]?.value ?? ''
+    })
+    this.dataService.getPolicies().then(policies => {
+      this.policyOptions = policies.map(p => ({ value: p.id, label: p.description }))
+      this.currentPolicy = this.policyOptions[0]?.value ?? ''
+    })
     this.stateService.getState().subscribe((state) => (this.state = state))
     this.stateService.getTransitions().subscribe((transitions) =>
       firstValueFrom(this.stateService.getAgents()).then((agents) => {
