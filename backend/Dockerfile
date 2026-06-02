@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt ./requirements.txt
 COPY ./app ./app
 COPY main.py ./main.py
-RUN python -m pip install -U -r requirements.txt
+RUN python -m pip install -U -r requirements.txt && python -m pip install -U git+https://github.com/flatland-association/flatland-rl.git@feature/interactive-policy-runner-refactoring
 RUN python --version && python -m pip list
 
 EXPOSE 8000

@@ -13,8 +13,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
+from app.policy_runner import policy_runner_map
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
+from flatland.trajectories.policy_runner import PolicyRunner
 from flatland.trajectories.trajectories import Trajectory
 
 
@@ -147,8 +149,17 @@ async def post_trajectories(body: TrajectoryCreate):
     data_dir = Path(DATA_DIR) / ep_id
     data_dir.mkdir(exist_ok=True, parents=True)
     t = Trajectory.create_empty(data_dir, ep_id=ep_id)
+    policy_id = body.policy_id
+    env_id = body.env_id
+
+    t_runner = PolicyRunner(
+        policy=policy_map.get(policy_id)["factory"](),
+        data_dir=data_dir,
+        env=env_map.get(env_id)["factory"](),
+    )
+    policy_runner_map[ep_id] = t_runner
     (data_dir / "meta.json").write_text(
-        json.dumps({"policy_id": body.policy_id, "env_id": body.env_id})
+        json.dumps({"policy_id": policy_id, "env_id": env_id})
     )
     return t.ep_id
 
@@ -173,4 +184,23 @@ async def get_trajectory(trajectory_id: str):
         "ep_id": trajectory_id,
         "policy_id": meta.get("policy_id"),
         "env_id": meta.get("env_id"),
+    })
+
+
+@router.post("/trajectories/{trajectory_id}/step")
+async def get_trajectory(trajectory_id: str):
+    p = _resolve_trajectory_path(trajectory_id)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Trajectory not found")
+    meta_path = p / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+
+    policy_runner = policy_runner_map.get(trajectory_id)
+    policy_runner.step(persist=True)
+
+    return CustomEncodedJSONResponse(content={
+        "ep_id": trajectory_id,
+        "policy_id": meta.get("policy_id"),
+        "env_id": meta.get("env_id"),
+        "elapsed_steps": policy_runner.env._elapsed_steps
     })

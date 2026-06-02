@@ -1,10 +1,10 @@
 import tempfile
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.routes
-import pytest
 from main import app as the_app
 
 client = TestClient(the_app)
@@ -60,7 +60,10 @@ def test_post_step():
     response = client.post("/step")
     assert response.status_code == 200
     body = response.json()
-    print(body)
+    assert {"info", "done", "actions", "steps", "max_steps"} <= body.keys()
+    assert isinstance(body["steps"], int) and body["steps"] >= 1
+    assert isinstance(body["done"], dict)
+    assert isinstance(body["actions"], dict)
 
 
 def test_post_get_trajectory():
@@ -100,4 +103,23 @@ def test_reset_invalid_params():
 
 def test_get_trajectory_not_found():
     response = client.get("/trajectories/nonexistent-id")
+    assert response.status_code == 404
+
+
+def test_post_trajectory_step():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    elapsed_steps_ = body["elapsed_steps"]
+    assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.json()["elapsed_steps"] == elapsed_steps_ + 1
+
+
+def test_post_trajectory_step_not_found():
+    response = client.post("/trajectories/nonexistent-id/step")
     assert response.status_code == 404
