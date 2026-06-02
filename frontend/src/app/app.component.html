@@ -1,20 +1,6 @@
 <lib-layout [headerNavItems]="headerNavItems" [headerUserMenu]="headerUserMenu" headerUserMenuClass="!bg-neutral-50 !text-neutral-600" [footerNavItems]="footerNavItems">
 <!--  <app-breadcrumbs></app-breadcrumbs>-->
-  <div class="container">
-    <div></div>
-    <div></div>
-    <div></div>
-    <aside></aside>
-    <main>
-      <app-marey></app-marey>
-      <app-map></app-map>
-    </main>
-    <aside></aside>
-    <div></div>
-    <div></div>
-    <div></div>
-  </div>
-
+  <router-outlet />
 <!--  @if (showErrorMessage && errorMessage) {-->
 <!--  <lib-modal [(open)]="showErrorMessage">-->
 <!--    <h1 class="text-2xl font-bold text-neutral-500 pb-2">{{errorMessage.title}}</h1>-->

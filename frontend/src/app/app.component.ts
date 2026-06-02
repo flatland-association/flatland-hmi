@@ -1,5 +1,5 @@
-import {Component, effect, inject, OnInit} from '@angular/core'
-import {Router, RouterOutlet} from '@angular/router'
+import { Component, effect, inject, OnInit } from '@angular/core'
+import { Router, RouterOutlet } from '@angular/router'
 import {
   FooterNavLink,
   HeaderNavLink,
@@ -7,16 +7,14 @@ import {
   LayoutComponent,
   ModalComponent,
 } from '@flatland-association/flatland-ui'
-import {faArrowUpRightFromSquare} from '@fortawesome/free-solid-svg-icons'
-import {OAuthModule} from 'angular-oauth2-oidc'
-import {AuthService} from './features/auth/auth.service'
-import {ErrorMessage, ErrorMessageService} from './features/error-message/error-message.service'
-import {MareyComponent} from './marey/marey.component';
-import {MapComponent} from './map/map.component';
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons'
+import { OAuthModule } from 'angular-oauth2-oidc'
+import { AuthService } from './features/auth/auth.service'
+import { ErrorMessage, ErrorMessageService } from './features/error-message/error-message.service'
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, LayoutComponent, ModalComponent, OAuthModule, MareyComponent, MapComponent], //, BreadcrumbsComponent],
+  imports: [RouterOutlet, LayoutComponent, ModalComponent, OAuthModule], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -28,8 +26,8 @@ export class AppComponent implements OnInit {
   headerNavItems: HeaderNavLink[] = []
   headerUserMenu?: HeaderUserMenu
   footerNavItems: FooterNavLink[] = [
-    {path: '/impressum', label: 'Impressum'},
-    {path: '/privacy', label: 'Privacy'},
+    { path: '/impressum', label: 'Impressum' },
+    { path: '/privacy', label: 'Privacy' },
   ]
   errorMessage: ErrorMessage | undefined
   showErrorMessage = false
@@ -49,8 +47,8 @@ export class AppComponent implements OnInit {
         path: '/home',
         label: 'Home',
       },
-      {path: '/hub', label: 'Hub', icon: faArrowUpRightFromSquare},
-      {path: `/api-docs/`, label: 'API Docs', icon: faArrowUpRightFromSquare},
+      { path: '/hub', label: 'Hub', icon: faArrowUpRightFromSquare },
+      { path: `/api-docs/`, label: 'API Docs', icon: faArrowUpRightFromSquare },
     ]
 
     // initially show the user menu without active user

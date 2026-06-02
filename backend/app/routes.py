@@ -10,12 +10,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 from flatland.trajectories.trajectories import Trajectory
+from pydantic import BaseModel
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
@@ -97,8 +97,6 @@ async def get_envs():
 async def step_env(actions: dict = {}):
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
-        if global_interactive_env.done.get("__all__", False):
-            raise HTTPException(status_code=412, detail=f"Environment already done.")
         _, _, done, info, actions = global_interactive_env.step(actions)
         return CustomEncodedJSONResponse(content={
             "info": info,
