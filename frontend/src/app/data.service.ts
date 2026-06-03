@@ -31,14 +31,16 @@ export interface Agent {
 export class DataService {
   constructor(private http: HttpClient) {}
 
-  public getTransitions() {
+  public getTrajectoryTransitions(trajectoryId: string) {
     return firstValueFrom(
-      this.http.get<Transitions>(`${BACKEND_URL}/transitions`),
+      this.http.get<Transitions>(`${BACKEND_URL}/trajectories/${trajectoryId}/transitions`),
     )
   }
 
-  public getAgents() {
-    return firstValueFrom(this.http.get<Array<Agent>>(`${BACKEND_URL}/agents`))
+  public getTrajectoryAgents(trajectoryId: string) {
+    return firstValueFrom(
+      this.http.get<Array<Agent>>(`${BACKEND_URL}/trajectories/${trajectoryId}/agents`),
+    )
   }
 
   public getEnvs() {

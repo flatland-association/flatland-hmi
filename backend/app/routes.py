@@ -223,18 +223,20 @@ async def trajectory_step(trajectory_id: str):
     p = _resolve_trajectory_path(trajectory_id)
     if not p.exists():
         raise HTTPException(status_code=404, detail="Trajectory not found")
-    t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
     meta_path = p / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-
     policy_runner = policy_runner_map.get(trajectory_id, None)
     if policy_runner is None:
+        t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
+
+        print("policy runner not ready")
         policy_runner = PolicyRunner(
             policy=policy_map.get(meta.get("policy_id"))["factory"](),
             trajectory=t,
             env=t.load_env(p, trajectory_id),
         )
         policy_runner_map[trajectory_id] = policy_runner
+    print("policy runner.step{")
     policy_runner.step(persist=True)
 
     return CustomEncodedJSONResponse(content={

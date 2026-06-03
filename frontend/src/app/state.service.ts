@@ -15,6 +15,7 @@ export class StateService {
   private plan = new ReplaySubject<number | undefined>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
+  private currentTrajectoryId: string | null = null
 
   public get playing() {
     return this.interval !== undefined
@@ -24,14 +25,18 @@ export class StateService {
     private dataService: DataService,
     private controllerService: ControllerService,
   ) {
-    this.dataService.getTransitions().then((transitions) => {
-      this.transitions.next(transitions)
-    })
-    this.dataService.getAgents().then((agents) => {
-      this.agents.next(agents)
-    })
     this.history.next([])
     this.plans.next([])
+    Promise.all([
+      this.dataService.getEnvs(),
+      this.dataService.getPolicies(),
+    ]).then(([envs, policies]) => {
+      const defaultEnv = envs[0]?.id
+      const defaultPolicy = policies[0]?.id
+      if (defaultEnv && defaultPolicy) {
+        this.reset(defaultEnv, defaultPolicy)
+      }
+    })
   }
 
   public getTransitions() {
@@ -58,9 +63,17 @@ export class StateService {
     return this.plan.asObservable()
   }
 
-  public next(policy?: string) {
-    return this.controllerService.stepEnv(policy).then((state) => {
-      this.dataService.getAgents().then((agents) => {
+  public next(policy?: string): Promise<State> {
+    if (!this.currentTrajectoryId) {
+      return Promise.resolve({ steps: 0, done: { __all__: false } })
+    }
+    const trajectoryId = this.currentTrajectoryId
+    return this.controllerService.stepTrajectory(trajectoryId).then((trajectoryStep) => {
+      const state: State = {
+        steps: trajectoryStep.elapsed_steps,
+        done: { __all__: false },
+      }
+      this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
         this.agents.next(agents)
         this.state.next(state)
         const snapshot = agents.reduce(
@@ -75,17 +88,21 @@ export class StateService {
   }
 
   public reset(environment?: string, policy?: string) {
+    if (!environment || !policy) {
+      return
+    }
     this.stop()
     this.historyBuffer = []
     this.history.next([])
-    this.controllerService.resetEnv(environment, policy).then((state) => {
-      this.dataService.getTransitions().then((transitions) => {
-        this.dataService.getAgents().then((agents) => {
+    this.controllerService.createTrajectory(environment, policy).then((trajectoryId) => {
+      this.currentTrajectoryId = trajectoryId
+      this.dataService.getTrajectoryTransitions(trajectoryId).then((transitions) => {
+        this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
           this.agents.next(agents)
           this.transitions.next(transitions)
         })
       })
-      this.state.next(state)
+      this.state.next({ steps: 0, done: { __all__: false } })
     })
   }
 

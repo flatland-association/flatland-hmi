@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http'
+import { HttpClient } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { firstValueFrom, Observable, Subject } from 'rxjs'
 
@@ -10,6 +10,13 @@ export interface State {
     __all__: boolean
     [key: string]: boolean
   }
+}
+
+export interface TrajectoryStep {
+  ep_id: string
+  policy_id: string
+  env_id: string
+  elapsed_steps: number
 }
 
 @Injectable({
@@ -24,22 +31,18 @@ export class ControllerService {
     return this.resetSubject.asObservable()
   }
 
-  public stepEnv(policy?: string) {
-    let params = new HttpParams()
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/step`, {}, {params}))
+  public createTrajectory(envId: string, policyId: string): Promise<string> {
+    return firstValueFrom(
+      this.http.post<string>(`${BACKEND_URL}/trajectories`, { env_id: envId, policy_id: policyId }),
+    ).then((trajectoryId) => {
+      this.resetSubject.next()
+      return trajectoryId
+    })
   }
 
-  public resetEnv(environment?: string, policy?: string) {
-    let params = new HttpParams()
-    if (environment) {
-      params = params.append('environment', environment)
-    }
-    if (policy) {
-        params = params.append('policy', policy)
-    }
-    return firstValueFrom(this.http.post<State>(`${BACKEND_URL}/reset`, {}, { params })).then((state) => {
-      this.resetSubject.next()
-      return state
-    })
+  public stepTrajectory(trajectoryId: string): Promise<TrajectoryStep> {
+    return firstValueFrom(
+      this.http.post<TrajectoryStep>(`${BACKEND_URL}/trajectories/${trajectoryId}/step`, {}),
+    )
   }
 }
