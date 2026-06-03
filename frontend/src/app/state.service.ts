@@ -16,6 +16,8 @@ export class StateService {
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
   private currentTrajectoryId: string | null = null
+  private stepQueue: string[] = []
+  private isProcessingQueue = false
 
   public get playing() {
     return this.interval !== undefined
@@ -63,28 +65,44 @@ export class StateService {
     return this.plan.asObservable()
   }
 
-  public next(policy?: string): Promise<State> {
-    if (!this.currentTrajectoryId) {
-      return Promise.resolve({ steps: 0, done: { __all__: false } })
-    }
-    const trajectoryId = this.currentTrajectoryId
-    return this.controllerService.stepTrajectory(trajectoryId).then((trajectoryStep) => {
-      const state: State = {
-        steps: trajectoryStep.elapsed_steps,
-        done: { __all__: false },
-      }
-      this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
-        this.agents.next(agents)
-        this.state.next(state)
-        const snapshot = agents.reduce(
-          (rec, agent) => { rec[String(agent.handle)] = agent; return rec },
-          {} as Record<string, Agent>,
-        )
-        this.historyBuffer.push(snapshot)
-        this.history.next([...this.historyBuffer])
+  public next(policy?: string): void {
+    if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
+    this.stepQueue.push(this.currentTrajectoryId)
+    this._drainQueue()
+  }
+
+  private _drainQueue(): void {
+    if (this.isProcessingQueue || this.stepQueue.length === 0) return
+    const trajectoryId = this.stepQueue.shift()!
+    this.isProcessingQueue = true
+    this.controllerService.stepTrajectory(trajectoryId)
+      .then((trajectoryStep) => {
+        const state: State = { steps: trajectoryStep.elapsed_steps, done: { __all__: false } }
+        return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
+          this.agents.next(agents)
+          this.state.next(state)
+          const snapshot = agents.reduce(
+            (rec, agent) => { rec[String(agent.handle)] = agent; return rec },
+            {} as Record<string, Agent>,
+          )
+          this.historyBuffer.push(snapshot)
+          this.history.next([...this.historyBuffer])
+          return state
+        })
       })
-      return state
-    })
+      .then((state) => {
+        this.isProcessingQueue = false
+        if (state.done.__all__) {
+          this.stepQueue = []
+          this.stop()
+        } else {
+          this._drainQueue()
+        }
+      })
+      .catch(() => {
+        this.isProcessingQueue = false
+        this.stepQueue = []
+      })
   }
 
   public reset(environment?: string, policy?: string) {
@@ -106,17 +124,14 @@ export class StateService {
     })
   }
 
-  public play(policy?: string) {
+  public play(policy?: string): void {
     this.interval = window.setInterval(() => {
-      this.next(policy).then(({ done }) => {
-        if (done.__all__) {
-          this.stop()
-        }
-      })
+      this.next(policy)
     }, 100)
   }
 
-  public stop() {
+  public stop(): void {
+    this.stepQueue = []
     if (this.interval) {
       clearInterval(this.interval)
       this.interval = undefined
