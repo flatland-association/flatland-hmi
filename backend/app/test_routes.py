@@ -52,14 +52,16 @@ def test_get_envs():
 
 def test_get_agents():
     response = client.get("/agents")
-    assert response.status_code == 422
+    assert response.status_code == 200
     body = response.json()
     print(body)
 
 
 def test_post_step():
     response = client.post("/step")
-    assert response.status_code == 422
+    assert response.status_code == 200
+    body = response.json()
+    print(body)
 
 
 def test_post_get_trajectory():
