@@ -17,6 +17,7 @@ export interface TrajectoryStep {
   policy_id: string
   env_id: string
   elapsed_steps: number
+  done: boolean
 }
 
 @Injectable({

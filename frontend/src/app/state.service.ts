@@ -77,7 +77,7 @@ export class StateService {
     this.isProcessingQueue = true
     this.controllerService.stepTrajectory(trajectoryId)
       .then((trajectoryStep) => {
-        const state: State = { steps: trajectoryStep.elapsed_steps, done: { __all__: false } }
+        const state: State = { steps: trajectoryStep.elapsed_steps, done: { __all__: trajectoryStep.done } }
         return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
           this.agents.next(agents)
           this.state.next(state)

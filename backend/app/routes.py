@@ -242,7 +242,8 @@ async def trajectory_step(trajectory_id: str):
         "ep_id": trajectory_id,
         "policy_id": meta.get("policy_id"),
         "env_id": meta.get("env_id"),
-        "elapsed_steps": policy_runner.env._elapsed_steps
+        "elapsed_steps": policy_runner.env._elapsed_steps,
+        "done": policy_runner.env.dones.get("__all__", False),
     })
 
 
