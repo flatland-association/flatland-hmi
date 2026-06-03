@@ -10,8 +10,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi_lifecycle import deprecated
 from pydantic import BaseModel
-from fastapi_lifecycle import deprecated, setup_versioning
 
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.policy_runner import policy_runner_map
@@ -160,13 +160,13 @@ async def reset_env(request: Request):
         })
 
 
-
 def _resolve_trajectory_path(trajectory_id: str) -> Path:
     base = Path(DATA_DIR).resolve()
     p = (base / trajectory_id).resolve()
     if not str(p).startswith(str(base)):
         raise HTTPException(status_code=400, detail="Invalid trajectory ID")
     return p
+
 
 @router.get("/trajectories")
 async def get_trajectories():
@@ -200,8 +200,6 @@ async def post_trajectories(body: TrajectoryCreate):
     return t.ep_id
 
 
-
-
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
     p = _resolve_trajectory_path(trajectory_id)
@@ -228,14 +226,17 @@ async def trajectory_step(trajectory_id: str):
     policy_runner = policy_runner_map.get(trajectory_id, None)
     if policy_runner is None:
         t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
-
         policy_runner = PolicyRunner(
             policy=policy_map.get(meta.get("policy_id"))["factory"](),
             trajectory=t,
             env=t.load_env(p, trajectory_id),
         )
         policy_runner_map[trajectory_id] = policy_runner
-    policy_runner.step(persist=True)
+    if policy_runner.env.dones.get("__all__", False):
+        raise HTTPException(status_code=412, detail=f"Environment already done.")
+    policy_runner.step(persist=False)
+    if policy_runner.env.dones.get("__all__", False):
+        policy_runner.trajectory.persist()
 
     return CustomEncodedJSONResponse(content={
         "ep_id": trajectory_id,
