@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from fastapi_lifecycle import deprecated, setup_versioning
 
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.policy_runner import policy_runner_map
@@ -55,6 +56,7 @@ def health_check_ready():
 
 
 @router.get("/transitions")
+@deprecated
 async def get_transitions():
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
@@ -62,6 +64,7 @@ async def get_transitions():
 
 
 @router.get("/agents")
+@deprecated
 async def get_agents():
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
@@ -85,17 +88,8 @@ async def get_agents():
         ])
 
 
-@router.get("/policies")
-async def get_policies():
-    return [{"id": k, "description": v["description"]} for k, v in policy_map.items()]
-
-
-@router.get("/envs")
-async def get_envs():
-    return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
-
-
 @router.post("/step")
+@deprecated
 async def step_env(actions: dict = {}):
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
@@ -112,6 +106,16 @@ async def step_env(actions: dict = {}):
             "steps": global_interactive_env.env._elapsed_steps,
             "max_steps": global_interactive_env.env._max_episode_steps,
         })
+
+
+@router.get("/policies")
+async def get_policies():
+    return [{"id": k, "description": v["description"]} for k, v in policy_map.items()]
+
+
+@router.get("/envs")
+async def get_envs():
+    return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
 
 
 @router.post("/reset")
