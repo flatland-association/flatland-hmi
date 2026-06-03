@@ -145,17 +145,18 @@ class TrajectoryCreate(BaseModel):
 
 @router.post("/trajectories")
 async def post_trajectories(body: TrajectoryCreate):
-    ep_id = str(uuid.uuid4())
-    data_dir = Path(DATA_DIR) / ep_id
-    data_dir.mkdir(exist_ok=True, parents=True)
-    t = Trajectory.create_empty(data_dir, ep_id=ep_id)
     policy_id = body.policy_id
     env_id = body.env_id
 
+    ep_id = str(uuid.uuid4())
+    data_dir = Path(DATA_DIR) / ep_id
+    data_dir.mkdir(exist_ok=True, parents=True)
+    env = env_map.get(env_id)["factory"]()
+    t = Trajectory.create_empty(data_dir, ep_id=ep_id, env=env)
     t_runner = PolicyRunner(
         policy=policy_map.get(policy_id)["factory"](),
-        data_dir=data_dir,
-        env=env_map.get(env_id)["factory"](),
+        trajectory=t,
+        env=env,
     )
     policy_runner_map[ep_id] = t_runner
     (data_dir / "meta.json").write_text(
@@ -177,6 +178,7 @@ async def get_trajectory(trajectory_id: str):
     p = _resolve_trajectory_path(trajectory_id)
     if not p.exists():
         raise HTTPException(status_code=404, detail="Trajectory not found")
+
     meta_path = p / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
@@ -188,14 +190,22 @@ async def get_trajectory(trajectory_id: str):
 
 
 @router.post("/trajectories/{trajectory_id}/step")
-async def get_trajectory(trajectory_id: str):
+async def trajectory_step(trajectory_id: str):
     p = _resolve_trajectory_path(trajectory_id)
     if not p.exists():
         raise HTTPException(status_code=404, detail="Trajectory not found")
+    t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
     meta_path = p / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
 
-    policy_runner = policy_runner_map.get(trajectory_id)
+    policy_runner = policy_runner_map.get(trajectory_id, None)
+    if policy_runner is None:
+        policy_runner = PolicyRunner(
+            policy=policy_map.get(meta.get("policy_id"))["factory"](),
+            trajectory=t,
+            env=t.load_env(p, trajectory_id),
+        )
+        policy_runner_map[trajectory_id] = policy_runner
     policy_runner.step(persist=True)
 
     return CustomEncodedJSONResponse(content={

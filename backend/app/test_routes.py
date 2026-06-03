@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.routes
+from app.policy_runner import policy_runner_map
 from main import app as the_app
 
 client = TestClient(the_app)
@@ -108,6 +109,21 @@ def test_get_trajectory_not_found():
 
 def test_post_trajectory_step():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    elapsed_steps_ = body["elapsed_steps"]
+    assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.json()["elapsed_steps"] == elapsed_steps_ + 1
+
+
+def test_post_trajectory_step_policy_runner_not_in_map():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    policy_runner_map.pop(ep_id)
     response = client.post(f"/trajectories/{ep_id}/step")
     assert response.status_code == 200
     body = response.json()
