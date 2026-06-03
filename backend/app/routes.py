@@ -55,41 +55,64 @@ def health_check_ready():
     return {"status": "UP", "checks": []}
 
 
+def _build_transitions_content(env) -> list:
+    return env.rail.grid.tolist()
+
+
+def _build_agents_content(env) -> list:
+    return [
+        {
+            "handle": agent.handle,
+            "position": (
+                None if agent.position is None else tuple(int(c) for c in agent.position)
+            ),
+            "direction": agent.direction,
+            "moving": agent.moving,
+            "speed_counter": agent.speed_counter,
+            "target": (
+                None if agent.target is None else tuple(int(c) for c in agent.target)
+            ),
+            "malfunction": agent.malfunction_handler.malfunction_down_counter,
+        }
+        for agent in env.agents
+    ]
+
+
+def _get_or_load_trajectory_env(trajectory_id: str, p: Path):
+    policy_runner = policy_runner_map.get(trajectory_id)
+    if policy_runner is not None:
+        return policy_runner.env
+    t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
+    return t.load_env(p, trajectory_id)
+
+
 @router.get("/transitions")
-@deprecated
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/agents',
+    'reason': 'Moving to ID-based API.'
+})
 async def get_transitions():
     async with global_interactive_env_lock:
-        global_interactive_env = get_global_interactive_env()
-        return global_interactive_env.env.rail.grid.tolist()
+        return _build_transitions_content(get_global_interactive_env().env)
 
 
 @router.get("/agents")
-@deprecated
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/agents',
+    'reason': 'Moving to ID-based API.'
+})
 async def get_agents():
     async with global_interactive_env_lock:
-        global_interactive_env = get_global_interactive_env()
-        return CustomEncodedJSONResponse(content=[
-            {
-                "handle": agent.handle,
-                "position": (
-                    None
-                    if agent.position is None
-                    else tuple(int(c) for c in agent.position)
-                ),
-                "direction": agent.direction,
-                "moving": agent.moving,
-                "speed_counter": agent.speed_counter,
-                "target": (
-                    None if agent.target is None else tuple(int(c) for c in agent.target)
-                ),
-                "malfunction": agent.malfunction_handler.malfunction_down_counter,
-            }
-            for agent in global_interactive_env.env.agents
-        ])
+        return CustomEncodedJSONResponse(
+            content=_build_agents_content(get_global_interactive_env().env)
+        )
 
 
 @router.post("/step")
-@deprecated
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/step',
+    'reason': 'Moving to ID-based API.'
+})
 async def step_env(actions: dict = {}):
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
@@ -137,6 +160,14 @@ async def reset_env(request: Request):
         })
 
 
+
+def _resolve_trajectory_path(trajectory_id: str) -> Path:
+    base = Path(DATA_DIR).resolve()
+    p = (base / trajectory_id).resolve()
+    if not str(p).startswith(str(base)):
+        raise HTTPException(status_code=400, detail="Invalid trajectory ID")
+    return p
+
 @router.get("/trajectories")
 async def get_trajectories():
     return [p.name for p in Path(DATA_DIR).glob("*")]
@@ -169,12 +200,6 @@ async def post_trajectories(body: TrajectoryCreate):
     return t.ep_id
 
 
-def _resolve_trajectory_path(trajectory_id: str) -> Path:
-    base = Path(DATA_DIR).resolve()
-    p = (base / trajectory_id).resolve()
-    if not str(p).startswith(str(base)):
-        raise HTTPException(status_code=400, detail="Invalid trajectory ID")
-    return p
 
 
 @router.get("/trajectories/{trajectory_id}")
@@ -218,3 +243,21 @@ async def trajectory_step(trajectory_id: str):
         "env_id": meta.get("env_id"),
         "elapsed_steps": policy_runner.env._elapsed_steps
     })
+
+
+@router.get("/trajectories/{trajectory_id}/transitions")
+async def get_trajectory_transitions(trajectory_id: str):
+    p = _resolve_trajectory_path(trajectory_id)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Trajectory not found")
+    env = _get_or_load_trajectory_env(trajectory_id, p)
+    return _build_transitions_content(env)
+
+
+@router.get("/trajectories/{trajectory_id}/agents")
+async def get_trajectory_agents(trajectory_id: str):
+    p = _resolve_trajectory_path(trajectory_id)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Trajectory not found")
+    env = _get_or_load_trajectory_env(trajectory_id, p)
+    return CustomEncodedJSONResponse(content=_build_agents_content(env))

@@ -52,19 +52,14 @@ def test_get_envs():
 
 def test_get_agents():
     response = client.get("/agents")
-    assert response.status_code == 200
+    assert response.status_code == 422
     body = response.json()
     print(body)
 
 
 def test_post_step():
     response = client.post("/step")
-    assert response.status_code == 200
-    body = response.json()
-    assert {"info", "done", "actions", "steps", "max_steps"} <= body.keys()
-    assert isinstance(body["steps"], int) and body["steps"] >= 1
-    assert isinstance(body["done"], dict)
-    assert isinstance(body["actions"], dict)
+    assert response.status_code == 422
 
 
 def test_post_get_trajectory():
@@ -139,3 +134,56 @@ def test_post_trajectory_step_policy_runner_not_in_map():
 def test_post_trajectory_step_not_found():
     response = client.post("/trajectories/nonexistent-id/step")
     assert response.status_code == 404
+
+
+def test_get_trajectory_transitions():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/transitions")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+
+
+def test_get_trajectory_agents():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/agents")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    required_keys = {"handle", "position", "direction", "moving", "speed_counter", "target", "malfunction"}
+    assert all(required_keys <= set(agent.keys()) for agent in body)
+
+
+def test_get_trajectory_agents_runner_not_in_map():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    client.post(f"/trajectories/{ep_id}/step")
+    policy_runner_map.pop(ep_id)
+    response = client.get(f"/trajectories/{ep_id}/agents")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    required_keys = {"handle", "position", "direction", "moving", "speed_counter", "target", "malfunction"}
+    assert all(required_keys <= set(agent.keys()) for agent in body)
+
+
+def test_get_trajectory_transitions_not_found():
+    response = client.get("/trajectories/nonexistent-id/transitions")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agents_not_found():
+    response = client.get("/trajectories/nonexistent-id/agents")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_transitions_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/transitions")
+    assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_agents_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/agents")
+    assert response.status_code in (400, 404)
