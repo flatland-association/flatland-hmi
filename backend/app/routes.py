@@ -229,14 +229,12 @@ async def trajectory_step(trajectory_id: str):
     if policy_runner is None:
         t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
 
-        print("policy runner not ready")
         policy_runner = PolicyRunner(
             policy=policy_map.get(meta.get("policy_id"))["factory"](),
             trajectory=t,
             env=t.load_env(p, trajectory_id),
         )
         policy_runner_map[trajectory_id] = policy_runner
-    print("policy runner.step{")
     policy_runner.step(persist=True)
 
     return CustomEncodedJSONResponse(content={
