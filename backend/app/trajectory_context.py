@@ -2,17 +2,19 @@ import json
 import os
 import uuid
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Dict
 
 from fastapi import HTTPException
 
 from app.env import policy_map, env_map
-from app.policy_runner import policy_runner_map
 from flatland.envs.observations import FullEnvObservation
 from flatland.trajectories.policy_runner import PolicyRunner
 from flatland.trajectories.trajectories import Trajectory
 
 DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
+
+# TODO approach is not support scaling of the backend as trajectory is not persisted on every step()
+trajectory_context_map: Dict[str, PolicyRunner] = {}
 
 
 class TrajectoryContext(NamedTuple):
@@ -31,16 +33,13 @@ class TrajectoryContext(NamedTuple):
             policy=policy_map.get(policy_id)["factory"](),
             trajectory=t,
         )
-        policy_runner_map[ep_id] = t_runner
         meta = {"policy_id": policy_id, "env_id": env_id}
         (data_dir / "meta.json").write_text(
             json.dumps(meta)
         )
-        return TrajectoryContext(
-            trajectory=t,
-            meta=meta,
-            policy_runner=t_runner,
-        )
+        ctx = TrajectoryContext(trajectory=t, meta=meta, policy_runner=t_runner, )
+        trajectory_context_map[ep_id] = ctx
+        return ctx
 
     def fork(self):
         fork_id = str(uuid.uuid4())
@@ -56,15 +55,14 @@ class TrajectoryContext(NamedTuple):
             policy=policy_map.get(self.meta["policy_id"])["factory"](),
             trajectory=fork,
         )
-        policy_runner_map[fork_id] = fork_policy_runner
-        return TrajectoryContext(
-            trajectory=fork,
-            meta=json.load((fork_path / "meta.json").open("r")),
-            policy_runner=fork_policy_runner,
-        )
+        ctx = TrajectoryContext(trajectory=fork, meta=json.load((fork_path / "meta.json").open("r")), policy_runner=fork_policy_runner, )
+        trajectory_context_map[fork_id] = ctx
+        return ctx
 
     @classmethod
     def resolve(cls, trajectory_id: str) -> "TrajectoryContext":
+        if trajectory_id in trajectory_context_map:
+            return trajectory_context_map[trajectory_id]
         base = Path(DATA_DIR).resolve()
         p = (base / trajectory_id).resolve()
         if not p.exists():
@@ -73,18 +71,16 @@ class TrajectoryContext(NamedTuple):
             raise HTTPException(status_code=400, detail="Invalid trajectory ID")
         meta_path = p / "meta.json"
         meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-        policy_runner = policy_runner_map.get(trajectory_id, None)
-        if policy_runner is None:
-            t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
-            policy_id = meta.get("policy_id")
-            policy_runner = PolicyRunner(
-                policy=policy_map.get(policy_id)["factory"](),
-                trajectory=t,
-            )
-            policy_runner_map[trajectory_id] = policy_runner
-
+        t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
+        policy_id = meta.get("policy_id")
+        policy_runner = PolicyRunner(
+            policy=policy_map.get(policy_id)["factory"](),
+            trajectory=t,
+        )
         t = Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
-        return cls(trajectory=t, meta=meta, policy_runner=policy_runner)
+        ctx = cls(trajectory=t, meta=meta, policy_runner=policy_runner)
+        trajectory_context_map[t.ep_id] = ctx
+        return ctx
 
     def update_policy(self, policy_id: str):
         meta = self.meta

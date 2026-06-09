@@ -5,7 +5,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import trajectory_context
-from app.policy_runner import policy_runner_map
 from main import app as the_app
 
 client = TestClient(the_app)
@@ -120,7 +119,7 @@ def test_post_trajectory_step():
 
 def test_post_trajectory_step_policy_runner_not_in_map():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
-    policy_runner_map.pop(ep_id)
+    trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.post(f"/trajectories/{ep_id}/step")
     assert response.status_code == 200
     body = response.json()
@@ -135,7 +134,7 @@ def test_post_trajectory_step_policy_runner_not_in_map():
 
 def test_post_trajectory_step_with_policy():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
-    policy_runner_map.pop(ep_id)
+    trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "policy-1"})
     assert response.status_code == 200
     body = response.json()
@@ -203,7 +202,7 @@ def test_get_trajectory_agents():
 def test_get_trajectory_agents_runner_not_in_map():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
     client.post(f"/trajectories/{ep_id}/step")
-    policy_runner_map.pop(ep_id)
+    trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.get(f"/trajectories/{ep_id}/agents")
     assert response.status_code == 200
     body = response.json()
