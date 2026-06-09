@@ -22,6 +22,15 @@ class TrajectoryContext(NamedTuple):
     meta: dict
     policy_runner: Optional[PolicyRunner]
 
+    def to_dict(self) -> Dict:
+        return {
+            "ep_id": self.trajectory.ep_id,
+            "policy_id": self.meta.get("policy_id"),
+            "env_id": self.meta.get("env_id"),
+            "elapsed_steps": self.policy_runner.env._elapsed_steps,
+            "done": self.policy_runner.env.dones.get("__all__", False),
+        }
+
     @classmethod
     def create(cls, env_id: str, policy_id: str):
         ep_id = str(uuid.uuid4())

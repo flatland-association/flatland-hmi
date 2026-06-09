@@ -169,11 +169,7 @@ async def create_trajectory(body: TrajectoryCreate):
 async def get_trajectory(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
 
-    return CustomEncodedJSONResponse(content={
-        "ep_id": trajectory_id,
-        "policy_id": ctx.meta.get("policy_id"),
-        "env_id": ctx.meta.get("env_id"),
-    })
+    return CustomEncodedJSONResponse(content=ctx.to_dict())
 
 
 @router.post("/trajectories/{trajectory_id}/step")
@@ -191,14 +187,7 @@ async def trajectory_step(trajectory_id: str, body: dict = None):
     ctx.policy_runner.step(persist=False)
     if ctx.policy_runner.env.dones.get("__all__", False):
         ctx.policy_runner.trajectory.persist()
-
-    return CustomEncodedJSONResponse(content={
-        "ep_id": trajectory_id,
-        "policy_id": ctx.meta.get("policy_id"),
-        "env_id": ctx.meta.get("env_id"),
-        "elapsed_steps": ctx.policy_runner.env._elapsed_steps,
-        "done": ctx.policy_runner.env.dones.get("__all__", False),
-    })
+    return CustomEncodedJSONResponse(content=ctx.to_dict())
 
 
 @router.post("/trajectories/{trajectory_id}/fork")
@@ -207,13 +196,7 @@ async def trajectory_fork(trajectory_id: str):
     if ctx.policy_runner is None:
         raise HTTPException(status_code=404, detail="Invalid policy ID")
     fork = ctx.fork()
-    return CustomEncodedJSONResponse(content={
-        "ep_id": fork.trajectory.ep_id,
-        "policy_id": fork.meta.get("policy_id"),
-        "env_id": fork.meta.get("env_id"),
-        "elapsed_steps": fork.policy_runner.env._elapsed_steps,
-        "done": fork.policy_runner.env.dones.get("__all__", False),
-    })
+    return CustomEncodedJSONResponse(content=fork.to_dict())
 
 
 @router.get("/trajectories/{trajectory_id}/transitions")
