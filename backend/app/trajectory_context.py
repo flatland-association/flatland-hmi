@@ -66,7 +66,7 @@ class TrajectoryContext(NamedTuple):
             trajectory=fork,
             obs_builder=policy_map[self.meta["policy_id"]]["obs_builder_factory"]()
         )
-        ctx = TrajectoryContext(trajectory=fork, meta=json.load((fork_path / "meta.json").open("r")), policy_runner=fork_policy_runner, )
+        ctx = TrajectoryContext(trajectory=fork, meta=dict(self.meta), policy_runner=fork_policy_runner)
         trajectory_context_map[fork_id] = ctx
         return ctx
 
