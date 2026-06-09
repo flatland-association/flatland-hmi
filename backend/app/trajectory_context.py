@@ -41,6 +41,7 @@ class TrajectoryContext(NamedTuple):
         t_runner = PolicyRunner(
             policy=policy_map.get(policy_id)["factory"](),
             trajectory=t,
+            obs_builder=policy_map[policy_id]["obs_builder_factory"]()
         )
         meta = {"policy_id": policy_id, "env_id": env_id}
         (data_dir / "meta.json").write_text(
@@ -63,6 +64,7 @@ class TrajectoryContext(NamedTuple):
         fork_policy_runner = PolicyRunner(
             policy=policy_map.get(self.meta["policy_id"])["factory"](),
             trajectory=fork,
+            obs_builder=policy_map[self.meta["policy_id"]]["obs_builder_factory"]()
         )
         ctx = TrajectoryContext(trajectory=fork, meta=json.load((fork_path / "meta.json").open("r")), policy_runner=fork_policy_runner, )
         trajectory_context_map[fork_id] = ctx
@@ -85,6 +87,7 @@ class TrajectoryContext(NamedTuple):
         policy_runner = PolicyRunner(
             policy=policy_map.get(policy_id)["factory"](),
             trajectory=t,
+            obs_builder=policy_map[policy_id]["obs_builder_factory"]()
         )
         t = Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
         ctx = cls(trajectory=t, meta=meta, policy_runner=policy_runner)
@@ -103,8 +106,7 @@ class TrajectoryContext(NamedTuple):
 
         # TODO: dla is not correctly initialized
         if policy_id is not None:
-            # TODO use factory
-            policy_runner.change_policy(policy, FullEnvObservation())
+            policy_runner.change_policy(policy, policy_map[self.meta["policy_id"]]["obs_builder_factory"]())
 
     def get_env(self):
         if self.policy_runner is not None:
