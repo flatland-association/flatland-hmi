@@ -187,7 +187,7 @@ async def post_trajectories(body: TrajectoryCreate):
     ep_id = str(uuid.uuid4())
     data_dir = Path(DATA_DIR) / ep_id
     data_dir.mkdir(exist_ok=True, parents=True)
-    env = env_map.get(env_id)["factory"](obs_builder_object=env_map.get(env_id)["obs_builder_factory"]())
+    env = env_map.get(env_id)["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
     t = Trajectory.create_empty(data_dir, ep_id=ep_id, env=env)
     t_runner = PolicyRunner(
         policy=policy_map.get(policy_id)["factory"](),
@@ -245,7 +245,9 @@ async def trajectory_step(trajectory_id: str, body:dict=None):
             env=t.load_env(p, trajectory_id),
         )
         policy_runner_map[trajectory_id] = policy_runner
-    policy_runner.change_policy(policy, FullEnvObservation())
+    # TODO: dla is not correctly initialized
+    if policy_id is not None:
+        policy_runner.change_policy(policy, FullEnvObservation())
     if policy_runner.env.dones.get("__all__", False):
         raise HTTPException(status_code=412, detail=f"Environment already done.")
 
