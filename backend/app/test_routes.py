@@ -4,7 +4,7 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-import app.routes
+from app import trajectory_context
 from app.policy_runner import policy_runner_map
 from main import app as the_app
 
@@ -14,7 +14,7 @@ client = TestClient(the_app)
 @pytest.fixture(scope="module", autouse=True)
 def my_fixture():
     with tempfile.TemporaryDirectory() as tmpdirname:
-        app.routes.DATA_DIR = tmpdirname
+        trajectory_context.DATA_DIR = tmpdirname
         yield
 
 

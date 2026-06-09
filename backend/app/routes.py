@@ -1,7 +1,5 @@
 import asyncio
 import json
-import os
-import uuid
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
@@ -13,13 +11,11 @@ from fastapi.responses import JSONResponse
 from fastapi_lifecycle import deprecated
 from pydantic import BaseModel
 
+from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
-from app.policy_runner import policy_runner_map
+from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
-from flatland.trajectories.policy_runner import PolicyRunner
-from flatland.trajectories.trajectories import Trajectory
-from flatland_baselines.deadlock_avoidance_heuristic.observation.full_env_observation import FullEnvObservation
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
@@ -41,8 +37,6 @@ class CustomEncodedJSONResponse(JSONResponse):
 router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
-
-DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
 
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
@@ -77,16 +71,6 @@ def _build_agents_content(env) -> list:
         }
         for agent in env.agents
     ]
-
-
-def _get_or_load_trajectory_env(trajectory_id: str, p: Path):
-    policy_runner = policy_runner_map.get(trajectory_id)
-    if policy_runner is not None:
-        return policy_runner.env
-    t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
-    meta_path = p / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    return t.load_env(obs_builder=policy_map[meta["policy_id"]]["obs_builder_factory"]())
 
 
 @router.get("/transitions")
@@ -163,19 +147,9 @@ async def reset_env(request: Request):
         })
 
 
-def _resolve_trajectory_path(trajectory_id: str) -> Path:
-    base = Path(DATA_DIR).resolve()
-    p = (base / trajectory_id).resolve()
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
-    if not str(p).startswith(str(base)):
-        raise HTTPException(status_code=400, detail="Invalid trajectory ID")
-    return p
-
-
 @router.get("/trajectories")
 async def get_trajectories():
-    return [p.name for p in Path(DATA_DIR).glob("*")]
+    return [p.name for p in Path(trajectory_context.DATA_DIR).glob("*")]
 
 
 class TrajectoryCreate(BaseModel):
@@ -184,131 +158,73 @@ class TrajectoryCreate(BaseModel):
 
 
 @router.post("/trajectories")
-async def post_trajectories(body: TrajectoryCreate):
+async def create_trajectory(body: TrajectoryCreate):
     policy_id = body.policy_id
     env_id = body.env_id
-
-    ep_id = str(uuid.uuid4())
-    data_dir = Path(DATA_DIR) / ep_id
-    data_dir.mkdir(exist_ok=True, parents=True)
-    env = env_map.get(env_id)["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
-    t = Trajectory.create_empty(data_dir, ep_id=ep_id, env=env)
-    t_runner = PolicyRunner(
-        policy=policy_map.get(policy_id)["factory"](),
-        trajectory=t,
-    )
-    policy_runner_map[ep_id] = t_runner
-    (data_dir / "meta.json").write_text(
-        json.dumps({"policy_id": policy_id, "env_id": env_id})
-    )
-    return t.ep_id
+    ctx = TrajectoryContext.create(env_id, policy_id)
+    return ctx.trajectory.ep_id
 
 
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
-    p = _resolve_trajectory_path(trajectory_id)
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
+    ctx = TrajectoryContext.resolve(trajectory_id)
 
-    meta_path = p / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
     return CustomEncodedJSONResponse(content={
         "ep_id": trajectory_id,
-        "policy_id": meta.get("policy_id"),
-        "env_id": meta.get("env_id"),
+        "policy_id": ctx.meta.get("policy_id"),
+        "env_id": ctx.meta.get("env_id"),
     })
 
 
 @router.post("/trajectories/{trajectory_id}/step")
 async def trajectory_step(trajectory_id: str, body: dict = None):
-    p = _resolve_trajectory_path(trajectory_id)
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
+    ctx = TrajectoryContext.resolve(trajectory_id)
     policy_id = None
     if body is not None:
         policy_id = body.get("policy_id", None)
     if policy_id is not None and policy_id not in policy_map:
         raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
-
-    meta_path = p / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    policy_runner = policy_runner_map.get(trajectory_id, None)
-    effective_policy_id = policy_id or meta.get("policy_id")
-    meta["policy_id"] = effective_policy_id
-    policy = policy_map.get(effective_policy_id)["factory"]()
-    with meta_path.open("w") as f:
-        json.dump(meta, f)
-    if policy_runner is None:
-        t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
-
-        policy_runner = PolicyRunner(
-            policy=policy,
-            trajectory=t,
-        )
-        policy_runner_map[trajectory_id] = policy_runner
-    # TODO: dla is not correctly initialized
-    if policy_id is not None:
-        policy_runner.change_policy(policy, FullEnvObservation())
-    if policy_runner.env.dones.get("__all__", False):
+    ctx.update_policy(policy_id)
+    if ctx.policy_runner.env.dones.get("__all__", False):
         raise HTTPException(status_code=412, detail=f"Environment already done.")
 
-    policy_runner.step(persist=False)
-    if policy_runner.env.dones.get("__all__", False):
-        policy_runner.trajectory.persist()
+    ctx.policy_runner.step(persist=False)
+    if ctx.policy_runner.env.dones.get("__all__", False):
+        ctx.policy_runner.trajectory.persist()
 
     return CustomEncodedJSONResponse(content={
         "ep_id": trajectory_id,
-        "policy_id": meta.get("policy_id"),
-        "env_id": meta.get("env_id"),
-        "elapsed_steps": policy_runner.env._elapsed_steps,
-        "done": policy_runner.env.dones.get("__all__", False),
+        "policy_id": ctx.meta.get("policy_id"),
+        "env_id": ctx.meta.get("env_id"),
+        "elapsed_steps": ctx.policy_runner.env._elapsed_steps,
+        "done": ctx.policy_runner.env.dones.get("__all__", False),
     })
 
 
 @router.post("/trajectories/{trajectory_id}/fork")
 async def trajectory_fork(trajectory_id: str):
-    p = _resolve_trajectory_path(trajectory_id)
-    meta_path = p / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    fork_id = str(uuid.uuid4())
-    base = Path(DATA_DIR).resolve()
-    fork_path = (base / fork_id).resolve()
-    policy_runner = policy_runner_map.get(trajectory_id, None)
-    if policy_runner is None:
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    if ctx.policy_runner is None:
         raise HTTPException(status_code=404, detail="Invalid policy ID")
-    policy_runner.trajectory.persist()
-
-    fork = policy_runner.trajectory.fork(data_dir=fork_path, start_step=policy_runner.env._elapsed_steps, ep_id=fork_id)
-    with (fork_path / "meta.json").open("w") as f:
-        json.dump(meta, f)
-    fork_policy_runner = PolicyRunner(
-        policy=policy_map.get(meta["policy_id"])["factory"](),
-        trajectory=fork,
-    )
-    policy_runner_map[fork_id] = fork_policy_runner
-
+    fork = ctx.fork()
     return CustomEncodedJSONResponse(content={
-        "ep_id": fork_id,
-        "policy_id": meta.get("policy_id"),
-        "env_id": meta.get("env_id"),
-        "elapsed_steps": fork_policy_runner.env._elapsed_steps,
-        "done": fork_policy_runner.env.dones.get("__all__", False),
+        "ep_id": fork.trajectory.ep_id,
+        "policy_id": fork.meta.get("policy_id"),
+        "env_id": fork.meta.get("env_id"),
+        "elapsed_steps": fork.policy_runner.env._elapsed_steps,
+        "done": fork.policy_runner.env.dones.get("__all__", False),
     })
 
 
 @router.get("/trajectories/{trajectory_id}/transitions")
 async def get_trajectory_transitions(trajectory_id: str):
-    p = _resolve_trajectory_path(trajectory_id)
-
-    env = _get_or_load_trajectory_env(trajectory_id, p)
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
     return _build_transitions_content(env)
 
 
 @router.get("/trajectories/{trajectory_id}/agents")
 async def get_trajectory_agents(trajectory_id: str):
-    p = _resolve_trajectory_path(trajectory_id)
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
-    env = _get_or_load_trajectory_env(trajectory_id, p)
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
