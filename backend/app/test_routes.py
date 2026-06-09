@@ -133,6 +133,23 @@ def test_post_trajectory_step_policy_runner_not_in_map():
     assert response.json()["elapsed_steps"] == elapsed_steps_ + 1
 
 
+def test_post_trajectory_step_with_policy():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    policy_runner_map.pop(ep_id)
+    response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "policy-1"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert isinstance(body["elapsed_steps"], int) and body["elapsed_steps"] >= 1
+    assert body["policy_id"] == "policy-1"
+
+
+def test_post_trajectory_step_invalid_policy():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "nonexistent"})
+    assert response.status_code == 400
+
+
 def test_post_trajectory_step_not_found():
     response = client.post("/trajectories/nonexistent-id/step")
     assert response.status_code == 404

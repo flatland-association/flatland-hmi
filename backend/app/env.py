@@ -40,18 +40,21 @@ class InteractiveEnv:
 
 env_map = {
     'generated-0': {
-        'factory': lambda: env_generator(obs_builder_object=FullEnvObservation())[0],
+        'factory': lambda **kwargs: env_generator(**kwargs)[0],
         'description': 'Generated environment 30 x 30, 7 agents',
+        'obs_builder_factory': FullEnvObservation
     },
     'generated-1': {
-        'factory': lambda: env_generator(x_dim=50, y_dim=50, n_agents=10, obs_builder_object=FullEnvObservation())[0],
+        'factory': lambda **kwargs: env_generator(x_dim=50, y_dim=50, n_agents=10, **kwargs)[0],
         'description': 'Generated environment 50 x 50, 10 agents',
+
     },
 }
 policy_map = {
     'policy-0': {
         'factory': RandomPolicy,
         'description': 'Random Policy',
+        'obs_builder_factory': FullEnvObservation
     },
     'policy-1': {
         'factory': DeadLockAvoidancePolicy,
