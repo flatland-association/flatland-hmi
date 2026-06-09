@@ -84,7 +84,9 @@ def _get_or_load_trajectory_env(trajectory_id: str, p: Path):
     if policy_runner is not None:
         return policy_runner.env
     t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
-    return t.load_env(p, trajectory_id)
+    meta_path = p / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    return t.load_env(obs_builder=policy_map[meta["policy_id"]]["obs_builder_factory"]())
 
 
 @router.get("/transitions")
@@ -164,6 +166,8 @@ async def reset_env(request: Request):
 def _resolve_trajectory_path(trajectory_id: str) -> Path:
     base = Path(DATA_DIR).resolve()
     p = (base / trajectory_id).resolve()
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Trajectory not found")
     if not str(p).startswith(str(base)):
         raise HTTPException(status_code=400, detail="Invalid trajectory ID")
     return p
@@ -192,7 +196,6 @@ async def post_trajectories(body: TrajectoryCreate):
     t_runner = PolicyRunner(
         policy=policy_map.get(policy_id)["factory"](),
         trajectory=t,
-        env=env,
     )
     policy_runner_map[ep_id] = t_runner
     (data_dir / "meta.json").write_text(
@@ -218,7 +221,7 @@ async def get_trajectory(trajectory_id: str):
 
 
 @router.post("/trajectories/{trajectory_id}/step")
-async def trajectory_step(trajectory_id: str, body:dict=None):
+async def trajectory_step(trajectory_id: str, body: dict = None):
     p = _resolve_trajectory_path(trajectory_id)
     if not p.exists():
         raise HTTPException(status_code=404, detail="Trajectory not found")
@@ -242,7 +245,6 @@ async def trajectory_step(trajectory_id: str, body:dict=None):
         policy_runner = PolicyRunner(
             policy=policy,
             trajectory=t,
-            env=t.load_env(p, trajectory_id),
         )
         policy_runner_map[trajectory_id] = policy_runner
     # TODO: dla is not correctly initialized
@@ -250,7 +252,6 @@ async def trajectory_step(trajectory_id: str, body:dict=None):
         policy_runner.change_policy(policy, FullEnvObservation())
     if policy_runner.env.dones.get("__all__", False):
         raise HTTPException(status_code=412, detail=f"Environment already done.")
-
 
     policy_runner.step(persist=False)
     if policy_runner.env.dones.get("__all__", False):
@@ -265,11 +266,41 @@ async def trajectory_step(trajectory_id: str, body:dict=None):
     })
 
 
+@router.post("/trajectories/{trajectory_id}/fork")
+async def trajectory_fork(trajectory_id: str):
+    p = _resolve_trajectory_path(trajectory_id)
+    meta_path = p / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    fork_id = str(uuid.uuid4())
+    base = Path(DATA_DIR).resolve()
+    fork_path = (base / fork_id).resolve()
+    policy_runner = policy_runner_map.get(trajectory_id, None)
+    if policy_runner is None:
+        raise HTTPException(status_code=404, detail="Invalid policy ID")
+    policy_runner.trajectory.persist()
+
+    fork = policy_runner.trajectory.fork(data_dir=fork_path, start_step=policy_runner.env._elapsed_steps, ep_id=fork_id)
+    with (fork_path / "meta.json").open("w") as f:
+        json.dump(meta, f)
+    fork_policy_runner = PolicyRunner(
+        policy=policy_map.get(meta["policy_id"])["factory"](),
+        trajectory=fork,
+    )
+    policy_runner_map[fork_id] = fork_policy_runner
+
+    return CustomEncodedJSONResponse(content={
+        "ep_id": fork_id,
+        "policy_id": meta.get("policy_id"),
+        "env_id": meta.get("env_id"),
+        "elapsed_steps": fork_policy_runner.env._elapsed_steps,
+        "done": fork_policy_runner.env.dones.get("__all__", False),
+    })
+
+
 @router.get("/trajectories/{trajectory_id}/transitions")
 async def get_trajectory_transitions(trajectory_id: str):
     p = _resolve_trajectory_path(trajectory_id)
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
+
     env = _get_or_load_trajectory_env(trajectory_id, p)
     return _build_transitions_content(env)
 

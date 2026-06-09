@@ -155,6 +155,31 @@ def test_post_trajectory_step_not_found():
     assert response.status_code == 404
 
 
+def test_post_trajectory_fork():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    client.post(f"/trajectories/{ep_id}/step")
+    response = client.post(f"/trajectories/{ep_id}/fork")
+    assert response.status_code == 200
+    body = response.json()
+    fork_id = body["ep_id"]
+    assert fork_id != ep_id
+    UUID(fork_id)
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    assert isinstance(body["elapsed_steps"], int)
+    assert fork_id in client.get("/trajectories").json()
+
+
+def test_post_trajectory_fork_not_found():
+    response = client.post("/trajectories/nonexistent-id/fork")
+    assert response.status_code == 404
+
+
+def test_post_trajectory_fork_path_traversal():
+    response = client.post("/trajectories/../../etc/passwd/fork")
+    assert response.status_code in (400, 404)
+
+
 def test_get_trajectory_transitions():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
     response = client.get(f"/trajectories/{ep_id}/transitions")
