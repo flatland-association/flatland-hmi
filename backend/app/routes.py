@@ -137,9 +137,8 @@ async def reset_env(request: Request):
     if policy_id not in policy_map:
         raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
     async with global_interactive_env_lock:
-        reset_global_interactive_env(env_id, policy_id)
+        _, info = reset_global_interactive_env(env_id, policy_id)
         global_interactive_env = get_global_interactive_env()
-        _, info = global_interactive_env.reset()
         return CustomEncodedJSONResponse(content={
             "info": info,
             "done": {"__all__": False},
@@ -180,9 +179,9 @@ async def trajectory_step(trajectory_id: str, body: dict = None):
         policy_id = body.get("policy_id", None)
     if policy_id is not None and policy_id not in policy_map:
         raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
-    ctx.update_policy(policy_id)
     if ctx.policy_runner.env.dones.get("__all__", False):
         raise HTTPException(status_code=412, detail=f"Environment already done.")
+    ctx.update_policy(policy_id)
 
     ctx.policy_runner.step(persist=False)
     if ctx.policy_runner.env.dones.get("__all__", False):

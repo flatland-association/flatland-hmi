@@ -65,7 +65,7 @@ policy_map = {
 
 def reset_global_interactive_env(env_id, policy_id) -> InteractiveEnv:
     global interactive_env
-    interactive_env = InteractiveEnv(env_map[env_id]['factory'](), policy_map[policy_id]['factory']())
+    interactive_env = InteractiveEnv(env_map[env_id]['factory'](obs_builder_object=policy_map[policy_id]['obs_builder_factory']()), policy_map[policy_id]['factory']())
     return interactive_env.reset()
 
 
