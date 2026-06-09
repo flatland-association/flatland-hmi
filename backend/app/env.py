@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
@@ -42,23 +43,22 @@ env_map = {
     'generated-0': {
         'factory': lambda **kwargs: env_generator(**kwargs)[0],
         'description': 'Generated environment 30 x 30, 7 agents',
-        'obs_builder_factory': FullEnvObservation
     },
     'generated-1': {
         'factory': lambda **kwargs: env_generator(x_dim=50, y_dim=50, n_agents=10, **kwargs)[0],
         'description': 'Generated environment 50 x 50, 10 agents',
-
     },
 }
 policy_map = {
     'policy-0': {
         'factory': RandomPolicy,
         'description': 'Random Policy',
-        'obs_builder_factory': FullEnvObservation
+        'obs_builder_factory': DummyObservationBuilder
     },
     'policy-1': {
         'factory': DeadLockAvoidancePolicy,
         'description': 'Deadlock Avoidance Heuristic',
+        'obs_builder_factory': FullEnvObservation
     },
 }
 
