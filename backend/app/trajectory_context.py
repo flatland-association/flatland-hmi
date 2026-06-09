@@ -89,7 +89,6 @@ class TrajectoryContext(NamedTuple):
             trajectory=t,
             obs_builder=policy_map[policy_id]["obs_builder_factory"]()
         )
-        t = Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
         ctx = cls(trajectory=t, meta=meta, policy_runner=policy_runner)
         trajectory_context_map[t.ep_id] = ctx
         return ctx
