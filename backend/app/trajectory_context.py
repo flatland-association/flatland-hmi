@@ -84,6 +84,8 @@ class TrajectoryContext(NamedTuple):
         meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
         t = Trajectory.load_existing(data_dir=p, ep_id=trajectory_id)
         policy_id = meta.get("policy_id")
+        if policy_id not in policy_map:
+            raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
         policy_runner = PolicyRunner(
             policy=policy_map.get(policy_id)["factory"](),
             trajectory=t,
