@@ -78,7 +78,7 @@ class TrajectoryContext(NamedTuple):
         p = (base / trajectory_id).resolve()
         if not p.exists():
             raise HTTPException(status_code=404, detail="Trajectory not found")
-        if not str(p).startswith(str(base)):
+        if not p.is_relative_to(base):
             raise HTTPException(status_code=400, detail="Invalid trajectory ID")
         meta_path = p / "meta.json"
         meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
