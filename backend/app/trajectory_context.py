@@ -7,14 +7,13 @@ from typing import NamedTuple, Optional, Dict
 from fastapi import HTTPException
 
 from app.env import policy_map, env_map
-from flatland.envs.observations import FullEnvObservation
 from flatland.trajectories.policy_runner import PolicyRunner
 from flatland.trajectories.trajectories import Trajectory
 
 DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
 
 # TODO approach is not support scaling of the backend as trajectory is not persisted on every step()
-trajectory_context_map: Dict[str, PolicyRunner] = {}
+trajectory_context_map: Dict[str, "TrajectoryContext"] = {}
 
 
 class TrajectoryContext(NamedTuple):
@@ -36,10 +35,10 @@ class TrajectoryContext(NamedTuple):
         ep_id = str(uuid.uuid4())
         data_dir = Path(DATA_DIR) / ep_id
         data_dir.mkdir(exist_ok=True, parents=True)
-        env = env_map.get(env_id)["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
+        env = env_map[env_id]["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
         t = Trajectory.create_empty(data_dir, ep_id=ep_id, env=env)
         t_runner = PolicyRunner(
-            policy=policy_map.get(policy_id)["factory"](),
+            policy=policy_map[policy_id]["factory"](),
             trajectory=t,
             obs_builder=policy_map[policy_id]["obs_builder_factory"]()
         )
@@ -87,7 +86,7 @@ class TrajectoryContext(NamedTuple):
         if policy_id not in policy_map:
             raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
         policy_runner = PolicyRunner(
-            policy=policy_map.get(policy_id)["factory"](),
+            policy=policy_map[policy_id]["factory"](),
             trajectory=t,
             obs_builder=policy_map[policy_id]["obs_builder_factory"]()
         )
@@ -95,13 +94,13 @@ class TrajectoryContext(NamedTuple):
         trajectory_context_map[t.ep_id] = ctx
         return ctx
 
-    def update_policy(self, policy_id: str):
+    def update_policy(self, policy_id: Optional[str]):
         meta = self.meta
         meta_path = self.trajectory.data_dir / "meta.json"
         policy_runner = self.policy_runner
         effective_policy_id = policy_id or meta.get("policy_id")
         meta["policy_id"] = effective_policy_id
-        policy = policy_map.get(effective_policy_id)["factory"]()
+        policy = policy_map[effective_policy_id]["factory"]()
         with meta_path.open("w") as f:
             json.dump(meta, f)
 

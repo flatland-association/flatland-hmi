@@ -3,7 +3,7 @@ import json
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
@@ -100,11 +100,13 @@ async def get_agents():
     'replacement': 'GET /trajectories/{trajectoryId}/step',
     'reason': 'Moving to ID-based API.'
 })
-async def step_env(actions: dict = {}):
+async def step_env(actions: Optional[dict] = None):
+    if actions is None:
+        actions = {}
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
         if global_interactive_env.done.get("__all__", False):
-            raise HTTPException(status_code=412, detail=f"Environment already done.")
+            raise HTTPException(status_code=412, detail="Environment already done.")
         _, _, done, info, actions = global_interactive_env.step(actions)
         return CustomEncodedJSONResponse(content={
             "info": info,
@@ -180,7 +182,7 @@ async def trajectory_step(trajectory_id: str, body: dict = None):
     if policy_id is not None and policy_id not in policy_map:
         raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
     if ctx.policy_runner.env.dones.get("__all__", False):
-        raise HTTPException(status_code=412, detail=f"Environment already done.")
+        raise HTTPException(status_code=412, detail="Environment already done.")
     ctx.update_policy(policy_id)
 
     ctx.policy_runner.step(persist=False)
@@ -192,8 +194,6 @@ async def trajectory_step(trajectory_id: str, body: dict = None):
 @router.post("/trajectories/{trajectory_id}/fork")
 async def trajectory_fork(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
-    if ctx.policy_runner is None:
-        raise HTTPException(status_code=404, detail="Invalid policy ID")
     fork = ctx.fork()
     return CustomEncodedJSONResponse(content=fork.to_dict())
 
