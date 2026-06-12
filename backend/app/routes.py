@@ -1,21 +1,21 @@
 import asyncio
 import json
-import os
-import uuid
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi_lifecycle import deprecated
 from pydantic import BaseModel
 
+from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
+from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.step_utils.speed_counter import SpeedCounter
-from flatland.trajectories.trajectories import Trajectory
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
@@ -38,8 +38,6 @@ router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
 
-DATA_DIR = os.getenv("HMI_DATA_DIR", "./hmi_data_dir")
-
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
 @router.get("/health/live")
@@ -52,53 +50,63 @@ def health_check_ready():
     return {"status": "UP", "checks": []}
 
 
+def _build_transitions_content(env) -> list:
+    return env.rail.grid.tolist()
+
+
+def _build_agents_content(env) -> list:
+    return [
+        {
+            "handle": agent.handle,
+            "position": (
+                None if agent.position is None else tuple(int(c) for c in agent.position)
+            ),
+            "direction": agent.direction,
+            "moving": agent.moving,
+            "speed_counter": agent.speed_counter,
+            "target": (
+                None if agent.target is None else tuple(int(c) for c in agent.target)
+            ),
+            "malfunction": agent.malfunction_handler.malfunction_down_counter,
+        }
+        for agent in env.agents
+    ]
+
+
 @router.get("/transitions")
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/agents',
+    'reason': 'Moving to ID-based API.'
+})
 async def get_transitions():
     async with global_interactive_env_lock:
-        global_interactive_env = get_global_interactive_env()
-        return global_interactive_env.env.rail.grid.tolist()
+        return _build_transitions_content(get_global_interactive_env().env)
 
 
 @router.get("/agents")
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/agents',
+    'reason': 'Moving to ID-based API.'
+})
 async def get_agents():
     async with global_interactive_env_lock:
-        global_interactive_env = get_global_interactive_env()
-        return CustomEncodedJSONResponse(content=[
-            {
-                "handle": agent.handle,
-                "position": (
-                    None
-                    if agent.position is None
-                    else tuple(int(c) for c in agent.position)
-                ),
-                "direction": agent.direction,
-                "moving": agent.moving,
-                "speed_counter": agent.speed_counter,
-                "target": (
-                    None if agent.target is None else tuple(int(c) for c in agent.target)
-                ),
-                "malfunction": agent.malfunction_handler.malfunction_down_counter,
-            }
-            for agent in global_interactive_env.env.agents
-        ])
-
-
-@router.get("/policies")
-async def get_policies():
-    return [{"id": k, "description": v["description"]} for k, v in policy_map.items()]
-
-
-@router.get("/envs")
-async def get_envs():
-    return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
+        return CustomEncodedJSONResponse(
+            content=_build_agents_content(get_global_interactive_env().env)
+        )
 
 
 @router.post("/step")
-async def step_env(actions: dict = {}):
+@deprecated({
+    'replacement': 'GET /trajectories/{trajectoryId}/step',
+    'reason': 'Moving to ID-based API.'
+})
+async def step_env(actions: Optional[dict] = None):
+    if actions is None:
+        actions = {}
     async with global_interactive_env_lock:
         global_interactive_env = get_global_interactive_env()
         if global_interactive_env.done.get("__all__", False):
-            raise HTTPException(status_code=412, detail=f"Environment already done.")
+            raise HTTPException(status_code=412, detail="Environment already done.")
         _, _, done, info, actions = global_interactive_env.step(actions)
         return CustomEncodedJSONResponse(content={
             "info": info,
@@ -112,6 +120,16 @@ async def step_env(actions: dict = {}):
         })
 
 
+@router.get("/policies")
+async def get_policies():
+    return [{"id": k, "description": v["description"]} for k, v in policy_map.items()]
+
+
+@router.get("/envs")
+async def get_envs():
+    return [{"id": k, "description": v["description"]} for k, v in env_map.items()]
+
+
 @router.post("/reset")
 async def reset_env(request: Request):
     env_id = request.query_params.get("environment")
@@ -121,9 +139,8 @@ async def reset_env(request: Request):
     if policy_id not in policy_map:
         raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
     async with global_interactive_env_lock:
-        reset_global_interactive_env(env_id, policy_id)
+        _, info = reset_global_interactive_env(env_id, policy_id)
         global_interactive_env = get_global_interactive_env()
-        _, info = global_interactive_env.reset()
         return CustomEncodedJSONResponse(content={
             "info": info,
             "done": {"__all__": False},
@@ -133,7 +150,7 @@ async def reset_env(request: Request):
 
 @router.get("/trajectories")
 async def get_trajectories():
-    return [p.name for p in Path(DATA_DIR).glob("*")]
+    return [p.name for p in Path(trajectory_context.DATA_DIR).glob("*")]
 
 
 class TrajectoryCreate(BaseModel):
@@ -142,35 +159,54 @@ class TrajectoryCreate(BaseModel):
 
 
 @router.post("/trajectories")
-async def post_trajectories(body: TrajectoryCreate):
-    ep_id = str(uuid.uuid4())
-    data_dir = Path(DATA_DIR) / ep_id
-    data_dir.mkdir(exist_ok=True, parents=True)
-    t = Trajectory.create_empty(data_dir, ep_id=ep_id)
-    (data_dir / "meta.json").write_text(
-        json.dumps({"policy_id": body.policy_id, "env_id": body.env_id})
-    )
-    return t.ep_id
-
-
-def _resolve_trajectory_path(trajectory_id: str) -> Path:
-    base = Path(DATA_DIR).resolve()
-    p = (base / trajectory_id).resolve()
-    if not str(p).startswith(str(base)):
-        raise HTTPException(status_code=400, detail="Invalid trajectory ID")
-    return p
+async def create_trajectory(body: TrajectoryCreate):
+    policy_id = body.policy_id
+    env_id = body.env_id
+    ctx = TrajectoryContext.create(env_id, policy_id)
+    return ctx.trajectory.ep_id
 
 
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
-    p = _resolve_trajectory_path(trajectory_id)
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Trajectory not found")
-    meta_path = p / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    Trajectory.load_existing(Path(DATA_DIR), trajectory_id)
-    return CustomEncodedJSONResponse(content={
-        "ep_id": trajectory_id,
-        "policy_id": meta.get("policy_id"),
-        "env_id": meta.get("env_id"),
-    })
+    ctx = TrajectoryContext.resolve(trajectory_id)
+
+    return CustomEncodedJSONResponse(content=ctx.to_dict())
+
+
+@router.post("/trajectories/{trajectory_id}/step")
+async def trajectory_step(trajectory_id: str, body: dict = None):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    policy_id = None
+    if body is not None:
+        policy_id = body.get("policy_id", None)
+    if policy_id is not None and policy_id not in policy_map:
+        raise HTTPException(status_code=400, detail=f"Unknown policy '{policy_id}'. Valid: {list(policy_map)}")
+    if ctx.policy_runner.env.dones.get("__all__", False):
+        raise HTTPException(status_code=412, detail="Environment already done.")
+    ctx.update_policy(policy_id)
+
+    ctx.policy_runner.step(persist=False)
+    if ctx.policy_runner.env.dones.get("__all__", False):
+        ctx.policy_runner.trajectory.persist()
+    return CustomEncodedJSONResponse(content=ctx.to_dict())
+
+
+@router.post("/trajectories/{trajectory_id}/fork")
+async def trajectory_fork(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    fork = ctx.fork()
+    return CustomEncodedJSONResponse(content=fork.to_dict())
+
+
+@router.get("/trajectories/{trajectory_id}/transitions")
+async def get_trajectory_transitions(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    return _build_transitions_content(env)
+
+
+@router.get("/trajectories/{trajectory_id}/agents")
+async def get_trajectory_agents(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    return CustomEncodedJSONResponse(content=_build_agents_content(env))

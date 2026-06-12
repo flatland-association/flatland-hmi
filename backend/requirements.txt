@@ -1,9 +1,11 @@
 fastapi==0.136.1
+fastapi-lifecycle==0.1.0
 numpy==1.26.4
 uvicorn==0.22.0
 pytest
 httpx
 starlette
 requests
-#git+https://github.com/flatland-association/flatland-rl.git@main
+# DEPENDENCY SWITCH
+# TODO use released/agged version
 git+https://github.com/flatland-association/flatland-baselines.git@main

@@ -15,6 +15,9 @@ export class StateService {
   private plan = new ReplaySubject<number | undefined>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
+  private currentTrajectoryId: string | null = null
+  private stepQueue: string[] = []
+  private isProcessingQueue = false
 
   public get playing() {
     return this.interval !== undefined
@@ -24,14 +27,18 @@ export class StateService {
     private dataService: DataService,
     private controllerService: ControllerService,
   ) {
-    this.dataService.getTransitions().then((transitions) => {
-      this.transitions.next(transitions)
-    })
-    this.dataService.getAgents().then((agents) => {
-      this.agents.next(agents)
-    })
     this.history.next([])
     this.plans.next([])
+    Promise.all([
+      this.dataService.getEnvs(),
+      this.dataService.getPolicies(),
+    ]).then(([envs, policies]) => {
+      const defaultEnv = envs[0]?.id
+      const defaultPolicy = policies[0]?.id
+      if (defaultEnv && defaultPolicy) {
+        this.reset(defaultEnv, defaultPolicy)
+      }
+    })
   }
 
   public getTransitions() {
@@ -58,48 +65,73 @@ export class StateService {
     return this.plan.asObservable()
   }
 
-  public next(policy?: string) {
-    return this.controllerService.stepEnv(policy).then((state) => {
-      this.dataService.getAgents().then((agents) => {
-        this.agents.next(agents)
-        this.state.next(state)
-        const snapshot = agents.reduce(
-          (rec, agent) => { rec[String(agent.handle)] = agent; return rec },
-          {} as Record<string, Agent>,
-        )
-        this.historyBuffer.push(snapshot)
-        this.history.next([...this.historyBuffer])
+  public next(policy?: string): void {
+    if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
+    this.stepQueue.push(this.currentTrajectoryId)
+    this._drainQueue()
+  }
+
+  private _drainQueue(): void {
+    if (this.isProcessingQueue || this.stepQueue.length === 0) return
+    const trajectoryId = this.stepQueue.shift()!
+    this.isProcessingQueue = true
+    this.controllerService.stepTrajectory(trajectoryId)
+      .then((trajectoryStep) => {
+        const state: State = { steps: trajectoryStep.elapsed_steps, done: { __all__: trajectoryStep.done } }
+        return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
+          this.agents.next(agents)
+          this.state.next(state)
+          const snapshot = agents.reduce(
+            (rec, agent) => { rec[String(agent.handle)] = agent; return rec },
+            {} as Record<string, Agent>,
+          )
+          this.historyBuffer.push(snapshot)
+          this.history.next([...this.historyBuffer])
+          return state
+        })
       })
-      return state
-    })
+      .then((state) => {
+        this.isProcessingQueue = false
+        if (state.done.__all__) {
+          this.stepQueue = []
+          this.stop()
+        } else {
+          this._drainQueue()
+        }
+      })
+      .catch(() => {
+        this.isProcessingQueue = false
+        this.stepQueue = []
+      })
   }
 
   public reset(environment?: string, policy?: string) {
+    if (!environment || !policy) {
+      return
+    }
     this.stop()
     this.historyBuffer = []
     this.history.next([])
-    this.controllerService.resetEnv(environment, policy).then((state) => {
-      this.dataService.getTransitions().then((transitions) => {
-        this.dataService.getAgents().then((agents) => {
+    this.controllerService.createTrajectory(environment, policy).then((trajectoryId) => {
+      this.currentTrajectoryId = trajectoryId
+      this.dataService.getTrajectoryTransitions(trajectoryId).then((transitions) => {
+        this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
           this.agents.next(agents)
           this.transitions.next(transitions)
         })
       })
-      this.state.next(state)
+      this.state.next({ steps: 0, done: { __all__: false } })
     })
   }
 
-  public play(policy?: string) {
+  public play(policy?: string): void {
     this.interval = window.setInterval(() => {
-      this.next(policy).then(({ done }) => {
-        if (done.__all__) {
-          this.stop()
-        }
-      })
+      this.next(policy)
     }, 100)
   }
 
-  public stop() {
+  public stop(): void {
+    this.stepQueue = []
     if (this.interval) {
       clearInterval(this.interval)
       this.interval = undefined

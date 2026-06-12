@@ -1,10 +1,10 @@
 import tempfile
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
-import app.routes
-import pytest
+from app import trajectory_context
 from main import app as the_app
 
 client = TestClient(the_app)
@@ -13,7 +13,7 @@ client = TestClient(the_app)
 @pytest.fixture(scope="module", autouse=True)
 def my_fixture():
     with tempfile.TemporaryDirectory() as tmpdirname:
-        app.routes.DATA_DIR = tmpdirname
+        trajectory_context.DATA_DIR = tmpdirname
         yield
 
 
@@ -101,3 +101,132 @@ def test_reset_invalid_params():
 def test_get_trajectory_not_found():
     response = client.get("/trajectories/nonexistent-id")
     assert response.status_code == 404
+
+
+def test_post_trajectory_step():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    elapsed_steps_ = body["elapsed_steps"]
+    assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.json()["elapsed_steps"] == elapsed_steps_ + 1
+
+
+def test_post_trajectory_step_policy_runner_not_in_map():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    trajectory_context.trajectory_context_map.pop(ep_id)
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    elapsed_steps_ = body["elapsed_steps"]
+    assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
+    response = client.post(f"/trajectories/{ep_id}/step")
+    assert response.json()["elapsed_steps"] == elapsed_steps_ + 1
+
+
+def test_post_trajectory_step_with_policy():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    trajectory_context.trajectory_context_map.pop(ep_id)
+    response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "policy-1"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ep_id"] == ep_id
+    assert isinstance(body["elapsed_steps"], int) and body["elapsed_steps"] >= 1
+    assert body["policy_id"] == "policy-1"
+
+
+def test_post_trajectory_step_invalid_policy():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "nonexistent"})
+    assert response.status_code == 400
+
+
+def test_post_trajectory_step_not_found():
+    response = client.post("/trajectories/nonexistent-id/step")
+    assert response.status_code == 404
+
+
+def test_post_trajectory_fork():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    client.post(f"/trajectories/{ep_id}/step")
+    response = client.post(f"/trajectories/{ep_id}/fork")
+    assert response.status_code == 200
+    body = response.json()
+    fork_id = body["ep_id"]
+    assert fork_id != ep_id
+    UUID(fork_id)
+    assert body["policy_id"] == "policy-0"
+    assert body["env_id"] == "generated-0"
+    assert isinstance(body["elapsed_steps"], int)
+    assert fork_id in client.get("/trajectories").json()
+
+
+def test_post_trajectory_fork_not_found():
+    response = client.post("/trajectories/nonexistent-id/fork")
+    assert response.status_code == 404
+
+
+def test_post_trajectory_fork_path_traversal():
+    response = client.post("/trajectories/../../etc/passwd/fork")
+    assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_transitions():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/transitions")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+
+
+def test_get_trajectory_agents():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/agents")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    required_keys = {"handle", "position", "direction", "moving", "speed_counter", "target", "malfunction"}
+    assert all(required_keys <= set(agent.keys()) for agent in body)
+
+
+def test_get_trajectory_agents_runner_not_in_map():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    client.post(f"/trajectories/{ep_id}/step")
+    trajectory_context.trajectory_context_map.pop(ep_id)
+    response = client.get(f"/trajectories/{ep_id}/agents")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    required_keys = {"handle", "position", "direction", "moving", "speed_counter", "target", "malfunction"}
+    assert all(required_keys <= set(agent.keys()) for agent in body)
+
+
+def test_get_trajectory_transitions_not_found():
+    response = client.get("/trajectories/nonexistent-id/transitions")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agents_not_found():
+    response = client.get("/trajectories/nonexistent-id/agents")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_transitions_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/transitions")
+    assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_agents_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/agents")
+    assert response.status_code in (400, 404)
