@@ -33,6 +33,9 @@ export class MapComponent implements OnInit {
   public envOptions: SelectOption[] = []
   public currentEnv = ''
 
+  public agentOptions: SelectOption[] = []
+  public currentAgent = ''
+
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
@@ -54,7 +57,13 @@ export class MapComponent implements OnInit {
         this.mapClasses = this.rendererService.renderMap(transitions, agents)
       }),
     )
-    this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
+    this.stateService.getAgents().subscribe((agents) => {
+      this.agents = agents
+      this.agentOptions = agents.map(a => ({ value: String(a.handle), label: `Agent ${a.handle}` }))
+      if (!this.agentOptions.find(o => o.value === this.currentAgent)) {
+        this.currentAgent = this.agentOptions[0]?.value ?? ''
+      }
+    })
   }
 
   public getSteps() {
