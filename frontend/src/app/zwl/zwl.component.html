@@ -15,7 +15,7 @@
   </div>
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
-      @if (agent.position) {
+      @if (agent.position && '' + agent.handle === currentAgent) {
         <div
           class="agent"
           [class]="rendererService.getAgentClasses(agent)"
