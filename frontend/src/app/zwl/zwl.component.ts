@@ -37,7 +37,6 @@ export class ZwlComponent implements OnInit {
       if (!this.agentOptions.find(o => o.value === this.currentAgent)) {
         this.currentAgent = this.agentOptions[0]?.value ?? ''
       }
-      this.fetchAgentTransitions()
     })
   }
 
