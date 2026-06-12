@@ -104,7 +104,7 @@ class TrajectoryContext(NamedTuple):
         with meta_path.open("w") as f:
             json.dump(meta, f)
 
-        # TODO: dla is not correctly initialized
+        # TODO https://github.com/flatland-association/flatland-hmi/issues/25: dla is not correctly initialized
         if policy_id is not None:
             policy_runner.change_policy(policy, policy_map[self.meta["policy_id"]]["obs_builder_factory"]())
 
