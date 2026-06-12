@@ -216,6 +216,15 @@ async def get_trajectory_transitions(trajectory_id: str):
     return _build_transitions_content(env)
 
 
+@router.get("/trajectories/{trajectory_id}/zwl/{agent_id}")
+async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    if agent_id < 0 or agent_id >= len(env.agents):
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
+    return _build_transitions_content(env)
+
+
 @router.get("/trajectories/{trajectory_id}/agents")
 async def get_trajectory_agents(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)

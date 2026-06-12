@@ -37,6 +37,12 @@ export class DataService {
     )
   }
 
+  public getTrajectoryAgentTransitions(trajectoryId: string, agentId: string) {
+    return firstValueFrom(
+      this.http.get<Transitions>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${agentId}`),
+    )
+  }
+
   public getTrajectoryAgents(trajectoryId: string) {
     return firstValueFrom(
       this.http.get<Array<Agent>>(`${BACKEND_URL}/trajectories/${trajectoryId}/agents`),

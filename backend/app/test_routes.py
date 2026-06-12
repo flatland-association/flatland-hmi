@@ -212,6 +212,31 @@ def test_get_trajectory_agents_runner_not_in_map():
     assert all(required_keys <= set(agent.keys()) for agent in body)
 
 
+def test_get_trajectory_agent_transitions():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/zwl/0")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+
+
+def test_get_trajectory_agent_transitions_invalid_agent():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/zwl/9999")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agent_transitions_not_found():
+    response = client.get("/trajectories/nonexistent-id/zwl/0")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agent_transitions_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/zwl/0")
+    assert response.status_code in (400, 404)
+
+
 def test_get_trajectory_transitions_not_found():
     response = client.get("/trajectories/nonexistent-id/transitions")
     assert response.status_code == 404

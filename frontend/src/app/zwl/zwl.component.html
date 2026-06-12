@@ -29,7 +29,7 @@
 </div>
 
 <div class="controller">
-  <select [(ngModel)]="currentAgent">
+  <select [(ngModel)]="currentAgent" (ngModelChange)="onAgentChange()">
     @for (agentOption of agentOptions; track $index) {
       <option [value]="agentOption.value">{{ agentOption.label }}</option>
     }

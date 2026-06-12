@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
-import { Agent } from '../data.service'
+import { Agent, DataService } from '../data.service'
 import { FormsModule } from '@angular/forms'
 
 interface SelectOption {
@@ -26,14 +26,11 @@ export class ZwlComponent implements OnInit {
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
+    private dataService: DataService,
   ) {}
 
   ngOnInit() {
-    this.stateService.getTransitions().subscribe((transitions) =>
-      firstValueFrom(this.stateService.getAgents()).then((agents) => {
-        this.mapClasses = this.rendererService.renderMap(transitions, agents)
-      }),
-    )
+    this.stateService.getTransitions().subscribe(() => this.fetchAgentTransitions())
     this.stateService.getAgents().subscribe((agents) => {
       this.agents = agents
       this.agentOptions = agents.map(a => ({ value: String(a.handle), label: `Agent ${a.handle}` }))
@@ -41,5 +38,20 @@ export class ZwlComponent implements OnInit {
         this.currentAgent = this.agentOptions[0]?.value ?? ''
       }
     })
+  }
+
+  public onAgentChange() {
+    this.fetchAgentTransitions()
+  }
+
+  private fetchAgentTransitions() {
+    const trajectoryId = this.stateService.getTrajectoryId()
+    if (!trajectoryId || !this.currentAgent) return
+    this.dataService.getTrajectoryAgentTransitions(trajectoryId, this.currentAgent)
+      .then(transitions =>
+        firstValueFrom(this.stateService.getAgents()).then(agents => {
+          this.mapClasses = this.rendererService.renderMap(transitions, agents)
+        })
+      )
   }
 }

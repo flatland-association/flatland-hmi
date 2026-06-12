@@ -41,6 +41,10 @@ export class StateService {
     })
   }
 
+  public getTrajectoryId(): string | null {
+    return this.currentTrajectoryId
+  }
+
   public getTransitions() {
     return this.transitions.asObservable()
   }
