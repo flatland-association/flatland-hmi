@@ -43,7 +43,7 @@ npm install
 Run:
 
 ```bash
-
+cd frontend
 npm run start
 ```
 
