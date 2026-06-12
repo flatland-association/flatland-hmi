@@ -222,7 +222,15 @@ async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
     env = ctx.get_env()
     if agent_id < 0 or agent_id >= len(env.agents):
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
-    return _build_transitions_content(env)
+
+    grid = np.zeros(shape=env.rail.grid.shape, dtype=int)
+    p = env.distance_map.get_shortest_paths(agent_handle=agent_id)[agent_id]
+    if p is not None:
+        for wp in p:
+            wp:Waypoint
+            grid[*wp.position] = env.rail.grid[*wp.position]
+
+    return grid.tolist()
 
 
 @router.get("/trajectories/{trajectory_id}/agents")
