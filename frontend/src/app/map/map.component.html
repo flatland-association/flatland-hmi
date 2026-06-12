@@ -52,11 +52,6 @@
     }
   </select>
 
-  <select [(ngModel)]="currentAgent">
-    @for (agentOption of agentOptions; track $index) {
-      <option [value]="agentOption.value">{{ agentOption.label }}</option>
-    }
-  </select>
 
 </div>
 

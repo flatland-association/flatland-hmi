@@ -1,0 +1,37 @@
+
+<div class="map">
+  <div class="environment">
+    @for (row of mapClasses; track $index) {
+      <div class="row">
+        @for (col of row; track $index) {
+          <div class="cell" [class]="col.ground">
+            @if (col.objects) {
+              <div class="target" [class]="col.objects"></div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="agents">
+    @for (agent of agents; let i = $index; track $index) {
+      @if (agent.position) {
+        <div
+          class="agent"
+          [class]="rendererService.getAgentClasses(agent)"
+          [style.left]="agent.position[1] * 20 + 'px'"
+          [style.top]="agent.position[0] * 20 + 'px'"
+          [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+        >{{ agent.handle }}</div>
+      }
+    }
+  </div>
+</div>
+
+<div class="controller">
+  <select [(ngModel)]="currentAgent">
+    @for (agentOption of agentOptions; track $index) {
+      <option [value]="agentOption.value">{{ agentOption.label }}</option>
+    }
+  </select>
+</div>
