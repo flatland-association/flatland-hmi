@@ -5,6 +5,8 @@ from json import JSONEncoder
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
+from attr import asdict
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -15,6 +17,7 @@ from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
+from flatland.envs.rail_trainrun_data_structures import Waypoint
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 
 
@@ -26,6 +29,14 @@ class CustomEncoder(JSONEncoder):
             return {'__fraction__': True, 'as_str': str((obj.numerator, obj.denominator))}
         if isinstance(obj, SpeedCounter):
             return {'__speed_counter__': True, 'as_str': obj.__repr__()}
+        if isinstance(obj, Waypoint):
+            return asdict(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
         return super().default(obj)
 
 
@@ -210,3 +221,12 @@ async def get_trajectory_agents(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
+
+
+@router.get("/trajectories/{trajectory_id}/lines/{agent_id}")
+async def get_trajectory_lines(trajectory_id: str, agent_id: int):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    if agent_id < 0 or agent_id >= len(env.agents):
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
+    return CustomEncodedJSONResponse(content=env.agents[agent_id].waypoints)

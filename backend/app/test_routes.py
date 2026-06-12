@@ -230,3 +230,26 @@ def test_get_trajectory_transitions_path_traversal():
 def test_get_trajectory_agents_path_traversal():
     response = client.get("/trajectories/../../etc/passwd/agents")
     assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_lines():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/lines/0")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_get_trajectory_lines_invalid_agent():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/lines/9999")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_lines_not_found():
+    response = client.get("/trajectories/nonexistent-id/lines/0")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_lines_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/lines/0")
+    assert response.status_code in (400, 404)
