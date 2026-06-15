@@ -65,6 +65,16 @@ def _build_transitions_content(env) -> list:
     return env.rail.grid.tolist()
 
 
+def _build_stations_content(env) -> list:
+    stations = set()
+    for agent in env.agents:
+        if agent.initial_position is not None:
+            stations.add(tuple(int(c) for c in agent.initial_position))
+        if agent.target is not None:
+            stations.add(tuple(int(c) for c in agent.target))
+    return [list(s) for s in stations]
+
+
 def _build_agents_content(env) -> list:
     return [
         {
@@ -229,6 +239,13 @@ async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
         # identity mapping so far -> will become mapping Flatland grid to linearized grid
         "mapping": {f"{(r, c)}": (r, c) for r in range(env.height) for c in range(env.width)},
     })
+
+
+@router.get("/trajectories/{trajectory_id}/stations")
+async def get_trajectory_stations(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    return _build_stations_content(env)
 
 
 @router.get("/trajectories/{trajectory_id}/agents")

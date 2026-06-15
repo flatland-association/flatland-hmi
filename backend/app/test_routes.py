@@ -278,3 +278,23 @@ def test_get_trajectory_lines_not_found():
 def test_get_trajectory_lines_path_traversal():
     response = client.get("/trajectories/../../etc/passwd/lines/0")
     assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_stations():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/stations")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    assert all(isinstance(s, list) and len(s) == 2 for s in body)
+
+
+def test_get_trajectory_stations_not_found():
+    response = client.get("/trajectories/nonexistent-id/stations")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_stations_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/stations")
+    assert response.status_code in (400, 404)
