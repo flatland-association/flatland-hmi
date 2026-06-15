@@ -21,6 +21,8 @@ export interface PolicyOption {
   description: string
 }
 
+export type StationList = Array<[number, number]>
+
 export interface Agent {
   handle: number
   position: [number, number] | null
@@ -45,6 +47,12 @@ export class DataService {
   public getTrajectoryAgentTransitions(trajectoryId: string, agentId: string) {
     return firstValueFrom(
       this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${agentId}`),
+    )
+  }
+
+  public getTrajectoryStations(trajectoryId: string) {
+    return firstValueFrom(
+      this.http.get<StationList>(`${BACKEND_URL}/trajectories/${trajectoryId}/stations`),
     )
   }
 

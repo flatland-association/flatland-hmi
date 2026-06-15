@@ -3,7 +3,7 @@ import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
 import { State } from '../controller.service'
-import { Agent, DataService, PolicyOption } from '../data.service'
+import { Agent, DataService } from '../data.service'
 import {FormsModule} from '@angular/forms';
 
 interface SelectOption {
@@ -51,8 +51,11 @@ export class MapComponent implements OnInit {
     })
     this.stateService.getState().subscribe((state) => (this.state = state))
     this.stateService.getTransitions().subscribe((transitions) =>
-      firstValueFrom(this.stateService.getAgents()).then((agents) => {
-        this.mapClasses = this.rendererService.renderMap(transitions, agents)
+      Promise.all([
+        firstValueFrom(this.stateService.getAgents()),
+        firstValueFrom(this.stateService.getStations()),
+      ]).then(([agents, stations]) => {
+        this.mapClasses = this.rendererService.renderMap(transitions, agents, stations)
       }),
     )
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))

@@ -4,6 +4,7 @@ import { Agent, Transitions } from './data.service'
 export interface MapCell {
   ground: string
   objects?: string
+  station?: boolean
 }
 
 const BACKGROUND_CLASSES_WEIGHT = {
@@ -119,11 +120,12 @@ export class RendererService {
     return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
-  public renderMap(transitions: Transitions, agents: Array<Agent>) {
+  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: Array<[number, number]> = []) {
     const targetsMap = new Map<string, boolean>()
     for (const agent of agents) {
       targetsMap.set(getLocationKey(agent.target[0], agent.target[1]), true)
     }
+    const stationsSet = new Set(stations.map(([r, c]) => getLocationKey(r, c)))
     console.log('targetsMap', targetsMap)
     const mapClasses: Array<Array<MapCell>> = []
     for (let i = 0; i < transitions.length; i++) {
@@ -135,7 +137,8 @@ export class RendererService {
         const objects = targetsMap.has(getLocationKey(i, j))
           ? this.getTargetClasses(cell)
           : undefined
-        mapRow.push({ ground, objects })
+        const station = stationsSet.has(getLocationKey(i, j)) ? true : undefined
+        mapRow.push({ ground, objects, station })
       }
       mapClasses.push(mapRow)
     }

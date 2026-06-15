@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core'
-import { Agent, DataService, Transitions } from './data.service'
+import { Agent, DataService, StationList, Transitions } from './data.service'
 import { Observable, ReplaySubject } from 'rxjs'
 import { ControllerService, State } from './controller.service'
 
@@ -14,6 +14,7 @@ export class StateService {
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
   private plan = new ReplaySubject<number | undefined>(1)
   private currentAgent = new ReplaySubject<string>(1)
+  private stations = new ReplaySubject<StationList>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
   private currentTrajectoryId: string | null = null
@@ -30,6 +31,7 @@ export class StateService {
   ) {
     this.history.next([])
     this.plans.next([])
+    this.stations.next([])
     this.currentAgent.next("0")
     Promise.all([
       this.dataService.getEnvs(),
@@ -69,6 +71,10 @@ export class StateService {
 
   public getPlan(): Observable<number | undefined> {
     return this.plan.asObservable()
+  }
+
+  public getStations(): Observable<StationList> {
+    return this.stations.asObservable()
   }
 
   public getCurrentAgent(): Observable<string> {
@@ -133,6 +139,9 @@ export class StateService {
           this.agents.next(agents)
           this.transitions.next(transitions)
         })
+      })
+      this.dataService.getTrajectoryStations(trajectoryId).then((stations) => {
+        this.stations.next(stations)
       })
       this.state.next({ steps: 0, done: { __all__: false } })
     })

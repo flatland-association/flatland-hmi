@@ -5,6 +5,9 @@
       <div class="row">
         @for (col of row; track $index) {
           <div class="cell" [class]="col.ground">
+            @if (col.station) {
+              <div class="station"></div>
+            }
             @if (col.objects) {
               <div class="target" [class]="col.objects"></div>
             }
