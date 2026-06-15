@@ -217,8 +217,8 @@ def test_get_trajectory_agent_transitions():
     response = client.get(f"/trajectories/{ep_id}/zwl/0")
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body, list)
-    assert len(body) > 0
+    required_keys = {"grid", "mapping"}
+    assert required_keys <= set(body.keys())
 
 
 def test_get_trajectory_agent_transitions_invalid_agent():
