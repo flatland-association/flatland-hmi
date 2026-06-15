@@ -6,6 +6,11 @@ const BACKEND_URL = 'http://localhost:8000'
 
 export type Transitions = Array<Array<number>>
 
+export interface ZwlResponse {
+  grid: Transitions
+  mapping: Record<string, unknown>
+}
+
 export interface EnvOption {
   id: string
   description: string
@@ -39,7 +44,7 @@ export class DataService {
 
   public getTrajectoryAgentTransitions(trajectoryId: string, agentId: string) {
     return firstValueFrom(
-      this.http.get<Transitions>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${agentId}`),
+      this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${agentId}`),
     )
   }
 

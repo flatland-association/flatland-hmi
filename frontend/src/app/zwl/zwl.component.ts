@@ -4,6 +4,7 @@ import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
 import { Agent, DataService } from '../data.service'
 import { FormsModule } from '@angular/forms'
+import {TrainCoordinate} from '../marey/marey.component';
 
 interface SelectOption {
   value: string
@@ -22,6 +23,7 @@ export class ZwlComponent implements OnInit {
 
   public agentOptions: SelectOption[] = []
   public currentAgent = ''
+  public mapping: Record<string, unknown> = {}
 
   constructor(
     public stateService: StateService,
@@ -31,6 +33,10 @@ export class ZwlComponent implements OnInit {
 
   ngOnInit() {
     this.stateService.getTransitions().subscribe(() => this.fetchAgentTransitions())
+    this.stateService.getCurrentAgent().subscribe((agent) => {
+      this.currentAgent = agent
+    })
+
     this.stateService.getAgents().subscribe((agents) => {
       this.agents = agents
       this.agentOptions = agents.map(a => ({ value: String(a.handle), label: `Agent ${a.handle}` }))
@@ -40,8 +46,19 @@ export class ZwlComponent implements OnInit {
     })
   }
 
+  public getZwlPosition(coord: TrainCoordinate, i: string): [number, number] | null {
+    const key = `(${coord.x}, ${coord.y})`
+    const val = this.mapping[key]
+    if (Array.isArray(val) && val.length >= 2) {
+      return [val[0] as number, val[1] as number]
+    }
+    return null
+  }
+
   public onAgentChange() {
+
     this.fetchAgentTransitions()
+    this.stateService.setCurrentAgent(this.currentAgent)
   }
 
   private fetchAgentTransitions() {
@@ -50,7 +67,7 @@ export class ZwlComponent implements OnInit {
     this.dataService.getTrajectoryAgentTransitions(trajectoryId, this.currentAgent)
       .then(transitions =>
         firstValueFrom(this.stateService.getAgents()).then(agents => {
-          this.mapClasses = this.rendererService.renderMap(transitions, agents)
+          this.mapClasses = this.rendererService.renderMap(transitions.grid, agents)
         })
       )
   }

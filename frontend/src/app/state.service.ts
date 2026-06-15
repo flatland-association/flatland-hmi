@@ -13,6 +13,7 @@ export class StateService {
   private history = new ReplaySubject<Array<Record<string, Agent>>>(1)
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
   private plan = new ReplaySubject<number | undefined>(1)
+  private currentAgent = new ReplaySubject<string>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
   private currentTrajectoryId: string | null = null
@@ -29,6 +30,7 @@ export class StateService {
   ) {
     this.history.next([])
     this.plans.next([])
+    this.currentAgent.next("0")
     Promise.all([
       this.dataService.getEnvs(),
       this.dataService.getPolicies(),
@@ -67,6 +69,14 @@ export class StateService {
 
   public getPlan(): Observable<number | undefined> {
     return this.plan.asObservable()
+  }
+
+  public getCurrentAgent(): Observable<string> {
+    return this.currentAgent.asObservable()
+  }
+
+  public setCurrentAgent(currentAgent: string){
+    this.currentAgent.next(currentAgent)
   }
 
   public next(policy?: string): void {

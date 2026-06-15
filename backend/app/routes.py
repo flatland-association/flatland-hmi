@@ -17,7 +17,6 @@ from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
-from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.envs.rail_trainrun_data_structures import Waypoint
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 
@@ -224,20 +223,12 @@ async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
     if agent_id < 0 or agent_id >= len(env.agents):
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
 
-    grid = np.zeros(shape=env.rail.grid.shape, dtype=int)
-    pp = get_k_shortest_paths(
-        env,
-        source_position=env.agents[agent_id].initial_position,
-        source_direction=env.agents[agent_id].initial_direction,
-        target_position=env.agents[agent_id].target,
-        k=10
-    )
-    for p in pp:
-        for wp in p:
-            wp: Waypoint
-            grid[*wp.position] = env.rail.grid[*wp.position]
-
-    return grid.tolist()
+    return CustomEncodedJSONResponse(content={
+        # full unmodified grid so far -> will become linearized grid
+        "grid": env.rail.grid.tolist(),
+        # identity mapping so far -> will become mapping Flatland grid to linearized grid
+        "mapping": {f"{(r, c)}": (r, c) for r in range(env.height) for c in range(env.width)},
+    })
 
 
 @router.get("/trajectories/{trajectory_id}/agents")

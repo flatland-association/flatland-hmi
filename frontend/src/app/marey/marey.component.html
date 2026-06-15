@@ -134,7 +134,7 @@
     @for (train of plan; track $index) {
       <g>
         <polyline
-          [attr.points]="getPolylinePoints(train.coordinates)"
+          [attr.points]="getPolylinePoints(train.coordinates,  i.toString())"
           [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
           fill="none"
           stroke-width="3"
@@ -151,7 +151,7 @@
     </filter>
     <g>
       <polyline
-        [attr.points]="getPolylinePoints(train.coordinates)"
+        [attr.points]="getPolylinePoints(train.coordinates, i.toString())"
         fill="none"
         stroke="red"
         stroke-width="3"

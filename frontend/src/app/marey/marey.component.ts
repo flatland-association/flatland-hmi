@@ -1,13 +1,16 @@
 import { DecimalPipe } from '@angular/common'
 import { Component, Input } from '@angular/core'
 import { StateService } from '../state.service'
-import { Agent } from '../data.service'
 import { ControllerService, State } from '../controller.service'
+import { Agent, DataService } from '../data.service'
+import { firstValueFrom, Observable, Subject } from 'rxjs'
 
 export interface TrainCoordinate {
   x: number
   y: number
+  t: number
 }
+
 
 export interface TrainRun {
   name?: string
@@ -44,7 +47,7 @@ export class MareyComponent {
     let max = 0
     this.trainRuns.forEach((train) => {
       train.coordinates.forEach((coord) => {
-        max = Math.max(max, coord.y)
+        max = Math.max(max, coord.t)
       })
     })
     return max + PLAN_CUTTOFF
@@ -59,12 +62,26 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
+  public mapping: Record<string, unknown> = {}
+
   constructor(
     public stateService: StateService,
     public controllerService: ControllerService,
-  ) {}
+    private dataService: DataService,
+  ) {
+  }
 
   ngOnInit() {
+    this.stateService.getCurrentAgent().subscribe((currentAgent) => {
+      const trajectoryId = this.stateService.getTrajectoryId()
+      if (!trajectoryId || !currentAgent) return
+      this.dataService.getTrajectoryAgentTransitions(trajectoryId, currentAgent)
+        .then(data =>
+          firstValueFrom(this.stateService.getAgents()).then(agents => {
+            this.mapping = data.mapping
+          })
+        )
+    })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
     })
@@ -82,11 +99,12 @@ export class MareyComponent {
         return {
           name,
           coordinates: coordinates
-            .map(({ position }, index) => ({
-              x: position?.[1] ?? undefined,
-              y: index,
+            .map(({position}, index) => ({
+              x: position?.[0] ?? undefined,
+              y: position?.[1] ?? undefined,
+              t: index,
             }))
-            .filter((coord): coord is { x: number; y: number } => coord.x !== undefined),
+            .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
         }
       })
     })
@@ -105,13 +123,12 @@ export class MareyComponent {
           return {
             name,
             coordinates: coordinates
-              .map(({ position }, index) => ({
-                x: position?.[1] ?? undefined,
-                y: this.timestep + index,
+              .map(({position}, index) => ({
+                x: position?.[0] ?? undefined,
+                y: position?.[1] ?? undefined,
+                t: index,
               }))
-              .filter(
-                (coord, index): coord is { x: number; y: number } => coord.x !== undefined && index < PLAN_CUTTOFF,
-              ),
+              .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
           }
         })
       })
@@ -123,13 +140,37 @@ export class MareyComponent {
     })
   }
 
-  getPolylinePoints(coordinates: TrainCoordinate[]): string {
-    return coordinates
+  public getZwlPosition(coord: TrainCoordinate, i: string): [number, number] | null {
+    const key = `(${coord.x}, ${coord.y})`
+
+    const val = this.mapping[key]
+    if (i == "0") {
+      console.log(`   ${key} --> ${val}   : ${this.mapping}`)
+    }
+    if (Array.isArray(val) && val.length >= 2) {
+      return [val[0] as number, val[1] as number]
+    }
+    return null
+  }
+
+
+  getPolylinePoints(coordinates: TrainCoordinate[], i: string): string {
+    let polyPoints = coordinates
       .map((coord) => {
-        const x = this.marginLeft + (coord.x / this.maxDistance) * this.chartWidth
-        const y = this.marginTop + (coord.y / this.maxTime) * this.chartHeight
+        const zwlPos = this.getZwlPosition(coord, i)
+        if (zwlPos === null) {
+          return null
+        }
+        const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
+        const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
+        // console.log(`${x},${y}`)
         return `${x},${y}`
       })
-      .join(' ')
+      .filter((v) => v != null)
+      .join(' ');
+    if (i == "0") {
+      console.log(`${i}: ${polyPoints} ${coordinates}`)
+    }
+    return polyPoints
   }
 }
