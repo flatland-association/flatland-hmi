@@ -144,9 +144,9 @@ export class MareyComponent {
     this.dataService.getTrajectoryLines(this.trajectoryId).then((lines) => {
       const line = lines[lineIndex]
       if (line) {
-        this.startStationName = `City ${line.city_from}`
-        this.endStationName = `City ${line.city_to}`
-        this.selectedLineLabel = `Line ${lineIndex} (city ${line.city_from} → ${line.city_to})`
+        this.startStationName = line.start_station_name
+        this.endStationName = line.end_station_name
+        this.selectedLineLabel = line.label
       }
     })
     this.dataService.getTrajectoryLineTransitions(this.trajectoryId, `${lineIndex}`)

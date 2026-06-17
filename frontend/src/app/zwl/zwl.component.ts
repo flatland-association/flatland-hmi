@@ -83,7 +83,7 @@ export class ZwlComponent implements OnInit {
     this.dataService.getTrajectoryLines(this.trajectoryId).then((lines) => {
       this.lineOptions = lines.map((l, i) => ({
         value: String(i),
-        label: `Line ${i} (city ${l.city_from} → ${l.city_to})`,
+        label: l.label,
       }))
       if (!this.lineOptions.find(o => o.value === this.selectedLine)) {
         this.selectedLine = this.lineOptions[0]?.value ?? ''

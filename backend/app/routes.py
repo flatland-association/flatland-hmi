@@ -418,12 +418,24 @@ async def get_trajectory_agents(trajectory_id: str):
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
 
 
+def _enrich_line(line: dict, line_id: int) -> dict:
+    return {
+        **line,
+        "label": f"Line {line_id} (city {line['city_from']} → {line['city_to']})",
+        "start_station_name": f"City {line['city_from']}",
+        "end_station_name": f"City {line['city_to']}",
+    }
+
+
 @router.get("/trajectories/{trajectory_id}/lines/")
 async def get_trajectory_lines_list(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_content(env)
-    return CustomEncodedJSONResponse(content=stations_lines["inter_city_lines"])
+    return CustomEncodedJSONResponse(content=[
+        _enrich_line(line, i)
+        for i, line in enumerate(stations_lines["inter_city_lines"])
+    ])
 
 
 @router.get("/trajectories/{trajectory_id}/lines/{line_id}")
@@ -433,4 +445,4 @@ async def get_trajectory_lines(trajectory_id: str, line_id: int):
     stations_lines = _build_stations_content(env)
     if line_id < 0 or line_id >= len(stations_lines["inter_city_lines"]):
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
-    return CustomEncodedJSONResponse(content=env.agents[line_id].waypoints)
+    return CustomEncodedJSONResponse(content=_enrich_line(stations_lines["inter_city_lines"][line_id], line_id))

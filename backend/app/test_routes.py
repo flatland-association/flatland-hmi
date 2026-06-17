@@ -261,7 +261,9 @@ def test_get_trajectory_lines():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
     response = client.get(f"/trajectories/{ep_id}/lines/0")
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    body = response.json()
+    assert isinstance(body, dict)
+    assert {"label", "start_station_name", "end_station_name", "city_from", "city_to"} <= body.keys()
 
 
 def test_get_trajectory_lines_invalid_agent():

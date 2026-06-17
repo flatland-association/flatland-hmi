@@ -37,6 +37,9 @@ export interface LineOption {
   city_to: number
   city_from_dir: number
   city_to_dir: number
+  label: string
+  start_station_name: string
+  end_station_name: string
 }
 
 export interface Agent {
