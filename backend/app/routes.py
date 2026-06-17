@@ -102,6 +102,11 @@ def _build_stations_content(env) -> dict:
                                                           enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
 
         reverse_outer_connection_points_per_city = {vv: k for k, v in outer_connection_points_per_city.items() for vv in v}
+        reverse_outer_connection_points_per_city_track = {pin: j for i, city in
+                                                          enumerate(env.optionals["agents_hints"]["outer_connection_points"]) for direction in city for j, pin
+                                                          in enumerate(direction)}
+        print("reverse_outer_connection_points_per_city_track")
+        print(reverse_outer_connection_points_per_city_track)
 
         reverse_outer_connection_points_per_city_and_direction = {pin: (city, direction) for city, pins_per_direction in
                                                                   outer_connection_points_per_city_and_direction.items() for direction, pins in
@@ -127,10 +132,15 @@ def _build_stations_content(env) -> dict:
                 {
                     "start": list(p[0]),
                     "end": list(p[-1]),
+                    # 0, 1, 2, 3
                     "city_from": reverse_outer_connection_points_per_city[p[0]],
                     "city_to": reverse_outer_connection_points_per_city[p[-1]],
+                    # 0, 1, 2, 3
                     "city_from_dir": reverse_outer_connection_points_per_city_and_direction[p[0]],
                     "city_to_dir": reverse_outer_connection_points_per_city_and_direction[p[-1]],
+                    # 0, 1, ...
+                    "city_from_track": reverse_outer_connection_points_per_city_track[p[0]],
+                    "city_to_track": reverse_outer_connection_points_per_city_track[p[0]],
                     "cells": p
                 }
                 for p in env.optionals["agents_hints"]["inter_city_lines"]
@@ -324,7 +334,7 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     x_offset = 30
     grid[y_offset:city_bb.shape[0] + y_offset, x_offset:city_bb.shape[1] + x_offset] = city_bb
 
-    grid = grid[:,:x_offset+city_bb.shape[1]]
+    grid = grid[:, :x_offset + city_bb.shape[1]]
 
     mapping2 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping2.items()}
 
@@ -418,10 +428,17 @@ async def get_trajectory_agents(trajectory_id: str):
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
 
 
+_DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
+
+
 def _enrich_line(line: dict, line_id: int) -> dict:
+    from_dir = _DIRECTION_NAMES.get(line['city_from_dir'][1], str(line['city_from_dir'][1]))
+    to_dir = _DIRECTION_NAMES.get(line['city_to_dir'][1], str(line['city_to_dir'][1]))
+    from_track = line['city_from_track']
+    to_track = line['city_to_track']
     return {
         **line,
-        "label": f"Line {line_id} (city {line['city_from']} → {line['city_to']})",
+        "label": f"Line {line_id} (city {line['city_from']} {from_dir}.{from_track} → city {line['city_to']} {to_dir}.{to_track})",
         "start_station_name": f"City {line['city_from']}",
         "end_station_name": f"City {line['city_to']}",
     }
