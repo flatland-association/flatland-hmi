@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core'
-import { Agent, DataService, StationsResponse, Transitions } from './data.service'
-import { Observable, ReplaySubject } from 'rxjs'
-import { ControllerService, State } from './controller.service'
+import {Injectable} from '@angular/core'
+import {Agent, DataService, LineOption, StationsResponse, Transitions, ZwlResponse} from './data.service'
+import {combineLatest, filter, from, Observable, ReplaySubject, switchMap} from 'rxjs'
+import {ControllerService, State} from './controller.service'
 
 @Injectable({
   providedIn: 'root',
@@ -15,10 +15,12 @@ export class StateService {
   private plan = new ReplaySubject<number | undefined>(1)
   private selectedLine = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
+  private lines = new ReplaySubject<Array<LineOption>>(1)
+  private lineTransitions = new ReplaySubject<ZwlResponse>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
   private trajectoryId = new ReplaySubject<string | null>(1)
-  private currentTrajectoryId : string | null = null
+  private currentTrajectoryId: string | null = null
   private stepQueue: string[] = []
   private isProcessingQueue = false
 
@@ -32,7 +34,14 @@ export class StateService {
   ) {
     this.history.next([])
     this.plans.next([])
-    this.stations.next({ city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, train_station_labels: {}, outer_connection_point_labels: {} })
+    this.stations.next({
+      city_cells: {},
+      outer_connection_points_per_city: {},
+      inter_city_lines: [],
+      train_stations: {},
+      train_station_labels: {},
+      outer_connection_point_labels: {}
+    })
     this.selectedLine.next("0")
     Promise.all([
       this.dataService.getEnvs(),
@@ -44,10 +53,24 @@ export class StateService {
         this.reset(defaultEnv, defaultPolicy)
       }
     })
-    this.trajectoryId.subscribe((trajectoryId) => {this.currentTrajectoryId = trajectoryId})
+    this.trajectoryId.subscribe((trajectoryId) => {
+      this.currentTrajectoryId = trajectoryId
+    })
+
+    const nonNullTrajectoryId = this.trajectoryId.pipe(filter((id): id is string => id !== null))
+
+    nonNullTrajectoryId.pipe(
+      switchMap(trajectoryId => from(this.dataService.getTrajectoryLines(trajectoryId)))
+    ).subscribe(lines => this.lines.next(lines))
+
+    combineLatest([nonNullTrajectoryId, this.selectedLine]).pipe(
+      switchMap(([trajectoryId, selectedLine]) =>
+        from(this.dataService.getTrajectoryLineTransitions(trajectoryId, selectedLine))
+      )
+    ).subscribe(transitions => this.lineTransitions.next(transitions))
   }
 
-  public getTrajectoryId(){
+  private getTrajectoryId() {
     return this.trajectoryId.asObservable()
   }
 
@@ -83,7 +106,15 @@ export class StateService {
     return this.selectedLine.asObservable()
   }
 
-  public setSelectedLine(line: string) {
+  public getLines(): Observable<Array<LineOption>> {
+    return this.lines.asObservable()
+  }
+
+  public getLineTransitions(): Observable<ZwlResponse> {
+    return this.lineTransitions.asObservable()
+  }
+
+  public selectLine(line: string) {
     this.selectedLine.next(line)
   }
 
@@ -99,12 +130,15 @@ export class StateService {
     this.isProcessingQueue = true
     this.controllerService.stepTrajectory(trajectoryId)
       .then((trajectoryStep) => {
-        const state: State = { steps: trajectoryStep.elapsed_steps, done: { __all__: trajectoryStep.done } }
+        const state: State = {steps: trajectoryStep.elapsed_steps, done: {__all__: trajectoryStep.done}}
         return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
           this.agents.next(agents)
           this.state.next(state)
           const snapshot = agents.reduce(
-            (rec, agent) => { rec[String(agent.handle)] = agent; return rec },
+            (rec, agent) => {
+              rec[String(agent.handle)] = agent;
+              return rec
+            },
             {} as Record<string, Agent>,
           )
           this.historyBuffer.push(snapshot)
@@ -145,7 +179,7 @@ export class StateService {
       this.dataService.getTrajectoryStations(trajectoryId).then((stations) => {
         this.stations.next(stations)
       })
-      this.state.next({ steps: 0, done: { __all__: false } })
+      this.state.next({steps: 0, done: {__all__: false}})
       this.selectedLine.next("0")
     })
   }

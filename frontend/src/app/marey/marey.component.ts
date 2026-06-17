@@ -2,8 +2,8 @@ import {DecimalPipe} from '@angular/common'
 import {Component, Input} from '@angular/core'
 import {StateService} from '../state.service'
 import {ControllerService} from '../controller.service'
-import {Agent, DataService} from '../data.service'
-import {firstValueFrom} from 'rxjs'
+import {Agent} from '../data.service'
+import {combineLatest} from 'rxjs'
 
 export interface TrainCoordinate {
   x: number
@@ -66,19 +66,33 @@ export class MareyComponent {
   public startStationName = ''
   public endStationName = ''
   public selectedLineLabel = ''
-  public trajectoryId: string | null = null
+  public selectedLine: number = 0
 
   constructor(
     public stateService: StateService,
     public controllerService: ControllerService,
-    private dataService: DataService,
   ) {
   }
 
   ngOnInit() {
-    this.stateService.getTrajectoryId().subscribe((trajectoryId) => {this.trajectoryId = trajectoryId})
-    this.stateService.getSelectedLine().subscribe((selectedLine) => {
-      this.updateLine(parseInt(selectedLine));
+    combineLatest([
+      this.stateService.getLines(),
+      this.stateService.getLineTransitions(),
+      this.stateService.getSelectedLine(),
+    ]).subscribe(([lines, data, selectedLine]) => {
+      this.selectedLine = parseInt(selectedLine)
+      const line = lines[this.selectedLine]
+      if (line) {
+        this.startStationName = line.start_station_name
+        this.endStationName = line.end_station_name
+        this.selectedLineLabel = line.label
+      }
+      this.mapping = new Map()
+      for (const [[r, c], [mr, mc]] of data.mapping) {
+        if (!this.mapping.has(r)) this.mapping.set(r, new Map())
+        this.mapping.get(r)!.set(c, [mr, mc])
+      }
+      this.maxDistance = data.grid[0].length
     })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
@@ -134,32 +148,7 @@ export class MareyComponent {
       this.trainRuns = []
       this.plannedRuns = []
       this.timestep = 0
-      this.updateLine(0)
     })
-  }
-
-  private updateLine(lineIndex: number) {
-    if (!this.trajectoryId || !lineIndex) return
-
-    this.dataService.getTrajectoryLines(this.trajectoryId).then((lines) => {
-      const line = lines[lineIndex]
-      if (line) {
-        this.startStationName = line.start_station_name
-        this.endStationName = line.end_station_name
-        this.selectedLineLabel = line.label
-      }
-    })
-    this.dataService.getTrajectoryLineTransitions(this.trajectoryId, `${lineIndex}`)
-      .then(data =>
-        firstValueFrom(this.stateService.getAgents()).then(agents => {
-          this.mapping = new Map()
-          for (const [[r, c], [mr, mc]] of data.mapping) {
-            if (!this.mapping.has(r)) this.mapping.set(r, new Map())
-            this.mapping.get(r)!.set(c, [mr, mc])
-          }
-          this.maxDistance = data.grid[0].length
-        })
-      )
   }
 
   public getZwlPosition(coord: TrainCoordinate): [number, number] | null {
