@@ -31,6 +31,7 @@ export interface StationsResponse {
     city_to: number
   }>
   train_stations: Record<string, Array<[[number, number], number]>>
+  outer_connection_point_labels: Record<string, string>
 }
 
 export interface LineOption {

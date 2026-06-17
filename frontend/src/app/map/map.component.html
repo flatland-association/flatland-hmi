@@ -32,6 +32,19 @@
       </div>
     }
   </div>
+  <div class="ocp-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+      <div class="ocp-row">
+        @for (col of row; let colIndex = $index; track $index) {
+          <div class="ocp-cell">
+            @if (col.outerConnectionPointLabel) {
+              <div class="ocp-label">{{ col.outerConnectionPointLabel }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
       @if (agent.position) {

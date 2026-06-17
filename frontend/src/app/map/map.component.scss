@@ -182,6 +182,36 @@
     }
   }
 
+  .ocp-labels {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 8;
+    pointer-events: none;
+
+    .ocp-row {
+      display: flex;
+      flex-direction: row;
+    }
+
+    .ocp-cell {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      position: relative;
+    }
+
+    .ocp-label {
+      position: absolute;
+      top: 0;
+      left: 1px;
+      font-size: 7px;
+      line-height: 1;
+      color: black;
+      text-shadow: 0 0 2px black;
+    }
+  }
+
   .track-numbers {
     position: absolute;
     left: 0;

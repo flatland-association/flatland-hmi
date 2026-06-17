@@ -6,6 +6,7 @@ export interface MapCell {
   objects?: string
   station?: boolean
   outerConnectionPoint?: boolean
+  outerConnectionPointLabel?: string
   trackNumber?: number
 }
 
@@ -122,7 +123,7 @@ export class RendererService {
     return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
-  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = { city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {} }) {
+  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = { city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, outer_connection_point_labels: {} }) {
     const trainStationMap = new Map<string, { rotationClass: string; trackNumber: number }>()
     for (const cityStations of Object.values(stations.train_stations)) {
       cityStations.forEach(([[r, c], dir], trackIdx) => {
@@ -146,13 +147,16 @@ export class RendererService {
         const objects = trainStation?.rotationClass
         const trackNumber = trainStation?.trackNumber
         const outerConnectionPoint = outerConnectionPointsSet.has(getLocationKey(i, j)) ? true : undefined
+        const outerConnectionPointLabel = outerConnectionPoint
+          ? (stations.outer_connection_point_labels[getLocationKey(i, j)] ?? undefined)
+          : undefined
         let station = stationsSet.has(getLocationKey(i, j)) ? true : undefined
         // either station or outerConnectionPoint
         if (outerConnectionPoint) {
           station = undefined
         }
 
-        mapRow.push({ ground, objects, station, outerConnectionPoint, trackNumber })
+        mapRow.push({ ground, objects, station, outerConnectionPoint, outerConnectionPointLabel, trackNumber })
       }
       mapClasses.push(mapRow)
     }
