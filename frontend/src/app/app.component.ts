@@ -1,11 +1,10 @@
 import {Component, effect, inject, OnInit} from '@angular/core'
-import {Router, RouterOutlet} from '@angular/router'
+import {Router} from '@angular/router'
 import {
   FooterNavLink,
   HeaderNavLink,
   HeaderUserMenu,
   LayoutComponent,
-  ModalComponent,
 } from '@flatland-association/flatland-ui'
 import {faArrowUpRightFromSquare} from '@fortawesome/free-solid-svg-icons'
 import {OAuthModule} from 'angular-oauth2-oidc'
@@ -17,7 +16,7 @@ import {ZwlComponent} from './zwl/zwl.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, LayoutComponent, ModalComponent, OAuthModule, MareyComponent, MapComponent, ZwlComponent], //, BreadcrumbsComponent],
+  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, ZwlComponent], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

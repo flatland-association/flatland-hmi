@@ -22,8 +22,8 @@ export class ZwlComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
 
-  public agentOptions: SelectOption[] = []
-  public currentAgent = ''
+  public lineOptions: SelectOption[] = []
+  public selectedLine = ''
   public mapping: Record<string, unknown> = {}
   public reverseMapping: Record<string, [number, number]> = {}
 
@@ -35,19 +35,8 @@ export class ZwlComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.stateService.getTransitions().subscribe(() => this.fetchAgentTransitions())
-    this.stateService.getCurrentAgent().subscribe((currentAgent) => {
-      this.currentAgent = currentAgent
-      this.fetchAgentTransitions()
-    })
-
-    this.stateService.getAgents().subscribe((agents) => {
-      this.agents = agents
-      this.agentOptions = agents.map(a => ({ value: String(a.handle), label: `Agent ${a.handle}` }))
-      if (!this.agentOptions.find(o => o.value === this.currentAgent)) {
-        this.currentAgent = this.agentOptions[0]?.value ?? ''
-      }
-    })
+    this.stateService.getTransitions().subscribe(() => this.fetchLineTransitions())
+    this.stateService.getAgents().subscribe((agents) => { this.agents = agents })
   }
 
   private setMapping(mapping: Record<string, unknown>) {
@@ -77,14 +66,30 @@ export class ZwlComponent implements OnInit {
     return null
   }
 
-  public onAgentChange() {
-    this.stateService.setCurrentAgent(this.currentAgent)
+  public onLineChange() {
+    this.stateService.setSelectedLine(this.selectedLine)
+    const trajectoryId = this.stateService.getTrajectoryId()
+    if (trajectoryId) this.fetchZwlForselectedLine(trajectoryId)
   }
 
-  private fetchAgentTransitions() {
+  private fetchLineTransitions() {
     const trajectoryId = this.stateService.getTrajectoryId()
-    if (!trajectoryId || !this.currentAgent) return
-    this.dataService.getTrajectoryAgentTransitions(trajectoryId, this.currentAgent)
+    if (!trajectoryId) return
+    this.dataService.getTrajectoryLines(trajectoryId).then((lines) => {
+      this.lineOptions = lines.map((l, i) => ({
+        value: String(i),
+        label: `Line ${i} (city ${l.city_from} → ${l.city_to})`,
+      }))
+      if (!this.lineOptions.find(o => o.value === this.selectedLine)) {
+        this.selectedLine = this.lineOptions[0]?.value ?? ''
+      }
+      this.fetchZwlForselectedLine(trajectoryId)
+    })
+  }
+
+  private fetchZwlForselectedLine(trajectoryId: string) {
+    if (!this.selectedLine) return
+    this.dataService.getTrajectoryLineTransitions(trajectoryId, this.selectedLine)
       .then(data =>
         firstValueFrom(this.stateService.getAgents()).then(agents => {
           this.mapClasses = this.rendererService.renderMap(data.grid, agents)

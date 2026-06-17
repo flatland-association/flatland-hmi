@@ -13,7 +13,7 @@ export class StateService {
   private history = new ReplaySubject<Array<Record<string, Agent>>>(1)
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
   private plan = new ReplaySubject<number | undefined>(1)
-  private currentAgent = new ReplaySubject<string>(1)
+  private selectedLine = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
@@ -32,7 +32,7 @@ export class StateService {
     this.history.next([])
     this.plans.next([])
     this.stations.next({ city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [] })
-    this.currentAgent.next("0")
+    this.selectedLine.next("0")
     Promise.all([
       this.dataService.getEnvs(),
       this.dataService.getPolicies(),
@@ -77,12 +77,12 @@ export class StateService {
     return this.stations.asObservable()
   }
 
-  public getCurrentAgent(): Observable<string> {
-    return this.currentAgent.asObservable()
+  public getSelectedLine(): Observable<string> {
+    return this.selectedLine.asObservable()
   }
 
-  public setCurrentAgent(currentAgent: string){
-    this.currentAgent.next(currentAgent)
+  public setSelectedLine(line: string) {
+    this.selectedLine.next(line)
   }
 
   public next(policy?: string): void {

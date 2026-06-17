@@ -72,10 +72,10 @@ export class MareyComponent {
   }
 
   ngOnInit() {
-    this.stateService.getCurrentAgent().subscribe((currentAgent) => {
+    this.stateService.getSelectedLine().subscribe((selectedLine) => {
       const trajectoryId = this.stateService.getTrajectoryId()
-      if (!trajectoryId || !currentAgent) return
-      this.dataService.getTrajectoryAgentTransitions(trajectoryId, currentAgent)
+      if (!trajectoryId || !selectedLine) return
+      this.dataService.getTrajectoryLineTransitions(trajectoryId, selectedLine)
         .then(data =>
           firstValueFrom(this.stateService.getAgents()).then(agents => {
             this.mapping = data.mapping

@@ -18,7 +18,9 @@ from pydantic import BaseModel
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.trajectory_context import TrajectoryContext
+from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
+from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.rail_trainrun_data_structures import Waypoint
@@ -76,7 +78,7 @@ def _build_stations_content(env) -> dict:
             stations.add(tuple(int(c) for c in agent.initial_position))
         if agent.target is not None:
             stations.add(tuple(int(c) for c in agent.target))
-    # TODO abstract data model independent from sparse rail gen and move to sparse rail gen
+    # TODO abstract data model independent from sparse rail gen and move to sparse rail gen https://github.com/flatland-association/flatland-rl/pull/441/changes
     print("_build_stations_content")
     if hasattr(env, "optionals") or True:
         print("_build_stations_content 2")
@@ -290,33 +292,34 @@ async def get_trajectory_transitions(trajectory_id: str):
     return _build_transitions_content(env)
 
 
-@router.get("/trajectories/{trajectory_id}/zwl/{agent_id}")
-async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
+@router.get("/trajectories/{trajectory_id}/zwl/{line_id}")
+async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    if agent_id < 0 or agent_id >= len(env.agents):
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
-
     stations_lines = _build_stations_content(env)
+    if line_id < 0 or line_id >= len(stations_lines["inter_city_lines"]):
+        raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
+
     outer_connection_points_per_city_and_direction = stations_lines["outer_connection_points_per_city_and_direction"]
 
     reverse_outer_connection_points_per_city_and_direction = {pin: (city, direction) for city, pins_per_direction in
                                                               outer_connection_points_per_city_and_direction.items() for direction, pins in
                                                               pins_per_direction.items() for pin in pins}
 
-    line = stations_lines["inter_city_lines"][agent_id]
+    line = stations_lines["inter_city_lines"][line_id]
     print("line")
     print(line)
     city_1, city_1_facing = reverse_outer_connection_points_per_city_and_direction[tuple(line["start"])]
     city_2, city_2_facing = reverse_outer_connection_points_per_city_and_direction[tuple(line["end"])]
 
-    grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50))
+    grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
 
     city_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
 
     grid[:city_bb.shape[0], :city_bb.shape[1]] = city_bb
 
     city_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
+    # TODO use line distance for offset, also y offset via connection points, so line is straight
     y_offset = 00
     x_offset = 30
     grid[y_offset:city_bb.shape[0] + y_offset, x_offset:city_bb.shape[1] + x_offset] = city_bb
@@ -325,10 +328,27 @@ async def get_trajectory_agent_transitions(trajectory_id: str, agent_id: int):
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
 
+    start = tuple(line["start"])
+    end = tuple(line["end"])
+
+    path = connect_rail_in_grid_map(
+        grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+        rail_trans=RailEnvTransitions(),
+        start=mapping[start],
+        end=mapping[end],
+    )
+    print("path")
+    print(path)
+    assert path[0] == mapping[start]
+    assert path[-1] == mapping[end]
+    factor = len(line["cells"]) / len(path)
+    for i, cell in enumerate(path):
+        mapping[line["cells"][int(i * factor)]] = cell
+
     return CustomEncodedJSONResponse(content={
-        # full unmodified grid so far -> will become linearized grid
+        # ZWL grid
         "grid": grid,
-        # identity mapping so far -> will become mapping Flatland grid to linearized grid
+        # env -> ZWL coordindates
         "mapping": {f"{(r, c)}": v for (r, c), v in mapping.items()},
         "city_cells_bbox": city_cells_bbox,
     })
@@ -370,20 +390,14 @@ def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stat
     mapping = {}
     for r in range(height):
         for c in range(width):
-            print(f"orig {r, c}")
             r_, c_ = r, c
             max_r, max_c = height - 1, width - 1
             for _ in range(num_rot):
-                print("__")
-                print(f"{r_}, {c_}")
-                print(f"{max_r}, {max_c}")
                 assert 0 <= r_ <= max_r
                 assert 0 <= c_ <= max_c
                 r_, c_ = rotate(r_, c_, max_r)
                 max_r, max_c = max_c, max_r
             mapping[(city_cells_bbox["min_row"] + r, city_cells_bbox["min_col"] + c)] = r_, c_
-    print("mapping")
-    print(mapping)
     return city_bb, city_cells_bbox, mapping
 
 
@@ -401,10 +415,19 @@ async def get_trajectory_agents(trajectory_id: str):
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
 
 
-@router.get("/trajectories/{trajectory_id}/lines/{agent_id}")
-async def get_trajectory_lines(trajectory_id: str, agent_id: int):
+@router.get("/trajectories/{trajectory_id}/lines/")
+async def get_trajectory_lines_list(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    if agent_id < 0 or agent_id >= len(env.agents):
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found.")
-    return CustomEncodedJSONResponse(content=env.agents[agent_id].waypoints)
+    stations_lines = _build_stations_content(env)
+    return CustomEncodedJSONResponse(content=stations_lines["inter_city_lines"])
+
+
+@router.get("/trajectories/{trajectory_id}/lines/{line_id}")
+async def get_trajectory_lines(trajectory_id: str, line_id: int):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    stations_lines = _build_stations_content(env)
+    if line_id < 0 or line_id >= len(stations_lines["inter_city_lines"]):
+        raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
+    return CustomEncodedJSONResponse(content=env.agents[line_id].waypoints)
