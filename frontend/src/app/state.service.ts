@@ -17,7 +17,8 @@ export class StateService {
   private stations = new ReplaySubject<StationsResponse>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
   private interval?: number
-  private currentTrajectoryId: string | null = null
+  private trajectoryId = new ReplaySubject<string | null>(1)
+  private currentTrajectoryId : string | null = null
   private stepQueue: string[] = []
   private isProcessingQueue = false
 
@@ -43,10 +44,11 @@ export class StateService {
         this.reset(defaultEnv, defaultPolicy)
       }
     })
+    this.trajectoryId.subscribe((trajectoryId) => {this.currentTrajectoryId = trajectoryId})
   }
 
-  public getTrajectoryId(): string | null {
-    return this.currentTrajectoryId
+  public getTrajectoryId(){
+    return this.trajectoryId.asObservable()
   }
 
   public getTransitions() {
@@ -133,7 +135,7 @@ export class StateService {
     this.historyBuffer = []
     this.history.next([])
     this.controllerService.createTrajectory(environment, policy).then((trajectoryId) => {
-      this.currentTrajectoryId = trajectoryId
+      this.trajectoryId.next(trajectoryId)
       this.dataService.getTrajectoryTransitions(trajectoryId).then((transitions) => {
         this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
           this.agents.next(agents)
@@ -144,6 +146,7 @@ export class StateService {
         this.stations.next(stations)
       })
       this.state.next({ steps: 0, done: { __all__: false } })
+      this.selectedLine.next("0")
     })
   }
 

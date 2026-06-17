@@ -1,9 +1,9 @@
-import { DecimalPipe } from '@angular/common'
-import { Component, Input } from '@angular/core'
-import { StateService } from '../state.service'
-import { ControllerService, State } from '../controller.service'
-import { Agent, DataService } from '../data.service'
-import { firstValueFrom, Observable, Subject } from 'rxjs'
+import {DecimalPipe} from '@angular/common'
+import {Component, Input} from '@angular/core'
+import {StateService} from '../state.service'
+import {ControllerService} from '../controller.service'
+import {Agent, DataService} from '../data.service'
+import {firstValueFrom} from 'rxjs'
 
 export interface TrainCoordinate {
   x: number
@@ -63,6 +63,10 @@ export class MareyComponent {
   public selectedPlan?: number
 
   public mapping: Record<string, unknown> = {}
+  public startStationName = ''
+  public endStationName = ''
+  public selectedLineLabel = ''
+  public trajectoryId: string | null = null
 
   constructor(
     public stateService: StateService,
@@ -72,20 +76,13 @@ export class MareyComponent {
   }
 
   ngOnInit() {
+    this.stateService.getTrajectoryId().subscribe((trajectoryId) => {this.trajectoryId = trajectoryId})
     this.stateService.getSelectedLine().subscribe((selectedLine) => {
-      const trajectoryId = this.stateService.getTrajectoryId()
-      if (!trajectoryId || !selectedLine) return
-      this.dataService.getTrajectoryLineTransitions(trajectoryId, selectedLine)
-        .then(data =>
-          firstValueFrom(this.stateService.getAgents()).then(agents => {
-            this.mapping = data.mapping
-          })
-        )
+      this.updateLine(parseInt(selectedLine));
     })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
     })
-    this.stateService.getTransitions().subscribe((transitions) => (this.maxDistance = transitions[0].length - 1))
     this.stateService.getHistory().subscribe((history) => {
       this.timestep = history.length
       const agentHistories = history.reduce((agentHistory: Record<string, Agent[]>, timestep) => {
@@ -137,7 +134,28 @@ export class MareyComponent {
       this.trainRuns = []
       this.plannedRuns = []
       this.timestep = 0
+      this.updateLine(0)
     })
+  }
+
+  private updateLine(lineIndex: number) {
+    if (!this.trajectoryId || !lineIndex) return
+
+    this.dataService.getTrajectoryLines(this.trajectoryId).then((lines) => {
+      const line = lines[lineIndex]
+      if (line) {
+        this.startStationName = `City ${line.city_from}`
+        this.endStationName = `City ${line.city_to}`
+        this.selectedLineLabel = `Line ${lineIndex} (city ${line.city_from} → ${line.city_to})`
+      }
+    })
+    this.dataService.getTrajectoryLineTransitions(this.trajectoryId, `${lineIndex}`)
+      .then(data =>
+        firstValueFrom(this.stateService.getAgents()).then(agents => {
+          this.mapping = data.mapping
+          this.maxDistance = data.grid[0].length
+        })
+      )
   }
 
   public getZwlPosition(coord: TrainCoordinate): [number, number] | null {
@@ -160,7 +178,6 @@ export class MareyComponent {
         }
         const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
         const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
-        // console.log(`${x},${y}`)
         return `${x},${y}`
       })
       .filter((v) => v != null)

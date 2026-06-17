@@ -1,11 +1,10 @@
-import { Component, OnInit } from '@angular/core'
-import { StateService } from '../state.service'
-import { MapCell, RendererService } from '../renderer.service'
-import { firstValueFrom } from 'rxjs'
-import { Agent, DataService } from '../data.service'
-import { FormsModule } from '@angular/forms'
-import {TrainCoordinate} from '../marey/marey.component';
-import { ControllerService, State } from '../controller.service'
+import {Component, OnInit} from '@angular/core'
+import {StateService} from '../state.service'
+import {MapCell, RendererService} from '../renderer.service'
+import {firstValueFrom} from 'rxjs'
+import {Agent, DataService} from '../data.service'
+import {FormsModule} from '@angular/forms'
+import {ControllerService} from '../controller.service'
 
 interface SelectOption {
   value: string
@@ -26,17 +25,24 @@ export class ZwlComponent implements OnInit {
   public selectedLine = ''
   public mapping: Record<string, unknown> = {}
   public reverseMapping: Record<string, [number, number]> = {}
+  public trajectoryId: string | null = null
 
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
     private dataService: DataService,
     public controllerService: ControllerService,
-  ) {}
+  ) {
+  }
 
   ngOnInit() {
+    this.stateService.getTrajectoryId().subscribe((trajectoryId) => {
+      this.trajectoryId = trajectoryId
+    })
     this.stateService.getTransitions().subscribe(() => this.fetchLineTransitions())
-    this.stateService.getAgents().subscribe((agents) => { this.agents = agents })
+    this.stateService.getAgents().subscribe((agents) => {
+      this.agents = agents
+    })
   }
 
   private setMapping(mapping: Record<string, unknown>) {
@@ -56,7 +62,7 @@ export class ZwlComponent implements OnInit {
     return this.reverseMapping[`(${zwlRow}, ${zwlCol})`] ?? null
   }
 
-  public getZwlPosition(x:number, y: number) {
+  public getZwlPosition(x: number, y: number) {
     const key = `(${x}, ${y})`
     const val = this.mapping[key]
     console.log(`   ${key} --> ${val}   : ${this.mapping}`)
@@ -68,14 +74,13 @@ export class ZwlComponent implements OnInit {
 
   public onLineChange() {
     this.stateService.setSelectedLine(this.selectedLine)
-    const trajectoryId = this.stateService.getTrajectoryId()
-    if (trajectoryId) this.fetchZwlForselectedLine(trajectoryId)
+    if (!this.trajectoryId) return
+    this.fetchZwlForselectedLine(this.trajectoryId)
   }
 
   private fetchLineTransitions() {
-    const trajectoryId = this.stateService.getTrajectoryId()
-    if (!trajectoryId) return
-    this.dataService.getTrajectoryLines(trajectoryId).then((lines) => {
+    if (!this.trajectoryId) return
+    this.dataService.getTrajectoryLines(this.trajectoryId).then((lines) => {
       this.lineOptions = lines.map((l, i) => ({
         value: String(i),
         label: `Line ${i} (city ${l.city_from} → ${l.city_to})`,
@@ -83,7 +88,9 @@ export class ZwlComponent implements OnInit {
       if (!this.lineOptions.find(o => o.value === this.selectedLine)) {
         this.selectedLine = this.lineOptions[0]?.value ?? ''
       }
-      this.fetchZwlForselectedLine(trajectoryId)
+      if (!this.trajectoryId) return
+
+      this.fetchZwlForselectedLine(this.trajectoryId)
     })
   }
 

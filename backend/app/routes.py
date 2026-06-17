@@ -323,6 +323,9 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     y_offset = 00
     x_offset = 30
     grid[y_offset:city_bb.shape[0] + y_offset, x_offset:city_bb.shape[1] + x_offset] = city_bb
+
+    grid = grid[:,:x_offset+city_bb.shape[1]]
+
     mapping2 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping2.items()}
 
     mapping = {**mapping1, **mapping2}

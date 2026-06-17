@@ -129,6 +129,14 @@
     </text>
   </g>
 
+  <!-- Station and line labels -->
+  <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35"
+        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="start">{{ startStationName }}</text>
+  <text [attr.x]="marginLeft + chartWidth / 2" [attr.y]="svgHeight - marginBottom + 35"
+        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="middle">{{ selectedLineLabel }}</text>
+  <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35"
+        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ endStationName }}</text>
+
   <!-- Planned trajectories -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
