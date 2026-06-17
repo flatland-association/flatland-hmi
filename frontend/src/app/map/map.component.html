@@ -32,6 +32,19 @@
       </div>
     }
   </div>
+  <div class="station-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+      <div class="station-row">
+        @for (col of row; let colIndex = $index; track $index) {
+          <div class="station-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+            @if (col.trainStationLabel) {
+              <div class="station-label">{{ col.trainStationLabel }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
   <div class="ocp-labels">
     @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="ocp-row">

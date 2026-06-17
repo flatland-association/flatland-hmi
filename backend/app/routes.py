@@ -148,6 +148,11 @@ def _build_stations_content(env) -> dict:
             "city_orientations": env.optionals["agents_hints"]["city_orientations"],
             #"city_names": list(range(city_cells_per_city.keys())),
             "train_stations": {i:v for i,v in enumerate(env.optionals["agents_hints"]["train_stations"])},
+            "train_station_labels": {
+                f"{station[0][0]},{station[0][1]}": f"{city_idx}"
+                for city_idx, city_stations in enumerate(env.optionals["agents_hints"]["train_stations"])
+                for station in city_stations
+            },
             "outer_connection_point_labels": {
                 f"{pin[0]},{pin[1]}": f"{city}.{_DIRECTION_NAMES.get(direction, str(direction))}.{track_idx}"
                 for city, directions in outer_connection_points_per_city_and_direction.items()

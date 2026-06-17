@@ -32,7 +32,7 @@ export class StateService {
   ) {
     this.history.next([])
     this.plans.next([])
-    this.stations.next({ city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, outer_connection_point_labels: {} })
+    this.stations.next({ city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, train_station_labels: {}, outer_connection_point_labels: {} })
     this.selectedLine.next("0")
     Promise.all([
       this.dataService.getEnvs(),
