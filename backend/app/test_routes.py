@@ -285,9 +285,15 @@ def test_get_trajectory_stations():
     response = client.get(f"/trajectories/{ep_id}/stations")
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body, list)
-    assert len(body) > 0
-    assert all(isinstance(s, list) and len(s) == 2 for s in body)
+    assert isinstance(body, dict)
+    assert {"city_cells", "outer_connection_points_per_city", "inter_city_lines"} <= body.keys()
+    city_cells = body["city_cells"]
+    assert isinstance(city_cells, dict)
+    assert len(city_cells) > 0
+    assert all(
+        isinstance(cells, list) and all(isinstance(c, list) and len(c) == 2 for c in cells)
+        for cells in city_cells.values()
+    )
 
 
 def test_get_trajectory_stations_not_found():

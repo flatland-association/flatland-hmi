@@ -1,10 +1,11 @@
 
 <div class="map">
   <div class="environment">
-    @for (row of mapClasses; track $index) {
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
-        @for (col of row; track $index) {
-          <div class="cell" [class]="col.ground">
+        @for (col of row; let colIndex = $index; track $index) {
+          @let origPos = getOriginalPosition(rowIndex, colIndex);
+          <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex" [attr.data-orig-row]="origPos?.[0]" [attr.data-orig-col]="origPos?.[1]">
             @if (col.objects) {
               <div class="target" [class]="col.objects"></div>
             }
@@ -16,13 +17,18 @@
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
       @if (agent.position && '' + agent.handle === currentAgent) {
-        <div
-          class="agent"
-          [class]="rendererService.getAgentClasses(agent)"
-          [style.left]="agent.position[1] * 20 + 'px'"
-          [style.top]="agent.position[0] * 20 + 'px'"
-          [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
-        >{{ agent.handle }}</div>
+        @let pos = getZwlPosition(agent.position[0], agent.position[1]);
+        @if (pos) {
+          <div
+            class="agent"
+            [class]="rendererService.getAgentClasses(agent)"
+            [style.left]="pos[1] * 20 + 'px'"
+            [style.top]="pos[0] * 20 + 'px'"
+            [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+            [attr.data-row]="pos[0]"
+            [attr.data-col]="pos[1]"
+          >{{ agent.handle }}</div>
+        }
       }
     }
   </div>

@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core'
-import { Agent, Transitions } from './data.service'
+import { Agent, StationsResponse, Transitions } from './data.service'
 
 export interface MapCell {
   ground: string
   objects?: string
   station?: boolean
+  outerConnectionPoint?: boolean
 }
 
 const BACKGROUND_CLASSES_WEIGHT = {
@@ -120,12 +121,17 @@ export class RendererService {
     return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
-  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: Array<[number, number]> = []) {
+  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = { city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [] }) {
     const targetsMap = new Map<string, boolean>()
     for (const agent of agents) {
       targetsMap.set(getLocationKey(agent.target[0], agent.target[1]), true)
     }
-    const stationsSet = new Set(stations.map(([r, c]) => getLocationKey(r, c)))
+    const stationsSet = new Set(
+      Object.values(stations.city_cells).flat().map(([r, c]) => getLocationKey(r, c)),
+    )
+    const outerConnectionPointsSet = new Set(
+      Object.values(stations.outer_connection_points_per_city).flat().map(([r, c]) => getLocationKey(r, c)),
+    )
     console.log('targetsMap', targetsMap)
     const mapClasses: Array<Array<MapCell>> = []
     for (let i = 0; i < transitions.length; i++) {
@@ -137,8 +143,14 @@ export class RendererService {
         const objects = targetsMap.has(getLocationKey(i, j))
           ? this.getTargetClasses(cell)
           : undefined
-        const station = stationsSet.has(getLocationKey(i, j)) ? true : undefined
-        mapRow.push({ ground, objects, station })
+        const outerConnectionPoint = outerConnectionPointsSet.has(getLocationKey(i, j)) ? true : undefined
+        let station = stationsSet.has(getLocationKey(i, j)) ? true : undefined
+        // either station or outerConnectionPoint
+        if(outerConnectionPoint){
+          station = undefined
+        }
+
+        mapRow.push({ ground, objects, station, outerConnectionPoint })
       }
       mapClasses.push(mapRow)
     }

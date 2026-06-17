@@ -21,7 +21,16 @@ export interface PolicyOption {
   description: string
 }
 
-export type StationList = Array<[number, number]>
+export interface StationsResponse {
+  city_cells: Record<string, [number, number][]>
+  outer_connection_points_per_city: Record<string, number[][]>
+  inter_city_lines: Array<{
+    start: [number, number]
+    end: [number, number]
+    city_from: number
+    city_to: number
+  }>
+}
 
 export interface Agent {
   handle: number
@@ -52,7 +61,7 @@ export class DataService {
 
   public getTrajectoryStations(trajectoryId: string) {
     return firstValueFrom(
-      this.http.get<StationList>(`${BACKEND_URL}/trajectories/${trajectoryId}/stations`),
+      this.http.get<StationsResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/stations`),
     )
   }
 

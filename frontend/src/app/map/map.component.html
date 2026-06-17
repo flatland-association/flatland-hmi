@@ -1,12 +1,15 @@
 
 <div class="map">
   <div class="environment">
-    @for (row of mapClasses; track $index) {
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
-        @for (col of row; track $index) {
-          <div class="cell" [class]="col.ground">
+        @for (col of row; let colIndex = $index; track $index) {
+          <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
             @if (col.station) {
               <div class="station"></div>
+            }
+            @if (col.outerConnectionPoint) {
+              <div class="outer-connection-point"></div>
             }
             @if (col.objects) {
               <div class="target" [class]="col.objects"></div>
@@ -25,6 +28,8 @@
           [style.left]="agent.position[1] * 20 + 'px'"
           [style.top]="agent.position[0] * 20 + 'px'"
           [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+          [attr.data-row]="agent.position[0]"
+          [attr.data-col]="agent.position[1]"
         >{{ agent.handle }}</div>
       }
     }

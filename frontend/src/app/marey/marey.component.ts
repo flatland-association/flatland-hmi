@@ -140,13 +140,10 @@ export class MareyComponent {
     })
   }
 
-  public getZwlPosition(coord: TrainCoordinate, i: string): [number, number] | null {
+  public getZwlPosition(coord: TrainCoordinate): [number, number] | null {
     const key = `(${coord.x}, ${coord.y})`
 
     const val = this.mapping[key]
-    if (i == "0") {
-      console.log(`   ${key} --> ${val}   : ${this.mapping}`)
-    }
     if (Array.isArray(val) && val.length >= 2) {
       return [val[0] as number, val[1] as number]
     }
@@ -157,7 +154,7 @@ export class MareyComponent {
   getPolylinePoints(coordinates: TrainCoordinate[], i: string): string {
     let polyPoints = coordinates
       .map((coord) => {
-        const zwlPos = this.getZwlPosition(coord, i)
+        const zwlPos = this.getZwlPosition(coord)
         if (zwlPos === null) {
           return null
         }
