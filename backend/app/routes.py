@@ -149,12 +149,12 @@ def _build_stations_content(env) -> dict:
             #"city_names": list(range(city_cells_per_city.keys())),
             "train_stations": {i:v for i,v in enumerate(env.optionals["agents_hints"]["train_stations"])},
             "train_station_labels": {
-                f"{station[0][0]},{station[0][1]}": f"{city_idx}"
+                f"{station[0][0]},{station[0][1]}": _city_name(city_idx)
                 for city_idx, city_stations in enumerate(env.optionals["agents_hints"]["train_stations"])
                 for station in city_stations
             },
             "outer_connection_point_labels": {
-                f"{pin[0]},{pin[1]}": f"{city}.{_DIRECTION_NAMES.get(direction, str(direction))}.{track_idx}"
+                f"{pin[0]},{pin[1]}": f"{_city_name(city)}.{_DIRECTION_NAMES.get(direction, str(direction))}.{track_idx}"
                 for city, directions in outer_connection_points_per_city_and_direction.items()
                 for direction, pins in directions.items()
                 for track_idx, pin in enumerate(pins)
@@ -444,16 +444,22 @@ async def get_trajectory_agents(trajectory_id: str):
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 
 
+def _city_name(city_idx: int) -> str:
+    return chr(ord('A') + city_idx)
+
+
 def _enrich_line(line: dict, line_id: int) -> dict:
     from_dir = _DIRECTION_NAMES.get(line['city_from_dir'][1], str(line['city_from_dir'][1]))
     to_dir = _DIRECTION_NAMES.get(line['city_to_dir'][1], str(line['city_to_dir'][1]))
     from_track = line['city_from_track']
     to_track = line['city_to_track']
+    city_from = _city_name(line['city_from'])
+    city_to = _city_name(line['city_to'])
     return {
         **line,
-        "label": f"Line {line_id} (station {line['city_from']} {from_dir}.{from_track} → station {line['city_to']} {to_dir}.{to_track})",
-        "start_station_name": f"Station {line['city_from']}",
-        "end_station_name": f"Station {line['city_to']}",
+        "label": f"Line {line_id} ({city_from}.{from_dir}.{from_track} → {city_to}.{to_dir}.{to_track})",
+        "start_station_name": f"Station {city_from}",
+        "end_station_name": f"Station {city_to}",
     }
 
 
