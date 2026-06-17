@@ -337,17 +337,17 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
 
     grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
 
-    city_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
+    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
 
-    grid[:city_bb.shape[0], :city_bb.shape[1]] = city_bb
+    grid[:city_1_bb.shape[0], :city_1_bb.shape[1]] = city_1_bb
 
-    city_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
+    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
     # TODO use line distance for offset, also y offset via connection points, so line is straight
     y_offset = 00
     x_offset = 30
-    grid[y_offset:city_bb.shape[0] + y_offset, x_offset:city_bb.shape[1] + x_offset] = city_bb
+    grid[y_offset:city_2_bb.shape[0] + y_offset, x_offset:city_2_bb.shape[1] + x_offset] = city_2_bb
 
-    grid = grid[:, :x_offset + city_bb.shape[1]]
+    grid = grid[:max(city_1_bb.shape[0], city_2_bb.shape[0]), :x_offset + city_2_bb.shape[1]]
 
     mapping2 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping2.items()}
 
