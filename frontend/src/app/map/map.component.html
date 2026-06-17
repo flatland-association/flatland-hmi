@@ -19,6 +19,19 @@
       </div>
     }
   </div>
+  <div class="track-numbers">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+      <div class="track-row">
+        @for (col of row; let colIndex = $index; track $index) {
+          <div class="track-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+            @if (col.trackNumber !== undefined) {
+              <div class="track-number">{{ col.trackNumber }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
       @if (agent.position) {

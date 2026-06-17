@@ -30,6 +30,7 @@ export interface StationsResponse {
     city_from: number
     city_to: number
   }>
+  train_stations: Record<string, Array<[[number, number], number]>>
 }
 
 export interface LineOption {

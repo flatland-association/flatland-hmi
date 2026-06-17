@@ -146,6 +146,8 @@ def _build_stations_content(env) -> dict:
                 for p in env.optionals["agents_hints"]["inter_city_lines"]
             ],
             "city_orientations": env.optionals["agents_hints"]["city_orientations"],
+            #"city_names": list(range(city_cells_per_city.keys())),
+            "train_stations": {i:v for i,v in enumerate(env.optionals["agents_hints"]["train_stations"])},
         }
 
     return [list(s) for s in stations]
@@ -438,9 +440,9 @@ def _enrich_line(line: dict, line_id: int) -> dict:
     to_track = line['city_to_track']
     return {
         **line,
-        "label": f"Line {line_id} (city {line['city_from']} {from_dir}.{from_track} → city {line['city_to']} {to_dir}.{to_track})",
-        "start_station_name": f"City {line['city_from']}",
-        "end_station_name": f"City {line['city_to']}",
+        "label": f"Line {line_id} (station {line['city_from']} {from_dir}.{from_track} → station {line['city_to']} {to_dir}.{to_track})",
+        "start_station_name": f"Station {line['city_from']}",
+        "end_station_name": f"Station {line['city_to']}",
     }
 
 
