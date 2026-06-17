@@ -23,8 +23,8 @@ export class ZwlComponent implements OnInit {
 
   public lineOptions: SelectOption[] = []
   public selectedLine = ''
-  public mapping: Record<string, unknown> = {}
-  public reverseMapping: Record<string, [number, number]> = {}
+  public mapping: Map<number, Map<number, [number, number]>> = new Map()
+  public reverseMapping: Map<number, Map<number, [number, number]>> = new Map()
   public trajectoryId: string | null = null
 
   constructor(
@@ -45,31 +45,23 @@ export class ZwlComponent implements OnInit {
     })
   }
 
-  private setMapping(mapping: Record<string, unknown>) {
-    this.mapping = mapping
-    this.reverseMapping = {}
-    for (const [key, val] of Object.entries(mapping)) {
-      if (Array.isArray(val) && val.length >= 2) {
-        const match = key.match(/\((\d+), (\d+)\)/)
-        if (match) {
-          this.reverseMapping[`(${val[0]}, ${val[1]})`] = [parseInt(match[1]), parseInt(match[2])]
-        }
-      }
+  private setMapping(mappingArray: Array<[[number, number], [number, number]]>) {
+    this.mapping = new Map()
+    this.reverseMapping = new Map()
+    for (const [[r, c], [mr, mc]] of mappingArray) {
+      if (!this.mapping.has(r)) this.mapping.set(r, new Map())
+      this.mapping.get(r)!.set(c, [mr, mc])
+      if (!this.reverseMapping.has(mr)) this.reverseMapping.set(mr, new Map())
+      this.reverseMapping.get(mr)!.set(mc, [r, c])
     }
   }
 
   public getOriginalPosition(zwlRow: number, zwlCol: number): [number, number] | null {
-    return this.reverseMapping[`(${zwlRow}, ${zwlCol})`] ?? null
+    return this.reverseMapping.get(zwlRow)?.get(zwlCol) ?? null
   }
 
-  public getZwlPosition(x: number, y: number) {
-    const key = `(${x}, ${y})`
-    const val = this.mapping[key]
-    console.log(`   ${key} --> ${val}   : ${this.mapping}`)
-    if (Array.isArray(val) && val.length >= 2) {
-      return [val[0] as number, val[1] as number]
-    }
-    return null
+  public getZwlPosition(x: number, y: number): [number, number] | null {
+    return this.mapping.get(x)?.get(y) ?? null
   }
 
   public onLineChange() {

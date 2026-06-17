@@ -62,7 +62,7 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
-  public mapping: Record<string, unknown> = {}
+  public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public startStationName = ''
   public endStationName = ''
   public selectedLineLabel = ''
@@ -152,20 +152,18 @@ export class MareyComponent {
     this.dataService.getTrajectoryLineTransitions(this.trajectoryId, `${lineIndex}`)
       .then(data =>
         firstValueFrom(this.stateService.getAgents()).then(agents => {
-          this.mapping = data.mapping
+          this.mapping = new Map()
+          for (const [[r, c], [mr, mc]] of data.mapping) {
+            if (!this.mapping.has(r)) this.mapping.set(r, new Map())
+            this.mapping.get(r)!.set(c, [mr, mc])
+          }
           this.maxDistance = data.grid[0].length
         })
       )
   }
 
   public getZwlPosition(coord: TrainCoordinate): [number, number] | null {
-    const key = `(${coord.x}, ${coord.y})`
-
-    const val = this.mapping[key]
-    if (Array.isArray(val) && val.length >= 2) {
-      return [val[0] as number, val[1] as number]
-    }
-    return null
+    return this.mapping.get(coord.x)?.get(coord.y) ?? null
   }
 
 

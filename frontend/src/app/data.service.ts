@@ -8,7 +8,7 @@ export type Transitions = Array<Array<number>>
 
 export interface ZwlResponse {
   grid: Transitions
-  mapping: Record<string, unknown>
+  mapping: Array<[[number, number], [number, number]]>
 }
 
 export interface EnvOption {

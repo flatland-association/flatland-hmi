@@ -375,7 +375,7 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
         # ZWL grid
         "grid": grid,
         # env -> ZWL coordindates
-        "mapping": {f"{(r, c)}": v for (r, c), v in mapping.items()},
+        "mapping": [[[r, c], list(v)] for (r, c), v in mapping.items()],
         "city_cells_bbox": city_cells_bbox,
     })
 
