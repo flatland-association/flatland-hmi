@@ -166,6 +166,18 @@
         opacity="0.8"
         [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
       />
+      @let endPoint = getPolylineEndPoint(train.coordinates);
+      @if (endPoint) {
+      <text
+        [attr.x]="endPoint.x + 3"
+        [attr.y]="endPoint.y + 4"
+        font-family="Arial, sans-serif"
+        font-size="9"
+        fill="#333"
+        [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
+      >{{ train.name }}
+      </text>
+      }
     </g>
   }
 </svg>

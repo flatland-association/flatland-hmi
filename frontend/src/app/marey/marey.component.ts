@@ -156,6 +156,19 @@ export class MareyComponent {
   }
 
 
+  getPolylineEndPoint(coordinates: TrainCoordinate[]): { x: number; y: number } | null {
+    for (let i = coordinates.length - 1; i >= 0; i--) {
+      const zwlPos = this.getZwlPosition(coordinates[i])
+      if (zwlPos !== null) {
+        return {
+          x: this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth,
+          y: this.marginTop + (coordinates[i].t / this.maxTime) * this.chartHeight,
+        }
+      }
+    }
+    return null
+  }
+
   getPolylinePoints(coordinates: TrainCoordinate[], i: string): string {
     let polyPoints = coordinates
       .map((coord) => {
