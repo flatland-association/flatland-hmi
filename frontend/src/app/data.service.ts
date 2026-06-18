@@ -115,11 +115,11 @@ export class DataService {
   }
 
   public getEnvs() {
-    return firstValueFrom(this.http.get<Array<EnvOption>>(`${BACKEND_URL}/envs`))
+    return this.fetch(this.http.get<Array<EnvOption>>(`${BACKEND_URL}/envs`))
   }
 
   public getPolicies() {
-    return firstValueFrom(this.http.get<Array<PolicyOption>>(`${BACKEND_URL}/policies`))
+    return this.fetch(this.http.get<Array<PolicyOption>>(`${BACKEND_URL}/policies`))
   }
 
   public createTrajectory(envId: string, policyId: string): Promise<string> {
