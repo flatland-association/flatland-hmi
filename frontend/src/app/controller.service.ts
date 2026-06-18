@@ -48,8 +48,14 @@ export class ControllerService {
     this.stateService.clearHistory()
     this.dataService.createTrajectory(environment, policy).then(trajectoryId => {
       this.trajectoryId.next(trajectoryId)
-      this.stateService.loadTrajectory(trajectoryId)
       this.resetSubject.next()
+      Promise.all([
+        this.dataService.getTrajectoryTransitions(trajectoryId),
+        this.dataService.getTrajectoryAgents(trajectoryId),
+        this.dataService.getTrajectoryStations(trajectoryId),
+      ]).then(([transitions, agents, stations]) => {
+        this.stateService.loadTrajectory(transitions, agents, stations)
+      })
     })
   }
 

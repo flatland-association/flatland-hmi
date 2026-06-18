@@ -46,19 +46,12 @@ export class StateService {
     ).subscribe(t => this.lineTransitions.next(t))
   }
 
-  public loadTrajectory(trajectoryId: string): void {
-    // TODO extract all 3 data service calls to controller and keep only callback here.
+  public loadTrajectory(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse): void {
     this.state.next({steps: 0, done: {__all__: false}})
     this.selectedLine.next('0')
-    this.dataService.getTrajectoryTransitions(trajectoryId).then(transitions => {
-      this.dataService.getTrajectoryAgents(trajectoryId).then(agents => {
-        this.agents.next(agents)
-        this.transitions.next(transitions)
-      })
-    })
-    this.dataService.getTrajectoryStations(trajectoryId).then(stations => {
-      this.stations.next(stations)
-    })
+    this.agents.next(agents)
+    this.transitions.next(transitions)
+    this.stations.next(stations)
   }
 
   public clearHistory(): void {
