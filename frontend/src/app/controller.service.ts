@@ -1,36 +1,67 @@
-import { Injectable } from '@angular/core'
-import {Observable, Subject} from 'rxjs'
-import {DataService, TrajectoryStep} from './data.service'
-
-export interface State {
-  steps: number
-  done: {
-    __all__: boolean
-    [key: string]: boolean
-  }
-}
+import {Injectable} from '@angular/core'
+import {filter, Observable, Subject} from 'rxjs'
+import {DataService, State} from './data.service'
+import {StateService} from './state.service'
 
 @Injectable({
   providedIn: 'root',
 })
 export class ControllerService {
   private resetSubject = new Subject<void>()
+  private currentTrajectoryId: string | null = null
+  private stepQueue: string[] = []
+  private isProcessingQueue = false
+  private interval?: number
 
-  constructor(private dataService: DataService) {
+  public get playing(): boolean {
+    return this.interval !== undefined
   }
 
-  public observeReset(): Observable<void> {
-    return this.resetSubject.asObservable()
+  constructor(private dataService: DataService, private stateService: StateService) {
+    this.stateService.getTrajectoryId()
+      .pipe(filter((id): id is string => id !== null))
+      .subscribe((id) => {
+        this.currentTrajectoryId = id
+        this.stop()
+      })
   }
 
-  public createTrajectory(envId: string, policyId: string): Promise<string> {
-    return this.dataService.createTrajectory(envId, policyId).then((trajectoryId) => {
-      this.resetSubject.next()
-      return trajectoryId
-    })
+  public _next(): void {
+    if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
+    this.stepQueue.push(this.currentTrajectoryId)
+    this._drainQueue()
   }
 
-  public stepTrajectory(trajectoryId: string): Promise<TrajectoryStep> {
-    return this.dataService.stepTrajectory(trajectoryId)
+  private _drainQueue(): void {
+    if (this.isProcessingQueue || this.stepQueue.length === 0) return
+    const trajectoryId = this.stepQueue.shift()!
+    this.isProcessingQueue = true
+    this.dataService.stepTrajectory(trajectoryId)
+      .then((trajectoryStep) => this.stateService.applyStep(trajectoryId, trajectoryStep))
+      .then((state) => {
+        this.isProcessingQueue = false
+        if (state.done.__all__) {
+          this.stepQueue = []
+          this.stop()
+        } else {
+          this._drainQueue()
+        }
+      })
+      .catch(() => {
+        this.isProcessingQueue = false
+        this.stepQueue = []
+      })
+  }
+
+  public play(): void {
+    this.interval = window.setInterval(() => this._next(), 100)
+  }
+
+  public stop(): void {
+    this.stepQueue = []
+    if (this.interval) {
+      clearInterval(this.interval)
+      this.interval = undefined
+    }
   }
 }

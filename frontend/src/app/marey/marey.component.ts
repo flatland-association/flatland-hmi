@@ -1,7 +1,6 @@
 import {DecimalPipe} from '@angular/common'
 import {Component, Input} from '@angular/core'
 import {StateService} from '../state.service'
-import {ControllerService} from '../controller.service'
 import {Agent} from '../data.service'
 import {combineLatest} from 'rxjs'
 
@@ -70,7 +69,6 @@ export class MareyComponent {
 
   constructor(
     public stateService: StateService,
-    public controllerService: ControllerService,
   ) {
   }
 
@@ -144,7 +142,7 @@ export class MareyComponent {
         })
       })
     })
-    this.controllerService.observeReset().subscribe(() => {
+    this.stateService.getTransitions().subscribe(() => {
       this.trainRuns = []
       this.plannedRuns = []
       this.timestep = 0

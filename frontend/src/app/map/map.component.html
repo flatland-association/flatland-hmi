@@ -75,12 +75,18 @@
 </div>
 
 <div class="controller">
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.next()">Step</button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.next()">Step
+  </button>
   <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
-  @if (stateService.playing) {
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.stop()">Stop</button>
+  @if (controllerService.playing) {
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.stop()">Stop
+  </button>
   } @else {
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.play(currentPolicy)">Play</button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.play()">Play
+  </button>
   }
   @if (state) {
     <div>{{ state.steps }}</div>

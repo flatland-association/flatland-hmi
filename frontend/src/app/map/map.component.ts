@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
-import { State } from '../controller.service'
-import { Agent, DataService } from '../data.service'
+import {Agent, DataService, State} from '../data.service'
+import {ControllerService} from '../controller.service'
 import {FormsModule} from '@angular/forms';
 
 interface SelectOption {
@@ -36,6 +36,7 @@ export class MapComponent implements OnInit {
 
   constructor(
     public stateService: StateService,
+    public controllerService: ControllerService,
     public rendererService: RendererService,
     private dataService: DataService,
   ) {}

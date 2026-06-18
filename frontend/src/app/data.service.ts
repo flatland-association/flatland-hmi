@@ -63,6 +63,14 @@ export interface TrajectoryStep {
   done: boolean
 }
 
+export interface State {
+  steps: number
+  done: {
+    __all__: boolean
+    [key: string]: boolean
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })

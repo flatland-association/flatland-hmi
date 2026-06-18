@@ -1,7 +1,6 @@
 import {Injectable} from '@angular/core'
-import {Agent, DataService, LineOption, StationsResponse, Transitions, ZwlResponse} from './data.service'
+import {Agent, DataService, LineOption, State, StationsResponse, TrajectoryStep, Transitions, ZwlResponse} from './data.service'
 import {combineLatest, filter, from, Observable, ReplaySubject, switchMap} from 'rxjs'
-import {ControllerService, State} from './controller.service'
 
 @Injectable({
   providedIn: 'root',
@@ -18,20 +17,9 @@ export class StateService {
   private lines = new ReplaySubject<Array<LineOption>>(1)
   private lineTransitions = new ReplaySubject<ZwlResponse>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
-  private interval?: number
   private trajectoryId = new ReplaySubject<string | null>(1)
-  private currentTrajectoryId: string | null = null
-  private stepQueue: string[] = []
-  private isProcessingQueue = false
 
-  public get playing() {
-    return this.interval !== undefined
-  }
-
-  constructor(
-    private dataService: DataService,
-    private controllerService: ControllerService,
-  ) {
+  constructor(private dataService: DataService) {
     this.history.next([])
     this.plans.next([])
     this.stations.next({
@@ -40,9 +28,9 @@ export class StateService {
       inter_city_lines: [],
       train_stations: {},
       train_station_labels: {},
-      outer_connection_point_labels: {}
+      outer_connection_point_labels: {},
     })
-    this.selectedLine.next("0")
+    this.selectedLine.next('0')
     Promise.all([
       this.dataService.getEnvs(),
       this.dataService.getPolicies(),
@@ -52,9 +40,6 @@ export class StateService {
       if (defaultEnv && defaultPolicy) {
         this.reset(defaultEnv, defaultPolicy)
       }
-    })
-    this.trajectoryId.subscribe((trajectoryId) => {
-      this.currentTrajectoryId = trajectoryId
     })
 
     const nonNullTrajectoryId = this.trajectoryId.pipe(filter((id): id is string => id !== null))
@@ -70,7 +55,7 @@ export class StateService {
     ).subscribe(transitions => this.lineTransitions.next(transitions))
   }
 
-  private getTrajectoryId() {
+  public getTrajectoryId() {
     return this.trajectoryId.asObservable()
   }
 
@@ -118,57 +103,29 @@ export class StateService {
     this.selectedLine.next(line)
   }
 
-  public next(policy?: string): void {
-    if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
-    this.stepQueue.push(this.currentTrajectoryId)
-    this._drainQueue()
-  }
-
-  private _drainQueue(): void {
-    if (this.isProcessingQueue || this.stepQueue.length === 0) return
-    const trajectoryId = this.stepQueue.shift()!
-    this.isProcessingQueue = true
-    this.controllerService.stepTrajectory(trajectoryId)
-      .then((trajectoryStep) => {
-        const state: State = {steps: trajectoryStep.elapsed_steps, done: {__all__: trajectoryStep.done}}
-        return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
-          this.agents.next(agents)
-          this.state.next(state)
-          const snapshot = agents.reduce(
-            (rec, agent) => {
-              rec[String(agent.handle)] = agent;
-              return rec
-            },
-            {} as Record<string, Agent>,
-          )
-          this.historyBuffer.push(snapshot)
-          this.history.next([...this.historyBuffer])
-          return state
-        })
-      })
-      .then((state) => {
-        this.isProcessingQueue = false
-        if (state.done.__all__) {
-          this.stepQueue = []
-          this.stop()
-        } else {
-          this._drainQueue()
-        }
-      })
-      .catch(() => {
-        this.isProcessingQueue = false
-        this.stepQueue = []
-      })
+  public applyStep(trajectoryId: string, trajectoryStep: TrajectoryStep): Promise<State> {
+    const state: State = {steps: trajectoryStep.elapsed_steps, done: {__all__: trajectoryStep.done}}
+    return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
+      this.agents.next(agents)
+      this.state.next(state)
+      const snapshot = agents.reduce(
+        (rec, agent) => {
+          rec[String(agent.handle)] = agent;
+          return rec
+        },
+        {} as Record<string, Agent>,
+      )
+      this.historyBuffer.push(snapshot)
+      this.history.next([...this.historyBuffer])
+      return state
+    })
   }
 
   public reset(environment?: string, policy?: string) {
-    if (!environment || !policy) {
-      return
-    }
-    this.stop()
+    if (!environment || !policy) return
     this.historyBuffer = []
     this.history.next([])
-    this.controllerService.createTrajectory(environment, policy).then((trajectoryId) => {
+    this.dataService.createTrajectory(environment, policy).then((trajectoryId) => {
       this.trajectoryId.next(trajectoryId)
       this.dataService.getTrajectoryTransitions(trajectoryId).then((transitions) => {
         this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
@@ -180,21 +137,7 @@ export class StateService {
         this.stations.next(stations)
       })
       this.state.next({steps: 0, done: {__all__: false}})
-      this.selectedLine.next("0")
+      this.selectedLine.next('0')
     })
-  }
-
-  public play(policy?: string): void {
-    this.interval = window.setInterval(() => {
-      this.next(policy)
-    }, 100)
-  }
-
-  public stop(): void {
-    this.stepQueue = []
-    if (this.interval) {
-      clearInterval(this.interval)
-      this.interval = undefined
-    }
   }
 }
