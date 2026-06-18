@@ -5,6 +5,9 @@ import {combineLatest, filter, from, Observable, ReplaySubject, switchMap} from 
 @Injectable({
   providedIn: 'root',
 })
+/**
+ * Holds shared data from backend for subscription by other components.
+ */
 export class StateService {
   private transitions = new ReplaySubject<Transitions>(1)
   private agents = new ReplaySubject<Array<Agent>>(1)

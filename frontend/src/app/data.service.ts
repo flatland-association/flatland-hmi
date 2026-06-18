@@ -74,6 +74,9 @@ export interface State {
 @Injectable({
   providedIn: 'root',
 })
+/**
+ * Encapsulates backend calls and their data types, implements centralized error handling.
+ */
 export class DataService {
   constructor(private http: HttpClient, private errorMessageService: ErrorMessageService) {
   }

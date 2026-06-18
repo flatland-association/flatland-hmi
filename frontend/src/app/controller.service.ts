@@ -6,6 +6,10 @@ import {StateService} from './state.service'
 @Injectable({
   providedIn: 'root',
 })
+/**
+ * Entry points for user interactions: call data service and update state.
+ * Also manages ticker while playing.
+ */
 export class ControllerService {
   private resetSubject = new Subject<void>()
   private currentTrajectoryId: string | null = null
