@@ -55,6 +55,14 @@ export interface Agent {
   malfunction: number
 }
 
+export interface TrajectoryStep {
+  ep_id: string
+  policy_id: string
+  env_id: string
+  elapsed_steps: number
+  done: boolean
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -112,5 +120,17 @@ export class DataService {
 
   public getPolicies() {
     return firstValueFrom(this.http.get<Array<PolicyOption>>(`${BACKEND_URL}/policies`))
+  }
+
+  public createTrajectory(envId: string, policyId: string): Promise<string> {
+    return this.fetch(
+      this.http.post<string>(`${BACKEND_URL}/trajectories`, {env_id: envId, policy_id: policyId}),
+    )
+  }
+
+  public stepTrajectory(trajectoryId: string): Promise<TrajectoryStep> {
+    return this.fetch(
+      this.http.post<TrajectoryStep>(`${BACKEND_URL}/trajectories/${trajectoryId}/step`, {}),
+    )
   }
 }
