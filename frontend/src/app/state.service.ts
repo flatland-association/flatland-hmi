@@ -20,7 +20,6 @@ export class StateService {
   private lines = new ReplaySubject<Array<LineOption>>(1)
   private lineTransitions = new ReplaySubject<ZwlResponse>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
-  private trajectoryId = new ReplaySubject<string | null>(1)
 
   constructor(private dataService: DataService) {
     this.history.next([])
@@ -34,32 +33,53 @@ export class StateService {
       outer_connection_point_labels: {},
     })
     this.selectedLine.next('0')
-    Promise.all([
-      this.dataService.getEnvs(),
-      this.dataService.getPolicies(),
-    ]).then(([envs, policies]) => {
-      const defaultEnv = envs[0]?.id
-      const defaultPolicy = policies[0]?.id
-      if (defaultEnv && defaultPolicy) {
-        this.reset(defaultEnv, defaultPolicy)
-      }
-    })
-
-    const nonNullTrajectoryId = this.trajectoryId.pipe(filter((id): id is string => id !== null))
-
-    nonNullTrajectoryId.pipe(
-      switchMap(trajectoryId => from(this.dataService.getTrajectoryLines(trajectoryId)))
-    ).subscribe(lines => this.lines.next(lines))
-
-    combineLatest([nonNullTrajectoryId, this.selectedLine]).pipe(
-      switchMap(([trajectoryId, selectedLine]) =>
-        from(this.dataService.getTrajectoryLineTransitions(trajectoryId, selectedLine))
-      )
-    ).subscribe(transitions => this.lineTransitions.next(transitions))
   }
 
-  public getTrajectoryId() {
-    return this.trajectoryId.asObservable()
+  public init(trajectoryId$: Observable<string | null>): void {
+    // TODO cleanup
+    const nonNull = trajectoryId$.pipe(filter((id): id is string => id !== null))
+    nonNull.pipe(
+      switchMap(id => from(this.dataService.getTrajectoryLines(id)))
+    ).subscribe(lines => this.lines.next(lines))
+    combineLatest([nonNull, this.selectedLine]).pipe(
+      switchMap(([id, line]) => from(this.dataService.getTrajectoryLineTransitions(id, line)))
+    ).subscribe(t => this.lineTransitions.next(t))
+  }
+
+  public loadTrajectory(trajectoryId: string): void {
+    // TODO extract all 3 data service calls to controller and keep only callback here.
+    this.state.next({steps: 0, done: {__all__: false}})
+    this.selectedLine.next('0')
+    this.dataService.getTrajectoryTransitions(trajectoryId).then(transitions => {
+      this.dataService.getTrajectoryAgents(trajectoryId).then(agents => {
+        this.agents.next(agents)
+        this.transitions.next(transitions)
+      })
+    })
+    this.dataService.getTrajectoryStations(trajectoryId).then(stations => {
+      this.stations.next(stations)
+    })
+  }
+
+  public clearHistory(): void {
+    this.historyBuffer = []
+    this.history.next([])
+  }
+
+  public applyStep(trajectoryStep: TrajectoryStep, agents: Array<Agent>): State {
+    const state: State = {steps: trajectoryStep.elapsed_steps, done: {__all__: trajectoryStep.done}}
+    this.agents.next(agents)
+    this.state.next(state)
+    const snapshot = agents.reduce(
+      (rec, agent) => {
+        rec[String(agent.handle)] = agent;
+        return rec
+      },
+      {} as Record<string, Agent>,
+    )
+    this.historyBuffer.push(snapshot)
+    this.history.next([...this.historyBuffer])
+    return state
   }
 
   public getTransitions() {
@@ -104,43 +124,5 @@ export class StateService {
 
   public selectLine(line: string) {
     this.selectedLine.next(line)
-  }
-
-  public applyStep(trajectoryId: string, trajectoryStep: TrajectoryStep): Promise<State> {
-    const state: State = {steps: trajectoryStep.elapsed_steps, done: {__all__: trajectoryStep.done}}
-    return this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
-      this.agents.next(agents)
-      this.state.next(state)
-      const snapshot = agents.reduce(
-        (rec, agent) => {
-          rec[String(agent.handle)] = agent;
-          return rec
-        },
-        {} as Record<string, Agent>,
-      )
-      this.historyBuffer.push(snapshot)
-      this.history.next([...this.historyBuffer])
-      return state
-    })
-  }
-
-  public reset(environment?: string, policy?: string) {
-    if (!environment || !policy) return
-    this.historyBuffer = []
-    this.history.next([])
-    this.dataService.createTrajectory(environment, policy).then((trajectoryId) => {
-      this.trajectoryId.next(trajectoryId)
-      this.dataService.getTrajectoryTransitions(trajectoryId).then((transitions) => {
-        this.dataService.getTrajectoryAgents(trajectoryId).then((agents) => {
-          this.agents.next(agents)
-          this.transitions.next(transitions)
-        })
-      })
-      this.dataService.getTrajectoryStations(trajectoryId).then((stations) => {
-        this.stations.next(stations)
-      })
-      this.state.next({steps: 0, done: {__all__: false}})
-      this.selectedLine.next('0')
-    })
   }
 }

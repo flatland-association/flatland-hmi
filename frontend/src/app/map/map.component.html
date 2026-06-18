@@ -78,7 +78,9 @@
   <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
           (click)="controllerService.next()">Step
   </button>
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.reset(currentEnv, currentPolicy)">Reset
+  </button>
   @if (controllerService.playing) {
   <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
           (click)="controllerService.stop()">Stop
@@ -92,13 +94,13 @@
     <div>{{ state.steps }}</div>
   }
 
-  <select [(ngModel)]="currentPolicy" (ngModelChange)="stateService.reset(currentEnv, $event)">
+  <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
     @for (policyOption of policyOptions; track $index) {
       <option [value]="policyOption.value">{{ policyOption.label }}</option>
     }
   </select>
 
-  <select [(ngModel)]="currentEnv" (ngModelChange)="stateService.reset($event, currentPolicy)">
+  <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
     @for (envOption of envOptions; track $index) {
       <option [value]="envOption.value">{{ envOption.label }}</option>
     }

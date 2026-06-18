@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core'
-import {filter, Observable, Subject} from 'rxjs'
+import {filter, Observable, ReplaySubject, Subject} from 'rxjs'
 import {DataService, State} from './data.service'
 import {StateService} from './state.service'
 
@@ -11,6 +11,7 @@ import {StateService} from './state.service'
  * Also manages ticker while playing.
  */
 export class ControllerService {
+  private trajectoryId = new ReplaySubject<string | null>(1)
   private resetSubject = new Subject<void>()
   private currentTrajectoryId: string | null = null
   private stepQueue: string[] = []
@@ -22,15 +23,37 @@ export class ControllerService {
   }
 
   constructor(private dataService: DataService, private stateService: StateService) {
-    this.stateService.getTrajectoryId()
+    this.stateService.init(this.trajectoryId.asObservable())
+    this.trajectoryId
       .pipe(filter((id): id is string => id !== null))
-      .subscribe((id) => {
+      .subscribe(id => {
         this.currentTrajectoryId = id
-        this.stop()
       })
+    Promise.all([dataService.getEnvs(), dataService.getPolicies()]).then(([envs, policies]) => {
+      const defaultEnv = envs[0]?.id
+      const defaultPolicy = policies[0]?.id
+      if (defaultEnv && defaultPolicy) {
+        this.reset(defaultEnv, defaultPolicy)
+      }
+    })
   }
 
-  public _next(): void {
+  public observeReset(): Observable<void> {
+    return this.resetSubject.asObservable()
+  }
+
+  public reset(environment?: string, policy?: string): void {
+    if (!environment || !policy) return
+    this.stop()
+    this.stateService.clearHistory()
+    this.dataService.createTrajectory(environment, policy).then(trajectoryId => {
+      this.trajectoryId.next(trajectoryId)
+      this.stateService.loadTrajectory(trajectoryId)
+      this.resetSubject.next()
+    })
+  }
+
+  public next(): void {
     if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
     this.stepQueue.push(this.currentTrajectoryId)
     this._drainQueue()
@@ -41,8 +64,11 @@ export class ControllerService {
     const trajectoryId = this.stepQueue.shift()!
     this.isProcessingQueue = true
     this.dataService.stepTrajectory(trajectoryId)
-      .then((trajectoryStep) => this.stateService.applyStep(trajectoryId, trajectoryStep))
-      .then((state) => {
+      .then(trajectoryStep =>
+        this.dataService.getTrajectoryAgents(trajectoryId)
+          .then(agents => this.stateService.applyStep(trajectoryStep, agents))
+      )
+      .then(state => {
         this.isProcessingQueue = false
         if (state.done.__all__) {
           this.stepQueue = []
@@ -58,7 +84,7 @@ export class ControllerService {
   }
 
   public play(): void {
-    this.interval = window.setInterval(() => this._next(), 100)
+    this.interval = window.setInterval(() => this.next(), 100)
   }
 
   public stop(): void {
