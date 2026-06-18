@@ -5,27 +5,26 @@
       <div class="row">
         @for (col of row; let colIndex = $index; track $index) {
           <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
-            @if (col.station) {
-              <div class="station"></div>
-            }
             @if (col.outerConnectionPoint) {
-              <div class="outer-connection-point"></div>
+            <!-- red -->
+            <div class="ocp"></div>
             }
-            @if (col.objects) {
-              <div class="target" [class]="col.objects"></div>
+            @else if (col.station) {
+            <!-- orange -->
+              <div class="station"></div>
             }
           </div>
         }
       </div>
     }
   </div>
-  <div class="track-numbers">
+  <div class="stationarea">
     @for (row of mapClasses; let rowIndex = $index; track $index) {
-      <div class="track-row">
-        @for (col of row; let colIndex = $index; track $index) {
-          <div class="track-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
-            @if (col.trackNumber !== undefined) {
-              <div class="track-number">{{ col.trackNumber }}</div>
+    <div class="stationarea-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="stationarea-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @if (col.stationBuilding) {
+        <div class="station-building" [class]="col.stationBuilding"></div>
             }
           </div>
         }
@@ -38,7 +37,7 @@
         @for (col of row; let colIndex = $index; track $index) {
           <div class="station-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
             @if (col.trainStationLabel) {
-              <div class="station-label">{{ col.trainStationLabel }}</div>
+            <div class="station-label">{{ col.trainStationLabel }}.{{ col.trackNumber }}</div>
             }
           </div>
         }
@@ -49,7 +48,7 @@
     @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="ocp-row">
         @for (col of row; let colIndex = $index; track $index) {
-          <div class="ocp-cell">
+        <div class="ocp-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
             @if (col.outerConnectionPointLabel) {
               <div class="ocp-label">{{ col.outerConnectionPointLabel }}</div>
             }

@@ -153,32 +153,41 @@
           background-color: rgba(255, 165, 0, 0.4);
         }
 
-        .outer-connection-point {
+        .ocp {
           width: 100%;
           height: 100%;
           background-color: rgba(255, 0, 0, 0.4);
         }
-
-
-        .target {
-          width: 100%;
-          height: 100%;
-          background-image: url('/svg/Bahnhof.svg');
-          background-size: cover;
-          background-repeat: no-repeat;
-          background-position: center;
-
-          &.rotation_90 {
-            transform: rotate(-90deg);
-          }
-          &.rotation_180 {
-            transform: rotate(-180deg);
-          }
-          &.rotation_270 {
-            transform: rotate(-270deg);
-          }
-        }
       }
+    }
+  }
+
+  .stationarea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 6;
+    pointer-events: none;
+
+    .stationarea-row {
+      display: flex;
+      flex-direction: row;
+    }
+
+    .stationarea-cell {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      position: relative;
+    }
+
+    .station-building {
+      width: 100%;
+      height: 100%;
+      background-image: url('/svg/Bahnhof.svg');
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center;
     }
   }
 
@@ -205,7 +214,7 @@
       position: absolute;
       top: 0;
       left: 1px;
-      font-size: 7px;
+      font-size: 8px;
       line-height: 1;
       color: black;
       text-shadow: 0 0 2px white;
@@ -237,37 +246,7 @@
       left: 1px;
       font-size: 7px;
       line-height: 1;
-      color: black;
-      text-shadow: 0 0 2px black;
-    }
-  }
-
-  .track-numbers {
-    position: absolute;
-    left: 0;
-    top: 0;
-    z-index: 8;
-    pointer-events: none;
-
-    .track-row {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .track-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
-
-    .track-number {
-      position: absolute;
-      bottom: 0;
-      right: 1px;
-      font-size: 8px;
-      line-height: 1;
-      color: white;
+      color: whitesmoke;
       text-shadow: 0 0 2px black;
     }
   }

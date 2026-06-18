@@ -3,7 +3,7 @@ import { Agent, StationsResponse, Transitions } from './data.service'
 
 export interface MapCell {
   ground: string
-  objects?: string
+  stationBuilding?: string
   station?: boolean
   outerConnectionPoint?: boolean
   outerConnectionPointLabel?: string
@@ -125,12 +125,15 @@ export class RendererService {
   }
 
   public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = { city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, train_station_labels: {}, outer_connection_point_labels: {} }) {
+
     const trainStationMap = new Map<string, { rotationClass: string; trackNumber: number }>()
-    for (const cityStations of Object.values(stations.train_stations)) {
-      cityStations.forEach(([[r, c], dir], trackIdx) => {
-        trainStationMap.set(getLocationKey(r, c), { rotationClass: 'rotation_180', trackNumber: trackIdx })
+    for (const trainStations of Object.values(stations.train_stations)) {
+      trainStations.forEach(([[r, c], dir], trackIdx) => {
+        trainStationMap.set(getLocationKey(r, c), {rotationClass: 'rotation_270', trackNumber: trackIdx})
       })
     }
+    console.log('trainStationMap', [...trainStationMap.entries()])
+    console.log('train_station_labels', Object.entries(stations.train_station_labels))
     const stationsSet = new Set(
       Object.values(stations.city_cells).flat().map(([r, c]) => getLocationKey(r, c)),
     )
@@ -145,11 +148,20 @@ export class RendererService {
         const cell = row[j]
         const ground = this.getMapClasses(cell)
         const trainStation = trainStationMap.get(getLocationKey(i, j))
-        const objects = trainStation?.rotationClass
+
+        // Bahnhof.svg
+        const stationBuilding = trainStation?.rotationClass
+        if (stationBuilding) {
+          console.log(`${i}, ${j} has Bahnhof.svg ${getLocationKey(i, j)}`)
+        }
+
+        // TODO same sourc station labels and objects?
+
         const trackNumber = trainStation?.trackNumber
-        const trainStationLabel = objects
+        const trainStationLabel = stationBuilding
           ? (stations.train_station_labels[getLocationKey(i, j)] ?? undefined)
           : undefined
+
         const outerConnectionPoint = outerConnectionPointsSet.has(getLocationKey(i, j)) ? true : undefined
         const outerConnectionPointLabel = outerConnectionPoint
           ? (stations.outer_connection_point_labels[getLocationKey(i, j)] ?? undefined)
@@ -160,16 +172,10 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ ground, objects, station, outerConnectionPoint, outerConnectionPointLabel, trainStationLabel, trackNumber })
+        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trainStationLabel, trackNumber})
       }
       mapClasses.push(mapRow)
     }
-    console.log(
-      'mapClasses',
-      mapClasses
-        .map((row) => row.filter((cell) => cell.objects))
-        .filter((row) => row.length > 0),
-    )
     return mapClasses
   }
 }

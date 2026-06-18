@@ -6,8 +6,8 @@
         @for (col of row; let colIndex = $index; track $index) {
           @let origPos = getOriginalPosition(rowIndex, colIndex);
           <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex" [attr.data-orig-row]="origPos?.[0]" [attr.data-orig-col]="origPos?.[1]">
-            @if (col.objects) {
-              <div class="target" [class]="col.objects"></div>
+            @if (col.stationBuilding) {
+            <div class="station-building" [class]="col.stationBuilding"></div>
             }
           </div>
         }
