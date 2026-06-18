@@ -5,6 +5,7 @@ import {
   HeaderNavLink,
   HeaderUserMenu,
   LayoutComponent,
+  ModalComponent,
 } from '@flatland-association/flatland-ui'
 import {faArrowUpRightFromSquare} from '@fortawesome/free-solid-svg-icons'
 import {OAuthModule} from 'angular-oauth2-oidc'
@@ -16,7 +17,7 @@ import {ZwlComponent} from './zwl/zwl.component';
 
 @Component({
   selector: 'app-root',
-  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, ZwlComponent], //, BreadcrumbsComponent],
+  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, ZwlComponent, ModalComponent,], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -39,7 +40,7 @@ export class AppComponent implements OnInit {
     // listened to..?
     effect(() => {
       this.errorMessage = this.errorMessageService.errorMessage()
-      this.showErrorMessage = true
+      this.showErrorMessage = this.errorMessage !== undefined
     })
   }
 

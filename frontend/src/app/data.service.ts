@@ -1,6 +1,7 @@
-import { HttpClient } from '@angular/common/http'
+import {HttpClient, HttpErrorResponse} from '@angular/common/http'
 import { Injectable } from '@angular/core'
-import { firstValueFrom } from 'rxjs'
+import {catchError, firstValueFrom, Observable, throwError} from 'rxjs'
+import {ErrorMessageService} from './features/error-message/error-message.service'
 
 const BACKEND_URL = 'http://localhost:8000'
 
@@ -58,34 +59,49 @@ export interface Agent {
   providedIn: 'root',
 })
 export class DataService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private errorMessageService: ErrorMessageService) {
+  }
+
+  private fetch<T>(obs: Observable<T>): Promise<T> {
+    return firstValueFrom(
+      obs.pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.errorMessageService.errorMessage.set({
+            title: `HTTP Error ${err.status}`,
+            message: err.message,
+          })
+          return throwError(() => err)
+        }),
+      ),
+    )
+  }
 
   public getTrajectoryTransitions(trajectoryId: string) {
-    return firstValueFrom(
+    return this.fetch(
       this.http.get<Transitions>(`${BACKEND_URL}/trajectories/${trajectoryId}/transitions`),
     )
   }
 
   public getTrajectoryLineTransitions(trajectoryId: string, lineId: string) {
-    return firstValueFrom(
+    return this.fetch(
       this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${lineId}`),
     )
   }
 
   public getTrajectoryLines(trajectoryId: string) {
-    return firstValueFrom(
+    return this.fetch(
       this.http.get<Array<LineOption>>(`${BACKEND_URL}/trajectories/${trajectoryId}/lines/`),
     )
   }
 
   public getTrajectoryStations(trajectoryId: string) {
-    return firstValueFrom(
+    return this.fetch(
       this.http.get<StationsResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/stations`),
     )
   }
 
   public getTrajectoryAgents(trajectoryId: string) {
-    return firstValueFrom(
+    return this.fetch(
       this.http.get<Array<Agent>>(`${BACKEND_URL}/trajectories/${trajectoryId}/agents`),
     )
   }

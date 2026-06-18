@@ -16,10 +16,10 @@
     <div></div>
   </div>
 
-<!--  @if (showErrorMessage && errorMessage) {-->
-<!--  <lib-modal [(open)]="showErrorMessage">-->
-<!--    <h1 class="text-2xl font-bold text-neutral-500 pb-2">{{errorMessage.title}}</h1>-->
-<!--    <p class="whitespace-pre-line font-light text-neutral-700">{{errorMessage.message}}</p>-->
-<!--  </lib-modal>-->
-<!--  }-->
+  @if (showErrorMessage && errorMessage) {
+  <lib-modal [(open)]="showErrorMessage">
+    <h1 class="text-2xl font-bold text-neutral-500 pb-2">{{errorMessage.title}}</h1>
+    <p class="whitespace-pre-line font-light text-neutral-700">{{errorMessage.message}}</p>
+  </lib-modal>
+  }
 </lib-layout>
