@@ -146,8 +146,8 @@ def _build_stations_content(env) -> dict:
                 for p in env.optionals["agents_hints"]["inter_city_lines"]
             ],
             "city_orientations": env.optionals["agents_hints"]["city_orientations"],
-            #"city_names": list(range(city_cells_per_city.keys())),
-            "train_stations": {i:v for i,v in enumerate(env.optionals["agents_hints"]["train_stations"])},
+            # "city_names": list(range(city_cells_per_city.keys())),
+            "train_stations": {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])},
             "train_station_labels": {
                 f"{station[0][0]},{station[0][1]}": _city_name(city_idx)
                 for city_idx, city_stations in enumerate(env.optionals["agents_hints"]["train_stations"])
@@ -339,12 +339,25 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
 
     city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
 
-    grid[:city_1_bb.shape[0], :city_1_bb.shape[1]] = city_1_bb
-
     city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
-    # TODO use line distance for offset, also y offset via connection points, so line is straight
+
+    start = tuple(line["start"])
+    end = tuple(line["end"])
+
+    start_y = mapping1[start][0]
+    end_y = mapping2[end][0]
+    straight_y = max(start_y, end_y)
+    x_offset = 0
+    y_offset = 0
+    if start_y < straight_y:
+        y_offset = straight_y - start_y
+    grid[y_offset:city_1_bb.shape[0] + y_offset, :city_1_bb.shape[1]] = city_1_bb
+    mapping1 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping1.items()}
+
     y_offset = 00
-    x_offset = 30
+    x_offset = city_1_bb.shape[1] + len(line["cells"])
+    if end_y < straight_y:
+        y_offset = straight_y - end_y
     grid[y_offset:city_2_bb.shape[0] + y_offset, x_offset:city_2_bb.shape[1] + x_offset] = city_2_bb
 
     grid = grid[:max(city_1_bb.shape[0], city_2_bb.shape[0]), :x_offset + city_2_bb.shape[1]]
@@ -353,9 +366,6 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
 
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
-
-    start = tuple(line["start"])
-    end = tuple(line["end"])
 
     path = connect_rail_in_grid_map(
         grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
@@ -368,6 +378,8 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     assert path[0] == mapping[start]
     assert path[-1] == mapping[end]
     factor = len(line["cells"]) / len(path)
+    print("factor")
+    print(factor)
     for i, cell in enumerate(path):
         mapping[line["cells"][int(i * factor)]] = cell
 
