@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
 import { firstValueFrom } from 'rxjs'
-import {Agent, DataService, State} from '../data.service'
+import {Agent, State} from '../data.service'
 import {ControllerService} from '../controller.service'
 import {FormsModule} from '@angular/forms';
 
@@ -38,15 +38,14 @@ export class MapComponent implements OnInit {
     public stateService: StateService,
     public controllerService: ControllerService,
     public rendererService: RendererService,
-    private dataService: DataService,
   ) {}
 
   ngOnInit() {
-    this.dataService.getEnvs().then(envs => {
+    this.stateService.getEnvs().subscribe(envs => {
       this.envOptions = envs.map(e => ({ value: e.id, label: e.description }))
       this.currentEnv = this.envOptions[0]?.value ?? ''
     })
-    this.dataService.getPolicies().then(policies => {
+    this.stateService.getPolicies().subscribe(policies => {
       this.policyOptions = policies.map(p => ({ value: p.id, label: p.description }))
       this.currentPolicy = this.policyOptions[0]?.value ?? ''
     })

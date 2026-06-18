@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core'
-import {filter, Observable, ReplaySubject, Subject} from 'rxjs'
+import {combineLatest, filter, from, Observable, ReplaySubject, Subject, switchMap} from 'rxjs'
 import {DataService, State} from './data.service'
 import {StateService} from './state.service'
 
@@ -23,13 +23,23 @@ export class ControllerService {
   }
 
   constructor(private dataService: DataService, private stateService: StateService) {
-    this.stateService.init(this.trajectoryId.asObservable())
-    this.trajectoryId
-      .pipe(filter((id): id is string => id !== null))
-      .subscribe(id => {
-        this.currentTrajectoryId = id
-      })
+    const nonNull = this.trajectoryId.pipe(filter((id): id is string => id !== null))
+
+    nonNull.subscribe(id => {
+      this.currentTrajectoryId = id
+    })
+
+    nonNull.pipe(
+      switchMap(id => from(dataService.getTrajectoryLines(id)))
+    ).subscribe(lines => stateService.setLines(lines))
+
+    combineLatest([nonNull, stateService.getSelectedLine()]).pipe(
+      switchMap(([id, line]) => from(dataService.getTrajectoryLineTransitions(id, line)))
+    ).subscribe(t => stateService.setLineTransitions(t))
+
     Promise.all([dataService.getEnvs(), dataService.getPolicies()]).then(([envs, policies]) => {
+      stateService.setEnvs(envs)
+      stateService.setPolicies(policies)
       const defaultEnv = envs[0]?.id
       const defaultPolicy = policies[0]?.id
       if (defaultEnv && defaultPolicy) {

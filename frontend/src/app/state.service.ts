@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core'
-import {Agent, DataService, LineOption, State, StationsResponse, TrajectoryStep, Transitions, ZwlResponse} from './data.service'
-import {combineLatest, filter, from, Observable, ReplaySubject, switchMap} from 'rxjs'
+import {Agent, EnvOption, LineOption, PolicyOption, State, StationsResponse, TrajectoryStep, Transitions, ZwlResponse} from './data.service'
+import {Observable, ReplaySubject} from 'rxjs'
 
 @Injectable({
   providedIn: 'root',
@@ -19,9 +19,11 @@ export class StateService {
   private stations = new ReplaySubject<StationsResponse>(1)
   private lines = new ReplaySubject<Array<LineOption>>(1)
   private lineTransitions = new ReplaySubject<ZwlResponse>(1)
+  private envs = new ReplaySubject<Array<EnvOption>>(1)
+  private policies = new ReplaySubject<Array<PolicyOption>>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
 
-  constructor(private dataService: DataService) {
+  constructor() {
     this.history.next([])
     this.plans.next([])
     this.stations.next({
@@ -35,15 +37,20 @@ export class StateService {
     this.selectedLine.next('0')
   }
 
-  public init(trajectoryId$: Observable<string | null>): void {
-    // TODO cleanup
-    const nonNull = trajectoryId$.pipe(filter((id): id is string => id !== null))
-    nonNull.pipe(
-      switchMap(id => from(this.dataService.getTrajectoryLines(id)))
-    ).subscribe(lines => this.lines.next(lines))
-    combineLatest([nonNull, this.selectedLine]).pipe(
-      switchMap(([id, line]) => from(this.dataService.getTrajectoryLineTransitions(id, line)))
-    ).subscribe(t => this.lineTransitions.next(t))
+  public setEnvs(envs: Array<EnvOption>): void {
+    this.envs.next(envs)
+  }
+
+  public setPolicies(policies: Array<PolicyOption>): void {
+    this.policies.next(policies)
+  }
+
+  public setLines(lines: Array<LineOption>): void {
+    this.lines.next(lines)
+  }
+
+  public setLineTransitions(t: ZwlResponse): void {
+    this.lineTransitions.next(t)
   }
 
   public loadTrajectory(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse): void {
@@ -113,6 +120,14 @@ export class StateService {
 
   public getLineTransitions(): Observable<ZwlResponse> {
     return this.lineTransitions.asObservable()
+  }
+
+  public getEnvs(): Observable<Array<EnvOption>> {
+    return this.envs.asObservable()
+  }
+
+  public getPolicies(): Observable<Array<PolicyOption>> {
+    return this.policies.asObservable()
   }
 
   public selectLine(line: string) {
