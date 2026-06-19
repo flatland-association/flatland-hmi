@@ -25,20 +25,12 @@ export interface PolicyOption {
 export interface StationsResponse {
   station_edges: Record<string, [number, number][]>
   station_gates: Record<string, Array<{ name: string; pins: Record<string, { name: string; node: [number, number] }> }>>
-  inter_city_lines: Array<{
-    start: [number, number]
-    end: [number, number]
-    city_from: number
-    city_to: number
-  }>
   station_stopping_points: Record<string, Array<{ node: [number, number]; trackNumber: number; trackName: string }>>
 }
 
 export interface LineOption {
   city_from: number
   city_to: number
-  city_from_dir: number
-  city_to_dir: number
   label: string
   start_station_name: string
   end_station_name: string

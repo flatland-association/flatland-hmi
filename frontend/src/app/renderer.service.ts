@@ -136,7 +136,6 @@ export class RendererService {
   public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = {
     station_edges: {},
     station_gates: {},
-    inter_city_lines: [],
     station_stopping_points: {}
   }) {
 

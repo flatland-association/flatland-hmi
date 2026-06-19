@@ -30,7 +30,6 @@ export class StateService {
     this.stations.next({
       station_edges: {},
       station_gates: {},
-      inter_city_lines: [],
       station_stopping_points: {},
     })
     this.selectedLine.next('0')

@@ -288,7 +288,7 @@ def test_get_trajectory_stations():
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, dict)
-    assert {"station_edges", "station_gates", "inter_city_lines"} <= body.keys()
+    assert {"station_edges", "station_gates", "links"} <= body.keys()
     station_edges = body["station_edges"]
     assert isinstance(station_edges, dict)
     assert len(station_edges) > 0

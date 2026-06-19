@@ -117,26 +117,7 @@ def _build_stations_content(env) -> dict:
         outer_connection_points_per_city_and_direction = {i: {k: pins for k, pins in enumerate(city)} for i, city in
                                                           enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
 
-        reverse_outer_connection_points_per_city = {vv: k for k, v in outer_connection_points_per_city.items() for vv in v}
-        reverse_outer_connection_points_per_city_track = {pin: j for i, city in
-                                                          enumerate(env.optionals["agents_hints"]["outer_connection_points"]) for direction in city for j, pin
-                                                          in enumerate(direction)}
-        print("reverse_outer_connection_points_per_city_track")
-        print(reverse_outer_connection_points_per_city_track)
-
-        reverse_outer_connection_points_per_city_and_direction = {pin: (city, direction) for city, pins_per_direction in
-                                                                  outer_connection_points_per_city_and_direction.items() for direction, pins in
-                                                                  pins_per_direction.items() for pin in pins}
         print(outer_connection_points_per_city)
-        print(reverse_outer_connection_points_per_city)
-
-        print(env.optionals["agents_hints"]["inter_city_lines"])
-
-        for p in env.optionals["agents_hints"]["inter_city_lines"]:
-            print(f"{p[0]} -> {p[-1]}: {reverse_outer_connection_points_per_city[p[0]]} -> {reverse_outer_connection_points_per_city[p[-1]]}")
-            print(
-                f"{p[0]} -> {p[-1]}: {reverse_outer_connection_points_per_city_and_direction[p[0]]} -> {reverse_outer_connection_points_per_city_and_direction[p[-1]]}")
-
         print(city_cells)
 
         print(env.stations_links["stations"])
@@ -161,30 +142,34 @@ def _build_stations_content(env) -> dict:
         assert outer_connection_points_per_city_compat == outer_connection_points_per_city
         print("links==")
         print(env.stations_links["links"])
-
+        # 'from_station': _city_name(from_station),
+        # 'from_gate': f"{_city_name(from_station)}.{Grid4TransitionsEnum.to_char(from_gate)}",
+        # 'to_station': _city_name(to_station),
+        # 'to_gate': f"{_city_name(to_station)}.{Grid4TransitionsEnum.to_char(to_gate)}",
+        # 'fibres': [{
+        #     'from_pin': f"{_city_name(from_station)}.{Grid4TransitionsEnum.to_char(from_gate)}.{from_track}",
+        #     'to_pin': f"{_city_name(to_station)}.{Grid4TransitionsEnum.to_char(to_gate)}.{to_track}",
+        #     'edges': fibre
+        # } for fibre in fibres]
         return {
+
             "station_edges": station_edges,
             "station_stopping_points": station_stopping_points,
+
             "station_gates": station_gates,
 
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
-            "inter_city_lines": [
-                {
-                    "start": list(p[0]),
-                    "end": list(p[-1]),
-                    # 0, 1, 2, 3
-                    "city_from": reverse_outer_connection_points_per_city[p[0]],
-                    "city_to": reverse_outer_connection_points_per_city[p[-1]],
-                    # 0, 1, 2, 3
-                    "city_from_dir": reverse_outer_connection_points_per_city_and_direction[p[0]],
-                    "city_to_dir": reverse_outer_connection_points_per_city_and_direction[p[-1]],
-                    # 0, 1, ...
-                    "city_from_track": reverse_outer_connection_points_per_city_track[p[0]],
-                    "city_to_track": reverse_outer_connection_points_per_city_track[p[0]],
-                    "cells": p
-                }
-                for p in env.optionals["agents_hints"]["inter_city_lines"]
-            ],
+            "links": [{
+                "fromStation": link["from_station"],
+                "fromGate": link["from_gate"],
+                "toStation": link["to_station"],
+                "toGate": link["to_gate"],
+                "fibres": [{
+                    "fromPin": fibre["from_pin"],
+                    "toPin": fibre["to_pin"],
+                    "cells": fibre["edges"],
+                } for fibre in link["fibres"]],
+            } for link in env.stations_links["links"]],
         }
 
     return [list(s) for s in stations]
@@ -346,7 +331,8 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_content(env)
-    if line_id < 0 or line_id >= len(stations_lines["inter_city_lines"]):
+    fibres_flat = [(link, fibre) for link in stations_lines["links"] for fibre in link["fibres"]]
+    if line_id < 0 or line_id >= len(fibres_flat):
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
 
     outer_connection_points_per_city_and_direction = stations_lines["outer_connection_points_per_city_and_direction"]
@@ -355,20 +341,19 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
                                                               outer_connection_points_per_city_and_direction.items() for direction, pins in
                                                               pins_per_direction.items() for pin in pins}
 
-    line = stations_lines["inter_city_lines"][line_id]
-    print("line")
-    print(line)
-    city_1, city_1_facing = reverse_outer_connection_points_per_city_and_direction[tuple(line["start"])]
-    city_2, city_2_facing = reverse_outer_connection_points_per_city_and_direction[tuple(line["end"])]
+    current_link, fibre = fibres_flat[line_id]
+    print("fibre")
+    print(fibre)
+    start = tuple(fibre["cells"][0])
+    end = tuple(fibre["cells"][-1])
+    city_1, city_1_facing = reverse_outer_connection_points_per_city_and_direction[start]
+    city_2, city_2_facing = reverse_outer_connection_points_per_city_and_direction[end]
 
     grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
 
     city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
 
     city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
-
-    start = tuple(line["start"])
-    end = tuple(line["end"])
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -382,7 +367,7 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
 
     y_offset_2 = 00
     # first and last cell of line in stations bb
-    x_offset_2 = city_1_bb.shape[1] + len(line["cells"]) - 2
+    x_offset_2 = city_1_bb.shape[1] + len(fibre["cells"]) - 2
     if end_y < straight_y:
         y_offset_2 = straight_y - end_y
     grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
@@ -405,35 +390,34 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     print(path)
     assert path[0] == mapping[start]
     assert path[-1] == mapping[end]
-    assert len(line["cells"]) == len(path)
-    print(line["cells"])
+    assert len(fibre["cells"]) == len(path)
+    print(fibre["cells"])
     print(path)
     for i, cell in enumerate(path):
-        mapping[line["cells"][i]] = cell
+        mapping[fibre["cells"][i]] = cell
 
     # TODO we must find all paths of the link
 
     # TODO find all forks/joins leaving/joining our link
     covered = set()
 
-    for other_line_id, other_line in enumerate(stations_lines["inter_city_lines"]):
+    for other_line_id, (other_link, other_fibre) in enumerate(fibres_flat):
         if other_line_id == line_id:
             continue
 
-        if line["city_from"] == other_line["city_from"] and line["city_to"] == other_line["city_to"] and line["city_from_dir"] == other_line[
-            "city_from_dir"] and line["city_to_dir"] == other_line["city_to_dir"]:
-            print(f"testing {other_line_id} {other_line}")
-            print(line["cells"])
-            print(other_line["cells"])
-            start_path = other_line["cells"][0]
+        if current_link["fromGate"] == other_link["fromGate"] and current_link["toGate"] == other_link["toGate"]:
+            print(f"testing {other_line_id} {other_fibre}")
+            print(fibre["cells"])
+            print(other_fibre["cells"])
+            start_path = other_fibre["cells"][0]
 
-            for c, c_ in zip(other_line["cells"], other_line["cells"][1:]):
+            for c, c_ in zip(other_fibre["cells"], other_fibre["cells"][1:]):
                 # end overlap -> keep track of start_path and do later
-                if c in line["cells"] and c_ not in line["cells"]:
+                if c in fibre["cells"] and c_ not in fibre["cells"]:
                     start_path = c
 
                 # start of overlap -> path from start_path
-                if c not in line["cells"] and c_ in line["cells"]:
+                if c not in fibre["cells"] and c_ in fibre["cells"]:
                     # path joining into line
                     # TODO must consider direction -> otherwise not connected correctly (switche might be against the line's direction)
                     print(f"path joining into line {c_} <- {start_path}")
@@ -448,16 +432,16 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
                     # TODO add mapping
             # path forking from line but not joining again
             if start_path is not None:
-                print(f"path forking from line {start_path} -> {other_line["cells"][-1]}")
+                print(f"path forking from line {start_path} -> {other_fibre['cells'][-1]}")
                 covered.add(start_path)
                 connect_rail_in_grid_map(
                     grid_map=grid_map,
                     rail_trans=RailEnvTransitions(),
                     start=mapping[start_path],
-                    end=mapping[other_line["cells"][-1]],
+                    end=mapping[other_fibre["cells"][-1]],
                 )
                 # TODO add mapping
-    for cell in line["cells"]:
+    for cell in fibre["cells"]:
         if not RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell[0]][cell[1]]) and not cell in covered:
 
             zwl_cell = mapping[cell]
@@ -546,18 +530,17 @@ def _city_name(city_idx: int) -> str:
     return chr(ord('A') + city_idx)
 
 
-def _enrich_line(line: dict, line_id: int) -> dict:
-    from_dir = _DIRECTION_NAMES.get(line['city_from_dir'][1], str(line['city_from_dir'][1]))
-    to_dir = _DIRECTION_NAMES.get(line['city_to_dir'][1], str(line['city_to_dir'][1]))
-    from_track = line['city_from_track']
-    to_track = line['city_to_track']
-    city_from = _city_name(line['city_from'])
-    city_to = _city_name(line['city_to'])
+def _enrich_line(fibre: dict, line_id: int) -> dict:
+    # fromPin / toPin format: "StationName.DirectionChar.TrackIndex"  e.g. "A.N.0"
+    city_from_name, from_dir, from_track = fibre["fromPin"].split(".")
+    city_to_name, to_dir, to_track = fibre["toPin"].split(".")
     return {
-        **line,
-        "label": f"Line {line_id} ({city_from}.{from_dir}.{from_track} → {city_to}.{to_dir}.{to_track})",
-        "start_station_name": f"Station {city_from}",
-        "end_station_name": f"Station {city_to}",
+        **fibre,
+        "city_from": ord(city_from_name) - ord('A'),
+        "city_to": ord(city_to_name) - ord('A'),
+        "label": f"Line {line_id} ({fibre['fromPin']} → {fibre['toPin']})",
+        "start_station_name": f"Station {city_from_name}",
+        "end_station_name": f"Station {city_to_name}",
     }
 
 
@@ -566,9 +549,9 @@ async def get_trajectory_lines_list(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_content(env)
+    fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
     return CustomEncodedJSONResponse(content=[
-        _enrich_line(line, i)
-        for i, line in enumerate(stations_lines["inter_city_lines"])
+        _enrich_line(fibre, i) for i, fibre in enumerate(fibres_flat)
     ])
 
 
@@ -577,6 +560,7 @@ async def get_trajectory_lines(trajectory_id: str, line_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_content(env)
-    if line_id < 0 or line_id >= len(stations_lines["inter_city_lines"]):
+    fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
+    if line_id < 0 or line_id >= len(fibres_flat):
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
-    return CustomEncodedJSONResponse(content=_enrich_line(stations_lines["inter_city_lines"][line_id], line_id))
+    return CustomEncodedJSONResponse(content=_enrich_line(fibres_flat[line_id], line_id))
