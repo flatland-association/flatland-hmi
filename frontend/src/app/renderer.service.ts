@@ -128,15 +128,15 @@ export class RendererService {
     station_edges: {},
     outer_connection_points_per_city: {},
     inter_city_lines: [],
-    train_stations: {},
+    station_stopping_points: {},
     train_station_labels: {},
     outer_connection_point_labels: {}
   }) {
 
-    const trainStationMap = new Map<string, { rotationClass: string; trackNumber: number }>()
-    for (const trainStations of Object.values(stations.train_stations)) {
-      trainStations.forEach(([[r, c], dir], trackIdx) => {
-        trainStationMap.set(getLocationKey(r, c), {rotationClass: 'rotation_270', trackNumber: trackIdx})
+    const stoppingPointMap = new Map<string, { rotationClass: string; trackNumber: number }>()
+    for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
+      stoppingPoints.forEach(([[r, c], dir], trackIdx) => {
+        stoppingPointMap.set(getLocationKey(r, c), {rotationClass: 'rotation_270', trackNumber: trackIdx})
       })
     }
     const stationsSet = new Set(
@@ -152,12 +152,12 @@ export class RendererService {
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
         const ground = this.getMapClasses(cell)
-        const trainStation = trainStationMap.get(getLocationKey(i, j))
+        const stoppingPoint = stoppingPointMap.get(getLocationKey(i, j))
 
         // Bahnhof.svg
-        const stationBuilding = trainStation?.rotationClass
+        const stationBuilding = stoppingPoint?.rotationClass
 
-        const trackNumber = trainStation?.trackNumber
+        const trackNumber = stoppingPoint?.trackNumber
         const trainStationLabel = stationBuilding
           ? (stations.train_station_labels[getLocationKey(i, j)] ?? undefined)
           : undefined

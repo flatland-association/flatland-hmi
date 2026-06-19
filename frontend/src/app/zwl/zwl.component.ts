@@ -85,8 +85,8 @@ export class ZwlComponent implements OnInit {
         ])
       ),
       inter_city_lines: [],
-      train_stations: Object.fromEntries(
-        Object.entries(stations.train_stations).map(([k, stationList]) => [
+      station_stopping_points: Object.fromEntries(
+        Object.entries(stations.station_stopping_points).map(([k, stationList]) => [
           k,
           stationList
             .map(([[r, c], trackIdx]): [[number, number], number] | null => {

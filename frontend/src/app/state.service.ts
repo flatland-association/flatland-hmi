@@ -31,7 +31,7 @@ export class StateService {
       station_edges: {},
       outer_connection_points_per_city: {},
       inter_city_lines: [],
-      train_stations: {},
+      station_stopping_points: {},
       train_station_labels: {},
       outer_connection_point_labels: {},
     })
