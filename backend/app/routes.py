@@ -139,13 +139,14 @@ def _build_stations_content(env) -> dict:
 
         print(city_cells)
 
+        print(env.stations_links["stations"])
         train_stations = {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])}
         print(env.stations_links["stations"])
-        train_stations_new = {i: [stp["node"] for stp in v["stopping_points"]] for i, v in env.stations_links["stations"].items()}
-        assert train_stations_new == train_stations
+        station_stopping_points = {i: [stp["node"] for stp in v["stopping_points"]] for i, v in env.stations_links["stations"].items()}
+        assert station_stopping_points == train_stations
         return {
             "station_edges": station_edges,
-            "train_stations": train_stations_new,
+            "train_stations": station_stopping_points,
 
             "outer_connection_points_per_city": outer_connection_points_per_city,
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
