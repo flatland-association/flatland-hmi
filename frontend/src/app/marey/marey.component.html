@@ -166,8 +166,7 @@
         opacity="0.8"
         [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
       />
-      @let endPoint = getPolylineEndPoint(train.coordinates);
-      @if (endPoint) {
+      @for (endPoint of getPolylineSegmentEndPoints(train.coordinates); track $index) {
       <text
         [attr.x]="endPoint.x + 3"
         [attr.y]="endPoint.y + 4"

@@ -154,17 +154,23 @@ export class MareyComponent {
   }
 
 
-  getPolylineEndPoint(coordinates: TrainCoordinate[]): { x: number; y: number } | null {
-    for (let i = coordinates.length - 1; i >= 0; i--) {
-      const zwlPos = this.getZwlPosition(coordinates[i])
+  getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
+    const points: { x: number; y: number }[] = []
+    let last: { x: number; y: number } | null = null
+    for (const coord of coordinates) {
+      const zwlPos = this.getZwlPosition(coord)
       if (zwlPos !== null) {
-        return {
+        last = {
           x: this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth,
-          y: this.marginTop + (coordinates[i].t / this.maxTime) * this.chartHeight,
+          y: this.marginTop + (coord.t / this.maxTime) * this.chartHeight,
         }
+      } else if (last !== null) {
+        points.push(last)
+        last = null
       }
     }
-    return null
+    if (last !== null) points.push(last)
+    return points
   }
 
   getPolylinePath(coordinates: TrainCoordinate[]): string {
