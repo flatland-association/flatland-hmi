@@ -347,22 +347,22 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
     straight_y = max(start_y, end_y)
-    x_offset = 0
-    y_offset = 0
+    x_offset_1 = 0
+    y_offset_1 = 0
     if start_y < straight_y:
-        y_offset = straight_y - start_y
-    grid[y_offset:city_1_bb.shape[0] + y_offset, :city_1_bb.shape[1]] = city_1_bb
-    mapping1 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping1.items()}
+        y_offset_1 = straight_y - start_y
+    grid[y_offset_1:city_1_bb.shape[0] + y_offset_1, :city_1_bb.shape[1]] = city_1_bb
+    mapping1 = {k: (r + y_offset_1, c + x_offset_1) for k, (r, c) in mapping1.items()}
 
-    y_offset = 00
-    x_offset = city_1_bb.shape[1] + len(line["cells"])
+    y_offset_2 = 00
+    x_offset_2 = city_1_bb.shape[1] + len(line["cells"])
     if end_y < straight_y:
-        y_offset = straight_y - end_y
-    grid[y_offset:city_2_bb.shape[0] + y_offset, x_offset:city_2_bb.shape[1] + x_offset] = city_2_bb
+        y_offset_2 = straight_y - end_y
+    grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
 
-    grid = grid[:max(city_1_bb.shape[0], city_2_bb.shape[0]), :x_offset + city_2_bb.shape[1]]
+    grid = grid[:max(city_1_bb.shape[0] + y_offset_1, city_2_bb.shape[0] + y_offset_2), :x_offset_2 + city_2_bb.shape[1]]
 
-    mapping2 = {k: (r + y_offset, c + x_offset) for k, (r, c) in mapping2.items()}
+    mapping2 = {k: (r + y_offset_2, c + x_offset_2) for k, (r, c) in mapping2.items()}
 
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
@@ -378,10 +378,48 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     assert path[0] == mapping[start]
     assert path[-1] == mapping[end]
     factor = len(line["cells"]) / len(path)
-    print("factor")
+    print(f"factor= {factor} as {len(line["cells"])} / {len(path)}")
     print(factor)
     for i, cell in enumerate(path):
         mapping[line["cells"][int(i * factor)]] = cell
+
+    for other_line_id, other_line in enumerate(stations_lines["inter_city_lines"]):
+        if other_line_id == line_id:
+            continue
+
+        if line["city_from"] == other_line["city_from"] and line["city_to"] == other_line["city_to"] and line["city_from_dir"] == other_line[
+            "city_from_dir"] and line["city_to_dir"] == other_line["city_to_dir"]:
+            print(f"testing {other_line_id} {other_line}")
+            print(line["cells"])
+            print(other_line["cells"])
+            start_path = other_line["cells"][0]
+
+            for c, c_ in zip(other_line["cells"], other_line["cells"][1:]):
+                # end overlap -> keep track of start_path and do later
+                if c in line["cells"] and c_ not in line["cells"]:
+                    start_path = c
+
+                # start of overlap -> path from start_path
+                if c not in line["cells"] and c_ in line["cells"]:
+                    # path joining into line
+                    print(f"path joining into line {c_} <- {start_path}")
+                    connect_rail_in_grid_map(
+                        grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+                        rail_trans=RailEnvTransitions(),
+                        start=mapping[start_path],
+                        end=mapping[c_],
+                    )
+                    start_path = None
+            # path forking from line but not joining again
+            if start_path is not None:
+                print(f"path forking from line {start_path} -> {other_line["cells"][-1]}")
+                connect_rail_in_grid_map(
+                    grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+                    rail_trans=RailEnvTransitions(),
+                    start=mapping[start_path],
+                    end=mapping[other_line["cells"][-1]],
+                )
+            # TODO other path mapping
 
     return CustomEncodedJSONResponse(content={
         # ZWL grid
