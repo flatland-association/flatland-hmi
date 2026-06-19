@@ -31,7 +31,7 @@ export class ControllerService {
     })
 
     nonNull.pipe(
-      switchMap(id => from(dataService.getTrajectoryLines(id)))
+      switchMap(id => from(dataService.getTrajectoryLinks(id)))
     ).subscribe(lines => stateService.setLines(lines))
 
     Promise.all([dataService.getEnvs(), dataService.getPolicies()]).then(([envs, policies]) => {
@@ -55,7 +55,7 @@ export class ControllerService {
     this.stateService.clearHistory()
     this.dataService.createTrajectory(environment, policy).then(trajectoryId => {
       this.trajectoryId.next(trajectoryId)
-      this.selectLine('0')
+      this.selectLink('0')
       this.resetSubject.next()
       Promise.all([
         this.dataService.getTrajectoryTransitions(trajectoryId),
@@ -67,8 +67,8 @@ export class ControllerService {
     })
   }
 
-  public selectLine(line: string): void {
-    this.stateService.selectLine(line)
+  public selectLink(line: string): void {
+    this.stateService.selectLink(line)
     if (!this.currentTrajectoryId) return
     this.dataService.getTrajectoryLineTransitions(this.currentTrajectoryId, line)
       .then(t => this.stateService.setLineTransitions(t))

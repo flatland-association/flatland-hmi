@@ -29,11 +29,11 @@ export interface StationsResponse {
 }
 
 export interface LineOption {
-  city_from: string
-  city_to: string
+  cityFrom: string
+  cityTo: string
   label: string
-  start_station_name: string
-  end_station_name: string
+  startStationName: string
+  endStationName: string
 }
 
 export interface Agent {
@@ -92,15 +92,15 @@ export class DataService {
     )
   }
 
-  public getTrajectoryLineTransitions(trajectoryId: string, lineId: string) {
+  public getTrajectoryLineTransitions(trajectoryId: string, linkId: string) {
     return this.fetch(
-      this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${lineId}`),
+      this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${linkId}`),
     )
   }
 
-  public getTrajectoryLines(trajectoryId: string) {
+  public getTrajectoryLinks(trajectoryId: string) {
     return this.fetch(
-      this.http.get<Array<LineOption>>(`${BACKEND_URL}/trajectories/${trajectoryId}/lines/`),
+      this.http.get<Array<LineOption>>(`${BACKEND_URL}/trajectories/${trajectoryId}/links/`),
     )
   }
 

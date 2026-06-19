@@ -21,8 +21,8 @@ export class ZwlComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
 
-  public lineOptions: SelectOption[] = []
-  public selectedLine = ''
+  public linkOptions: SelectOption[] = []
+  public selectedLink = ''
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public reverseMapping: Map<number, Map<number, [number, number]>> = new Map()
 
@@ -35,10 +35,10 @@ export class ZwlComponent implements OnInit {
 
   ngOnInit() {
     this.stateService.getLines().subscribe(lines => {
-      this.lineOptions = lines.map((l, i) => ({value: String(i), label: l.label}))
-      if (!this.lineOptions.find(o => o.value === this.selectedLine)) {
-        this.selectedLine = this.lineOptions[0]?.value ?? ''
-        if (this.selectedLine) this.controllerService.selectLine(this.selectedLine)
+      this.linkOptions = lines.map((l, i) => ({value: String(i), label: l.label}))
+      if (!this.linkOptions.find(o => o.value === this.selectedLink)) {
+        this.selectedLink = this.linkOptions[0]?.value ?? ''
+        if (this.selectedLink) this.controllerService.selectLink(this.selectedLink)
       }
     })
     combineLatest([
@@ -117,7 +117,7 @@ export class ZwlComponent implements OnInit {
     return this.mapping.get(x)?.get(y) ?? null
   }
 
-  public onLineChange() {
-    this.controllerService.selectLine(this.selectedLine)
+  public onLinkChange() {
+    this.controllerService.selectLink(this.selectedLink)
   }
 }

@@ -82,9 +82,9 @@
 </div>
 
 <div class="controller">
-  <select [(ngModel)]="selectedLine" (ngModelChange)="onLineChange()">
-    @for (lineOption of lineOptions; track $index) {
-      <option [value]="lineOption.value">{{ lineOption.label }}</option>
+  <select [(ngModel)]="selectedLink" (ngModelChange)="onLinkChange()">
+    @for (linkOption of linkOptions; track $index) {
+    <option [value]="linkOption.value">{{ linkOption.label }}</option>
     }
   </select>
 </div>

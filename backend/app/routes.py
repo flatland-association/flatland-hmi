@@ -252,16 +252,17 @@ async def get_trajectory_transitions(trajectory_id: str):
     return _build_transitions_content(env)
 
 
-@router.get("/trajectories/{trajectory_id}/zwl/{line_id}")
-async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
+@router.get("/trajectories/{trajectory_id}/zwl/{link_id}")
+async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_and_links_payload(env)
-    fibres_flat = [(link, fibre) for link in stations_lines["links"] for fibre in link["fibres"]]
-    if line_id < 0 or line_id >= len(fibres_flat):
-        raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
+    links = stations_lines["links"]
+    if link_id < 0 or link_id >= len(links):
+        raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
 
-    current_link, fibre = fibres_flat[line_id]
+    current_link = links[link_id]
+    fibre = current_link["fibres"][0]
     print("fibre")
     print(fibre)
     start = tuple(fibre["cells"][0])
@@ -321,46 +322,42 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     # TODO find all forks/joins leaving/joining our link
     covered = set()
 
-    for other_line_id, (other_link, other_fibre) in enumerate(fibres_flat):
-        if other_line_id == line_id:
-            continue
+    for other_fibre in current_link["fibres"][1:]:
+        print(f"testing parallel fibre {other_fibre}")
+        print(fibre["cells"])
+        print(other_fibre["cells"])
+        start_path = other_fibre["cells"][0]
 
-        if current_link["fromGate"] == other_link["fromGate"] and current_link["toGate"] == other_link["toGate"]:
-            print(f"testing {other_line_id} {other_fibre}")
-            print(fibre["cells"])
-            print(other_fibre["cells"])
-            start_path = other_fibre["cells"][0]
+        for c, c_ in zip(other_fibre["cells"], other_fibre["cells"][1:]):
+            # end overlap -> keep track of start_path and do later
+            if c in fibre["cells"] and c_ not in fibre["cells"]:
+                start_path = c
 
-            for c, c_ in zip(other_fibre["cells"], other_fibre["cells"][1:]):
-                # end overlap -> keep track of start_path and do later
-                if c in fibre["cells"] and c_ not in fibre["cells"]:
-                    start_path = c
-
-                # start of overlap -> path from start_path
-                if c not in fibre["cells"] and c_ in fibre["cells"]:
-                    # path joining into line
-                    # TODO must consider direction -> otherwise not connected correctly (switche might be against the line's direction)
-                    print(f"path joining into line {c_} <- {start_path}")
-                    covered.add(c_)
-                    connect_rail_in_grid_map(
-                        grid_map=grid_map,
-                        rail_trans=RailEnvTransitions(),
-                        start=mapping[start_path],
-                        end=mapping[c_],
-                    )
-                    start_path = None
-                    # TODO add mapping
-            # path forking from line but not joining again
-            if start_path is not None:
-                print(f"path forking from line {start_path} -> {other_fibre['cells'][-1]}")
-                covered.add(start_path)
+            # start of overlap -> path from start_path
+            if c not in fibre["cells"] and c_ in fibre["cells"]:
+                # path joining into line
+                # TODO must consider direction -> otherwise not connected correctly (switche might be against the line's direction)
+                print(f"path joining into line {c_} <- {start_path}")
+                covered.add(c_)
                 connect_rail_in_grid_map(
                     grid_map=grid_map,
                     rail_trans=RailEnvTransitions(),
                     start=mapping[start_path],
-                    end=mapping[other_fibre["cells"][-1]],
+                    end=mapping[c_],
                 )
+                start_path = None
                 # TODO add mapping
+        # path forking from line but not joining again
+        if start_path is not None:
+            print(f"path forking from line {start_path} -> {other_fibre['cells'][-1]}")
+            covered.add(start_path)
+            connect_rail_in_grid_map(
+                grid_map=grid_map,
+                rail_trans=RailEnvTransitions(),
+                start=mapping[start_path],
+                end=mapping[other_fibre["cells"][-1]],
+            )
+            # TODO add mapping
     for cell in fibre["cells"]:
         if not RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell[0]][cell[1]]) and not cell in covered:
 
@@ -447,38 +444,33 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-def _enrich_line(fibre: dict, line_id: int) -> dict:
-    # TODO bad code smell avoid splitting
-    # fromPin / toPin format: "StationName.DirectionChar.TrackIndex"  e.g. "A.N.0"
-    city_from_name, from_dir, from_track = fibre["fromPin"].split(".")
-    city_to_name, to_dir, to_track = fibre["toPin"].split(".")
+def _enrich_line(link: dict, link_id: int) -> dict:
     return {
-        **fibre,
-        "city_from": city_from_name,
-        "city_to": city_to_name,
-        "label": f"Line {line_id} ({fibre['fromPin']} → {fibre['toPin']})",
-        "start_station_name": f"Station {city_from_name}",
-        "end_station_name": f"Station {city_to_name}",
+        "cityFrom": link["fromStation"],
+        "cityTo": link["toStation"],
+        "label": f"Link {link_id} ({link['fromGate']} → {link['toGate']})",
+        "startStationName": f"Station {link['fromStation']}",
+        "endStationName": f"Station {link['toStation']}",
     }
 
 
-@router.get("/trajectories/{trajectory_id}/lines/")
+@router.get("/trajectories/{trajectory_id}/links/")
 async def get_trajectory_lines_list(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_and_links_payload(env)
-    fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
+    links = stations_lines["links"]
     return CustomEncodedJSONResponse(content=[
-        _enrich_line(fibre, i) for i, fibre in enumerate(fibres_flat)
+        _enrich_line(link, i) for i, link in enumerate(links)
     ])
 
 
-@router.get("/trajectories/{trajectory_id}/lines/{line_id}")
-async def get_trajectory_lines(trajectory_id: str, line_id: int):
+@router.get("/trajectories/{trajectory_id}/links/{link_id}")
+async def get_trajectory_lines(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = _build_stations_and_links_payload(env)
-    fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
-    if line_id < 0 or line_id >= len(fibres_flat):
-        raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
-    return CustomEncodedJSONResponse(content=_enrich_line(fibres_flat[line_id], line_id))
+    links = stations_lines["links"]
+    if link_id < 0 or link_id >= len(links):
+        raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
+    return CustomEncodedJSONResponse(content=_enrich_line(links[link_id], link_id))

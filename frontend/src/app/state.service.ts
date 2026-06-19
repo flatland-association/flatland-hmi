@@ -16,7 +16,7 @@ export class StateService {
   private history = new ReplaySubject<Array<Record<string, Agent>>>(1)
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
   private plan = new ReplaySubject<number | undefined>(1)
-  private selectedLine = new ReplaySubject<string>(1)
+  private selectedLink = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
   private lines = new ReplaySubject<Array<LineOption>>(1)
   private lineTransitions = new ReplaySubject<ZwlResponse>(1)
@@ -32,7 +32,7 @@ export class StateService {
       station_gates: {},
       station_stopping_points: {},
     })
-    this.selectedLine.next('0')
+    this.selectedLink.next('0')
   }
 
   public setEnvs(envs: Array<EnvOption>): void {
@@ -53,7 +53,7 @@ export class StateService {
 
   public loadTrajectory(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse): void {
     this.state.next({steps: 0, done: {__all__: false}})
-    this.selectedLine.next('0')
+    this.selectedLink.next('0')
     this.agents.next(agents)
     this.transitions.next(transitions)
     this.stations.next(stations)
@@ -108,8 +108,8 @@ export class StateService {
     return this.stations.asObservable()
   }
 
-  public getSelectedLine(): Observable<string> {
-    return this.selectedLine.asObservable()
+  public getSelectedLink(): Observable<string> {
+    return this.selectedLink.asObservable()
   }
 
   public getLines(): Observable<Array<LineOption>> {
@@ -128,7 +128,7 @@ export class StateService {
     return this.policies.asObservable()
   }
 
-  public selectLine(line: string) {
-    this.selectedLine.next(line)
+  public selectLink(line: string) {
+    this.selectedLink.next(line)
   }
 }

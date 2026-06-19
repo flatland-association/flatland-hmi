@@ -64,8 +64,8 @@ export class MareyComponent {
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public startStationName = ''
   public endStationName = ''
-  public selectedLineLabel = ''
-  public selectedLine: number = 0
+  public selectedLinkLabel = ''
+  public selectedLink: number = 0
 
   constructor(
     public stateService: StateService,
@@ -76,14 +76,14 @@ export class MareyComponent {
     combineLatest([
       this.stateService.getLines(),
       this.stateService.getLineTransitions(),
-      this.stateService.getSelectedLine(),
-    ]).subscribe(([lines, data, selectedLine]) => {
-      this.selectedLine = parseInt(selectedLine)
-      const line = lines[this.selectedLine]
+      this.stateService.getSelectedLink(),
+    ]).subscribe(([lines, data, selectedLink]) => {
+      this.selectedLink = parseInt(selectedLink)
+      const line = lines[this.selectedLink]
       if (line) {
-        this.startStationName = line.start_station_name
-        this.endStationName = line.end_station_name
-        this.selectedLineLabel = line.label
+        this.startStationName = line.startStationName
+        this.endStationName = line.endStationName
+        this.selectedLinkLabel = line.label
       }
       this.mapping = new Map()
       for (const [[r, c], [mr, mc]] of data.mapping) {
