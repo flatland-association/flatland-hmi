@@ -5,10 +5,11 @@ import {Observable, ReplaySubject} from 'rxjs'
 @Injectable({
   providedIn: 'root',
 })
-/**
- * Holds shared data from backend for subscription by other components.
- */
+
 export class StateService {
+  /**
+   * Holds shared data from backend for subscription by other components.
+   */
   private transitions = new ReplaySubject<Transitions>(1)
   private agents = new ReplaySubject<Array<Agent>>(1)
   private state = new ReplaySubject<State>(1)
