@@ -124,7 +124,14 @@ export class RendererService {
     return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
-  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = { city_cells: {}, outer_connection_points_per_city: {}, inter_city_lines: [], train_stations: {}, train_station_labels: {}, outer_connection_point_labels: {} }) {
+  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = {
+    station_edges: {},
+    outer_connection_points_per_city: {},
+    inter_city_lines: [],
+    train_stations: {},
+    train_station_labels: {},
+    outer_connection_point_labels: {}
+  }) {
 
     const trainStationMap = new Map<string, { rotationClass: string; trackNumber: number }>()
     for (const trainStations of Object.values(stations.train_stations)) {
@@ -133,7 +140,7 @@ export class RendererService {
       })
     }
     const stationsSet = new Set(
-      Object.values(stations.city_cells).flat().map(([r, c]) => getLocationKey(r, c)),
+      Object.values(stations.station_edges).flat().map(([r, c]) => getLocationKey(r, c)),
     )
     const outerConnectionPointsSet = new Set(
       Object.values(stations.outer_connection_points_per_city).flat().map(([r, c]) => getLocationKey(r, c)),

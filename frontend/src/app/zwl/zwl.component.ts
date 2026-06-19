@@ -74,8 +74,8 @@ export class ZwlComponent implements OnInit {
       )
 
     return {
-      city_cells: Object.fromEntries(
-        Object.entries(stations.city_cells).map(([k, cells]) => [
+      station_edges: Object.fromEntries(
+        Object.entries(stations.station_edges).map(([k, cells]) => [
           k, cells.map(mapCoord).filter((c): c is [number, number] => c !== null),
         ])
       ),

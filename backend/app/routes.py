@@ -98,19 +98,19 @@ def _build_stations_content(env) -> dict:
 
         print("stations")
         print(env.stations_links["stations"])
-        city_cells_per_city_new = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
+        station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
         print("actual")
-        print(city_cells_per_city_new)
+        print(station_edges)
         print("expected")
         print(city_cells_per_city)
-        assert set(city_cells_per_city_new.keys()) == set(city_cells_per_city.keys())
-        for i in city_cells_per_city_new.keys():
+        assert set(station_edges.keys()) == set(city_cells_per_city.keys())
+        for i in station_edges.keys():
             print(f"actual {i}")
-            print(city_cells_per_city_new[i])
+            print(station_edges[i])
             print(f"expected {i}")
             print(city_cells_per_city[i])
-            print(set(city_cells_per_city_new[i]).symmetric_difference(set(city_cells_per_city[i])))
-            assert set(city_cells_per_city_new[i]) == (set(city_cells_per_city[i]))
+            print(set(station_edges[i]).symmetric_difference(set(city_cells_per_city[i])))
+            assert set(station_edges[i]) == (set(city_cells_per_city[i]))
 
 
 
@@ -143,7 +143,7 @@ def _build_stations_content(env) -> dict:
         print(city_cells)
 
         return {
-            "city_cells": city_cells_per_city_new,
+            "station_edges": station_edges,
 
             "outer_connection_points_per_city": outer_connection_points_per_city,
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
@@ -478,7 +478,7 @@ def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stat
     print(f"city_orientation={city_orientation}, target_facing={target_facing}, num_rot={num_rot}")
     print(f"rotate={num_rot}")
 
-    all_city_cells = [cell for cell in stations_lines["city_cells"][city]]
+    all_city_cells = [cell for cell in stations_lines["station_edges"][city]]
     city_cells_bbox = {
         "min_row": min(cell[0] for cell in all_city_cells),
         "max_row": max(cell[0] for cell in all_city_cells),

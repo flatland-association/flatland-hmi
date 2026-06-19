@@ -23,7 +23,7 @@ export interface PolicyOption {
 }
 
 export interface StationsResponse {
-  city_cells: Record<string, [number, number][]>
+  station_edges: Record<string, [number, number][]>
   outer_connection_points_per_city: Record<string, number[][]>
   inter_city_lines: Array<{
     start: [number, number]

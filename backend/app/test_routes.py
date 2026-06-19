@@ -288,13 +288,13 @@ def test_get_trajectory_stations():
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, dict)
-    assert {"city_cells", "outer_connection_points_per_city", "inter_city_lines"} <= body.keys()
-    city_cells = body["city_cells"]
-    assert isinstance(city_cells, dict)
-    assert len(city_cells) > 0
+    assert {"station_edges", "outer_connection_points_per_city", "inter_city_lines"} <= body.keys()
+    station_edges = body["station_edges"]
+    assert isinstance(station_edges, dict)
+    assert len(station_edges) > 0
     assert all(
         isinstance(cells, list) and all(isinstance(c, list) and len(c) == 2 for c in cells)
-        for cells in city_cells.values()
+        for cells in station_edges.values()
     )
 
 

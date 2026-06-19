@@ -28,7 +28,7 @@ export class StateService {
     this.history.next([])
     this.plans.next([])
     this.stations.next({
-      city_cells: {},
+      station_edges: {},
       outer_connection_points_per_city: {},
       inter_city_lines: [],
       train_stations: {},
