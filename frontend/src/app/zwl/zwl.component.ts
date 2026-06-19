@@ -1,9 +1,10 @@
 import {Component, OnInit} from '@angular/core'
 import {StateService} from '../state.service'
 import {MapCell, RendererService} from '../renderer.service'
-import {Agent} from '../data.service'
+import {Agent, StationsResponse} from '../data.service'
 import {FormsModule} from '@angular/forms'
 import {ControllerService} from '../controller.service'
+import {combineLatest} from 'rxjs'
 
 interface SelectOption {
   value: string
@@ -40,13 +41,64 @@ export class ZwlComponent implements OnInit {
         if (this.selectedLine) this.controllerService.selectLine(this.selectedLine)
       }
     })
-    this.stateService.getLineTransitions().subscribe(data => {
-      this.mapClasses = this.rendererService.renderMap(data.grid, [])
+    combineLatest([
+      this.stateService.getLineTransitions(),
+      this.stateService.getStations(),
+    ]).subscribe(([data, stations]) => {
       this.setMapping(data.mapping)
+      this.mapClasses = this.rendererService.renderMap(data.grid, [], this.transformStationsForZwl(stations))
     })
     this.stateService.getAgents().subscribe(agents => {
       this.agents = agents
     })
+  }
+
+  private transformStationsForZwl(stations: StationsResponse): StationsResponse {
+    const mapCoord = ([r, c]: [number, number]): [number, number] | null =>
+      this.mapping.get(r)?.get(c) ?? null
+
+    const transformKey = (key: string): string | null => {
+      const [r, c] = key.split(',').map(Number)
+      const mapped = mapCoord([r, c])
+      return mapped ? `${mapped[0]},${mapped[1]}` : null
+    }
+
+    const transformLabels = (labels: Record<string, string>): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(labels)
+          .map(([k, v]) => {
+            const nk = transformKey(k);
+            return nk ? [nk, v] : null
+          })
+          .filter((e): e is [string, string] => e !== null)
+      )
+
+    return {
+      city_cells: Object.fromEntries(
+        Object.entries(stations.city_cells).map(([k, cells]) => [
+          k, cells.map(mapCoord).filter((c): c is [number, number] => c !== null),
+        ])
+      ),
+      outer_connection_points_per_city: Object.fromEntries(
+        Object.entries(stations.outer_connection_points_per_city).map(([k, pins]) => [
+          k, (pins as [number, number][]).map(mapCoord).filter((c): c is [number, number] => c !== null),
+        ])
+      ),
+      inter_city_lines: [],
+      train_stations: Object.fromEntries(
+        Object.entries(stations.train_stations).map(([k, stationList]) => [
+          k,
+          stationList
+            .map(([[r, c], trackIdx]): [[number, number], number] | null => {
+              const mapped = mapCoord([r, c])
+              return mapped ? [mapped, trackIdx] : null
+            })
+            .filter((s): s is [[number, number], number] => s !== null),
+        ])
+      ),
+      train_station_labels: transformLabels(stations.train_station_labels),
+      outer_connection_point_labels: transformLabels(stations.outer_connection_point_labels),
+    }
   }
 
   private setMapping(mappingArray: Array<[[number, number], [number, number]]>) {
