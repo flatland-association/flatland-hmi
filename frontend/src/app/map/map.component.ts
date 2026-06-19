@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
-import { firstValueFrom } from 'rxjs'
+import {combineLatest} from 'rxjs'
 import {Agent, State} from '../data.service'
 import {ControllerService} from '../controller.service'
 import {FormsModule} from '@angular/forms';
@@ -50,14 +50,13 @@ export class MapComponent implements OnInit {
       this.currentPolicy = this.policyOptions[0]?.value ?? ''
     })
     this.stateService.getState().subscribe((state) => (this.state = state))
-    this.stateService.getTransitions().subscribe((transitions) =>
-      Promise.all([
-        firstValueFrom(this.stateService.getAgents()),
-        firstValueFrom(this.stateService.getStations()),
-      ]).then(([agents, stations]) => {
-        this.mapClasses = this.rendererService.renderMap(transitions, agents, stations)
-      }),
-    )
+    combineLatest([
+      this.stateService.getTransitions(),
+      this.stateService.getAgents(),
+      this.stateService.getStations(),
+    ]).subscribe(([transitions, agents, stations]) => {
+      this.mapClasses = this.rendererService.renderMap(transitions, agents, stations)
+    })
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
   }
 
