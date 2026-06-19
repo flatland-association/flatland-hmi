@@ -100,10 +100,6 @@ function getBackgroundClasses() {
   return ''
 }
 
-function getLocationKey(i: number, j: number) {
-  return `${i},${j}`
-}
-
 @Injectable({
   providedIn: 'root',
 })
@@ -133,18 +129,40 @@ export class RendererService {
     outer_connection_point_labels: {}
   }) {
 
-    const stoppingPointMap = new Map<string, { rotationClass: string; trackNumber: number }>()
+    const stoppingPointCoords = new Map<number, Map<number, { rotationClass: string; trackNumber: number }>>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
-      stoppingPoints.forEach(([[r, c], dir], trackIdx) => {
-        stoppingPointMap.set(getLocationKey(r, c), {rotationClass: 'rotation_270', trackNumber: trackIdx})
+      stoppingPoints.forEach(([[r, c], trackNumber]) => {
+        if (!stoppingPointCoords.has(r)) stoppingPointCoords.set(r, new Map())
+        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber})
       })
     }
-    const stationsSet = new Set(
-      Object.values(stations.station_edges).flat().map(([r, c]) => getLocationKey(r, c)),
-    )
-    const outerConnectionPointsSet = new Set(
-      Object.values(stations.outer_connection_points_per_city).flat().map(([r, c]) => getLocationKey(r, c)),
-    )
+
+    const stationEdgeCoords = new Map<number, Set<number>>()
+    for (const [r, c] of Object.values(stations.station_edges).flat()) {
+      if (!stationEdgeCoords.has(r)) stationEdgeCoords.set(r, new Set())
+      stationEdgeCoords.get(r)!.add(c)
+    }
+
+    const ocpCoords = new Map<number, Set<number>>()
+    for (const [r, c] of Object.values(stations.outer_connection_points_per_city).flat() as [number, number][]) {
+      if (!ocpCoords.has(r)) ocpCoords.set(r, new Set())
+      ocpCoords.get(r)!.add(c)
+    }
+
+    const stoppingPointLabelCoords = new Map<number, Map<number, string>>()
+    for (const [key, label] of Object.entries(stations.train_station_labels)) {
+      const [r, c] = key.split(',').map(Number)
+      if (!stoppingPointLabelCoords.has(r)) stoppingPointLabelCoords.set(r, new Map())
+      stoppingPointLabelCoords.get(r)!.set(c, label)
+    }
+
+    const ocpLabelCoords = new Map<number, Map<number, string>>()
+    for (const [key, label] of Object.entries(stations.outer_connection_point_labels)) {
+      const [r, c] = key.split(',').map(Number)
+      if (!ocpLabelCoords.has(r)) ocpLabelCoords.set(r, new Map())
+      ocpLabelCoords.get(r)!.set(c, label)
+    }
+
     const mapClasses: Array<Array<MapCell>> = []
     for (let i = 0; i < transitions.length; i++) {
       const row = transitions[i]
@@ -152,21 +170,16 @@ export class RendererService {
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
         const ground = this.getMapClasses(cell)
-        const stoppingPoint = stoppingPointMap.get(getLocationKey(i, j))
+        const stoppingPoint = stoppingPointCoords.get(i)?.get(j)
 
         // Bahnhof.svg
         const stationBuilding = stoppingPoint?.rotationClass
-
         const trackNumber = stoppingPoint?.trackNumber
-        const trainStationLabel = stationBuilding
-          ? (stations.train_station_labels[getLocationKey(i, j)] ?? undefined)
-          : undefined
+        const trainStationLabel = stationBuilding ? stoppingPointLabelCoords.get(i)?.get(j) : undefined
 
-        const outerConnectionPoint = outerConnectionPointsSet.has(getLocationKey(i, j)) ? true : undefined
-        const outerConnectionPointLabel = outerConnectionPoint
-          ? (stations.outer_connection_point_labels[getLocationKey(i, j)] ?? undefined)
-          : undefined
-        let station = stationsSet.has(getLocationKey(i, j)) ? true : undefined
+        const outerConnectionPoint = ocpCoords.get(i)?.has(j) ? true : undefined
+        const outerConnectionPointLabel = outerConnectionPoint ? ocpLabelCoords.get(i)?.get(j) : undefined
+        let station = stationEdgeCoords.get(i)?.has(j) ? true : undefined
         // either station or outerConnectionPoint
         if (outerConnectionPoint) {
           station = undefined
