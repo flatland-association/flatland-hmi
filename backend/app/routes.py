@@ -266,17 +266,13 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     start = tuple(fibre["cells"][0])
     end = tuple(fibre["cells"][-1])
     from_station = current_link["fromStation"]
-    from_dir = current_link["fromFacing"]
+    from_facing = _DIRECTION_CHARS[current_link["fromFacing"]]
     to_station = current_link["toStation"]
-    to_dir = current_link["toFacing"]
-    from_station_idx = _city_index(from_station)
-    city_1_facing = _DIRECTION_CHARS[from_dir]
-    to_station_idx = _city_index(to_station)
-    city_2_facing = _DIRECTION_CHARS[to_dir]
+    to_facing = _DIRECTION_CHARS[current_link["toFacing"]]
 
     grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
-    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station_idx, city_1_facing, env, stations_lines, 1)
-    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station_idx, city_2_facing, env, stations_lines, 3)
+    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_lines, 1)
+    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_lines, 3)
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -450,24 +446,15 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-# TODO bad code smell - should come consistently from env
-def _city_name(city_idx: int) -> str:
-    return chr(ord('A') + city_idx)
-
-
-# TODO bad code smell avoid - use names passim
-def _city_index(city_name: str) -> int:
-    return ord(city_name) - ord('A')
-
-
 def _enrich_line(fibre: dict, line_id: int) -> dict:
+    # TODO bad code smell avoid splitting
     # fromPin / toPin format: "StationName.DirectionChar.TrackIndex"  e.g. "A.N.0"
     city_from_name, from_dir, from_track = fibre["fromPin"].split(".")
     city_to_name, to_dir, to_track = fibre["toPin"].split(".")
     return {
         **fibre,
-        "city_from": _city_index(city_from_name),
-        "city_to": _city_index(city_to_name),
+        "city_from": city_from_name,
+        "city_to": city_to_name,
         "label": f"Line {line_id} ({fibre['fromPin']} → {fibre['toPin']})",
         "start_station_name": f"Station {city_from_name}",
         "end_station_name": f"Station {city_to_name}",
