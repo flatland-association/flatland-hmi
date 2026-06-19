@@ -147,6 +147,17 @@ def _build_stations_content(env) -> dict:
         assert station_stopping_points == train_stations_compat
         station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
                                    i, v in env.stations_links["stations"].items()}
+
+        stations_gates = {i: [gate for _, gate in v["gates"].items()] for i, v in env.stations_links["stations"].items()}
+        print("station_gates")
+        print(stations_gates)
+        print("outer_connection_points_per_city")
+        print(outer_connection_points_per_city)
+
+        outer_connection_points_per_city_compat = {i: [pin["node"] for _, gate in v["gates"].items() for _, pin in gate["pins"].items()] for i, v in
+                                                   env.stations_links["stations"].items()}
+        assert outer_connection_points_per_city_compat == outer_connection_points_per_city
+
         return {
             "station_edges": station_edges,
             "station_stopping_points": station_stopping_points,
@@ -170,9 +181,6 @@ def _build_stations_content(env) -> dict:
                 }
                 for p in env.optionals["agents_hints"]["inter_city_lines"]
             ],
-            "city_orientations": env.optionals["agents_hints"]["city_orientations"],
-            # "city_names": list(range(city_cells_per_city.keys())),
-
             "outer_connection_point_labels": {
                 f"{pin[0]},{pin[1]}": f"{_city_name(city)}.{_DIRECTION_NAMES.get(direction, str(direction))}.{track_idx}"
                 for city, directions in outer_connection_points_per_city_and_direction.items()
