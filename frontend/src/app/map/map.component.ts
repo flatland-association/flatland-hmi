@@ -52,10 +52,9 @@ export class MapComponent implements OnInit {
     this.stateService.getState().subscribe((state) => (this.state = state))
     combineLatest([
       this.stateService.getTransitions(),
-      this.stateService.getAgents(),
       this.stateService.getStations(),
-    ]).subscribe(([transitions, agents, stations]) => {
-      this.mapClasses = this.rendererService.renderMap(transitions, agents, stations)
+    ]).subscribe(([transitions, stations]) => {
+      this.mapClasses = this.rendererService.renderMap(transitions, [], stations)
     })
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
   }
