@@ -32,7 +32,6 @@ export interface StationsResponse {
     city_to: number
   }>
   station_stopping_points: Record<string, Array<{ node: [number, number]; trackNumber: number; trackName: string }>>
-  train_station_labels: Record<string, string>
   outer_connection_point_labels: Record<string, string>
 }
 

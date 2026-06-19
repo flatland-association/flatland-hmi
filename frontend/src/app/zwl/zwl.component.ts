@@ -96,7 +96,6 @@ export class ZwlComponent implements OnInit {
             .filter((s): s is { node: [number, number]; trackNumber: number; trackName: string } => s !== null),
         ])
       ),
-      train_station_labels: transformLabels(stations.train_station_labels),
       outer_connection_point_labels: transformLabels(stations.outer_connection_point_labels),
     }
   }
