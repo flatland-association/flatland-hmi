@@ -37,8 +37,8 @@
       @for (col of row; let colIndex = $index; track $index) {
       @let origPos = getOriginalPosition(rowIndex, colIndex);
       <div class="station-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex" [attr.data-orig-row]="origPos?.[0]" [attr.data-orig-col]="origPos?.[1]">
-        @if (col.trainStationLabel) {
-        <div class="station-label">{{ col.trainStationLabel }}.{{ col.trackNumber }}</div>
+        @if (col.trackName) {
+        <div class="station-label">{{ col.trackName }}</div>
         }
       </div>
       }

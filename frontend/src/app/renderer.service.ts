@@ -9,6 +9,7 @@ export interface MapCell {
   outerConnectionPointLabel?: string
   trainStationLabel?: string
   trackNumber?: number
+  trackName?: string
 }
 
 const BACKGROUND_CLASSES_WEIGHT = {
@@ -129,12 +130,12 @@ export class RendererService {
     outer_connection_point_labels: {}
   }) {
 
-    const stoppingPointCoords = new Map<number, Map<number, { rotationClass: string; trackNumber: number }>>()
+    const stoppingPointCoords = new Map<number, Map<number, { rotationClass: string; trackNumber: number; trackName: string }>>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
       stoppingPoints.forEach(stp => {
         const [r, c] = stp.node
         if (!stoppingPointCoords.has(r)) stoppingPointCoords.set(r, new Map())
-        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber})
+        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber, trackName: stp.trackName})
       })
     }
 
@@ -176,6 +177,7 @@ export class RendererService {
         // Bahnhof.svg
         const stationBuilding = stoppingPoint?.rotationClass
         const trackNumber = stoppingPoint?.trackNumber
+        const trackName = stoppingPoint?.trackName
         const trainStationLabel = stationBuilding ? stoppingPointLabelCoords.get(i)?.get(j) : undefined
 
         const outerConnectionPoint = ocpCoords.get(i)?.has(j) ? true : undefined
@@ -186,7 +188,7 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trainStationLabel, trackNumber})
+        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trainStationLabel, trackNumber, trackName})
       }
       mapClasses.push(mapRow)
     }

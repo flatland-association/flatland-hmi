@@ -36,8 +36,8 @@
       <div class="station-row">
         @for (col of row; let colIndex = $index; track $index) {
           <div class="station-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
-            @if (col.trainStationLabel) {
-            <div class="station-label">{{ col.trainStationLabel }}.{{ col.trackNumber }}</div>
+            @if (col.trackName) {
+            <div class="station-label">{{ col.trackName }}</div>
             }
           </div>
         }

@@ -142,7 +142,8 @@ def _build_stations_content(env) -> dict:
         print(env.stations_links["stations"])
         train_stations_compat = {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])}
         print(env.stations_links["stations"])
-        station_stopping_points = {i: [(stp["node"], stp["track_number"]) for stp in v["stopping_points"]] for i, v in env.stations_links["stations"].items()}
+        station_stopping_points = {i: [(stp["node"], stp["track_number"]) for stp in v["stopping_points"]] for i, v in
+                                   enumerate(env.stations_links["stations"].values())}
         assert station_stopping_points == train_stations_compat
         station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
                                    i, v in env.stations_links["stations"].items()}
