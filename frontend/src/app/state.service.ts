@@ -32,7 +32,6 @@ export class StateService {
       station_gates: {},
       inter_city_lines: [],
       station_stopping_points: {},
-      outer_connection_point_labels: {},
     })
     this.selectedLine.next('0')
   }

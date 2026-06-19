@@ -5,8 +5,8 @@ export interface MapCell {
   ground: string
   stationBuilding?: string
   station?: boolean
-  outerConnectionPoint?: boolean
-  outerConnectionPointLabel?: string
+  pin?: boolean
+  pinLabel?: string
   trackNumber?: number
   trackName?: string
 }
@@ -100,6 +100,19 @@ function getBackgroundClasses() {
   return ''
 }
 
+class CoordMap<V> {
+  private rows = new Map<number, Map<number, V>>()
+
+  set([r, c]: [number, number], value: V): void {
+    if (!this.rows.has(r)) this.rows.set(r, new Map())
+    this.rows.get(r)!.set(c, value)
+  }
+
+  get([r, c]: [number, number]): V | undefined {
+    return this.rows.get(r)?.get(c)
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -124,16 +137,13 @@ export class RendererService {
     station_edges: {},
     station_gates: {},
     inter_city_lines: [],
-    station_stopping_points: {},
-    outer_connection_point_labels: {}
+    station_stopping_points: {}
   }) {
 
-    const stoppingPointCoords = new Map<number, Map<number, { rotationClass: string; trackNumber: number; trackName: string }>>()
+    const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackNumber: number; trackName: string }>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
       stoppingPoints.forEach(stp => {
-        const [r, c] = stp.node
-        if (!stoppingPointCoords.has(r)) stoppingPointCoords.set(r, new Map())
-        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber, trackName: stp.trackName})
+        stoppingPointCoords.set(stp.node, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber, trackName: stp.trackName})
       })
     }
 
@@ -143,22 +153,13 @@ export class RendererService {
       stationEdgeCoords.get(r)!.add(c)
     }
 
-    const ocpCoords = new Map<number, Set<number>>()
+    const pinLabelCoords = new CoordMap<string>()
     for (const gates of Object.values(stations.station_gates)) {
       for (const gate of gates) {
-        for (const pin of Object.values(gate.pins)) {
-          const [r, c] = pin.node
-          if (!ocpCoords.has(r)) ocpCoords.set(r, new Set())
-          ocpCoords.get(r)!.add(c)
+        for (const p of Object.values(gate.pins)) {
+          pinLabelCoords.set(p.node, gate.name)
         }
       }
-    }
-
-    const ocpLabelCoords = new Map<number, Map<number, string>>()
-    for (const [key, label] of Object.entries(stations.outer_connection_point_labels)) {
-      const [r, c] = key.split(',').map(Number)
-      if (!ocpLabelCoords.has(r)) ocpLabelCoords.set(r, new Map())
-      ocpLabelCoords.get(r)!.set(c, label)
     }
 
     const mapClasses: Array<Array<MapCell>> = []
@@ -168,22 +169,21 @@ export class RendererService {
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
         const ground = this.getMapClasses(cell)
-        const stoppingPoint = stoppingPointCoords.get(i)?.get(j)
+        const stoppingPoint = stoppingPointCoords.get([i, j])
 
         // Bahnhof.svg
         const stationBuilding = stoppingPoint?.rotationClass
         const trackNumber = stoppingPoint?.trackNumber
         const trackName = stoppingPoint?.trackName
 
-        const outerConnectionPoint = ocpCoords.get(i)?.has(j) ? true : undefined
-        const outerConnectionPointLabel = outerConnectionPoint ? ocpLabelCoords.get(i)?.get(j) : undefined
+        const pinLabel = pinLabelCoords.get([i, j])
+        const pin = pinLabel ? true : undefined
         let station = stationEdgeCoords.get(i)?.has(j) ? true : undefined
-        // either station or outerConnectionPoint
-        if (outerConnectionPoint) {
+        if (pin) {
           station = undefined
         }
 
-        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trackNumber, trackName})
+        mapRow.push({ground, stationBuilding, station, pin, pinLabel, trackNumber, trackName})
       }
       mapClasses.push(mapRow)
     }

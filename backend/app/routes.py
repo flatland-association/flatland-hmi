@@ -148,7 +148,9 @@ def _build_stations_content(env) -> dict:
         station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
                                    i, v in env.stations_links["stations"].items()}
 
-        station_gates = {i: [gate for _, gate in v["gates"].items()] for i, v in env.stations_links["stations"].items()}
+        station_gates = {i: [{"name": gate["name"],
+                              "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for _, gate in v["gates"].items()] for i, v
+                         in env.stations_links["stations"].items()}
         print("station_gates")
         print(station_gates)
         print("outer_connection_points_per_city")
@@ -157,12 +159,14 @@ def _build_stations_content(env) -> dict:
         outer_connection_points_per_city_compat = {i: [pin["node"] for _, gate in v["gates"].items() for _, pin in gate["pins"].items()] for i, v in
                                                    env.stations_links["stations"].items()}
         assert outer_connection_points_per_city_compat == outer_connection_points_per_city
+        print("links==")
+        print(env.stations_links["links"])
 
         return {
             "station_edges": station_edges,
             "station_stopping_points": station_stopping_points,
-
             "station_gates": station_gates,
+
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
             "inter_city_lines": [
                 {
@@ -181,12 +185,6 @@ def _build_stations_content(env) -> dict:
                 }
                 for p in env.optionals["agents_hints"]["inter_city_lines"]
             ],
-            "outer_connection_point_labels": {
-                f"{pin[0]},{pin[1]}": f"{_city_name(city)}.{_DIRECTION_NAMES.get(direction, str(direction))}.{track_idx}"
-                for city, directions in outer_connection_points_per_city_and_direction.items()
-                for direction, pins in directions.items()
-                for track_idx, pin in enumerate(pins)
-            },
         }
 
     return [list(s) for s in stations]

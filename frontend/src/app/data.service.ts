@@ -24,7 +24,7 @@ export interface PolicyOption {
 
 export interface StationsResponse {
   station_edges: Record<string, [number, number][]>
-  station_gates: Record<string, Array<{ pins: Record<string, { node: [number, number] }> }>>
+  station_gates: Record<string, Array<{ name: string; pins: Record<string, { name: string; node: [number, number] }> }>>
   inter_city_lines: Array<{
     start: [number, number]
     end: [number, number]
@@ -32,7 +32,6 @@ export interface StationsResponse {
     city_to: number
   }>
   station_stopping_points: Record<string, Array<{ node: [number, number]; trackNumber: number; trackName: string }>>
-  outer_connection_point_labels: Record<string, string>
 }
 
 export interface LineOption {

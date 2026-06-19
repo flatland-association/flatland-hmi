@@ -57,22 +57,6 @@ export class ZwlComponent implements OnInit {
     const mapCoord = ([r, c]: [number, number]): [number, number] | null =>
       this.mapping.get(r)?.get(c) ?? null
 
-    const transformKey = (key: string): string | null => {
-      const [r, c] = key.split(',').map(Number)
-      const mapped = mapCoord([r, c])
-      return mapped ? `${mapped[0]},${mapped[1]}` : null
-    }
-
-    const transformLabels = (labels: Record<string, string>): Record<string, string> =>
-      Object.fromEntries(
-        Object.entries(labels)
-          .map(([k, v]) => {
-            const nk = transformKey(k);
-            return nk ? [nk, v] : null
-          })
-          .filter((e): e is [string, string] => e !== null)
-      )
-
     return {
       station_edges: Object.fromEntries(
         Object.entries(stations.station_edges).map(([k, cells]) => [
@@ -83,13 +67,14 @@ export class ZwlComponent implements OnInit {
         Object.entries(stations.station_gates).map(([k, gates]) => [
           k,
           gates.map(gate => ({
+            ...gate,
             pins: Object.fromEntries(
               Object.entries(gate.pins)
                 .map(([pk, pin]) => {
                   const mapped = mapCoord(pin.node)
                   return mapped ? [pk, {...pin, node: mapped}] : null
                 })
-                .filter((e): e is [string, { node: [number, number] }] => e !== null)
+                .filter((e): e is [string, { name: string; node: [number, number] }] => e !== null)
             ),
           })),
         ])
@@ -106,7 +91,6 @@ export class ZwlComponent implements OnInit {
             .filter((s): s is { node: [number, number]; trackNumber: number; trackName: string } => s !== null),
         ])
       ),
-      outer_connection_point_labels: transformLabels(stations.outer_connection_point_labels),
     }
   }
 

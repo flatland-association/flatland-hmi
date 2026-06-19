@@ -5,9 +5,9 @@
       <div class="row">
         @for (col of row; let colIndex = $index; track $index) {
           <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
-            @if (col.outerConnectionPoint) {
+            @if (col.pin) {
             <!-- red -->
-            <div class="ocp"></div>
+            <div class="pin"></div>
             }
             @else if (col.station) {
             <!-- orange -->
@@ -44,13 +44,13 @@
       </div>
     }
   </div>
-  <div class="ocp-labels">
+  <div class="pin-labels">
     @for (row of mapClasses; let rowIndex = $index; track $index) {
-      <div class="ocp-row">
+    <div class="pin-row">
         @for (col of row; let colIndex = $index; track $index) {
-        <div class="ocp-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
-            @if (col.outerConnectionPointLabel) {
-              <div class="ocp-label">{{ col.outerConnectionPointLabel }}</div>
+      <div class="pin-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @if (col.pinLabel) {
+        <div class="pin-label">{{ col.pinLabel }}</div>
             }
           </div>
         }
