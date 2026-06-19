@@ -71,108 +71,33 @@ def _build_transitions_content(env) -> list:
     return env.rail.grid.tolist()
 
 
-def _build_stations_content(env) -> dict:
-    stations = set()
-    for agent in env.agents:
-        if agent.initial_position is not None:
-            stations.add(tuple(int(c) for c in agent.initial_position))
-        if agent.target is not None:
-            stations.add(tuple(int(c) for c in agent.target))
-    # TODO abstract data model independent from sparse rail gen and move to sparse rail gen https://github.com/flatland-association/flatland-rl/pull/441/changes
-    print("_build_stations_content")
-    if hasattr(env, "optionals") or True:
-        print("_build_stations_content 2")
-        print(env.optionals)
-        print("free_rails")
-        print(env.optionals["agents_hints"]["free_rails"])
-        print(" -> content:")
+def _build_stations_and_links_payload(env) -> dict:
+    station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
+    station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
+                               i, v in env.stations_links["stations"].items()}
 
-        # interleave free rails and connections points per city
-        outer_connection_points_free_rails_merged_per_city = [cp + fr for cp, fr in zip(env.optionals["agents_hints"]["outer_connection_points"],
-                                                                                        env.optionals["agents_hints"]["free_rails"])]
-        # TODO fill gaps in cities
-        print(outer_connection_points_free_rails_merged_per_city)
-        city_cells = [pin for city in outer_connection_points_free_rails_merged_per_city for direction in city for pin in direction if len(pin) == 2]
-        city_cells_per_city = {i: [pin for direction in city for pin in direction if len(pin) == 2] for i, city in
-                               enumerate(outer_connection_points_free_rails_merged_per_city)}
+    station_gates = {i: [{"name": gate["name"],
+                          "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for _, gate in v["gates"].items()] for i, v
+                     in env.stations_links["stations"].items()}
+    return {
+        "station_edges": station_edges,
+        "station_stopping_points": station_stopping_points,
+        "station_gates": station_gates,
 
-        print("stations")
-        print(env.stations_links["stations"])
-        station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
-        print("actual")
-        print(station_edges)
-        print("expected")
-        print(city_cells_per_city)
-        assert set(station_edges.keys()) == set(city_cells_per_city.keys())
-        for i in station_edges.keys():
-            print(f"actual {i}")
-            print(station_edges[i])
-            print(f"expected {i}")
-            print(city_cells_per_city[i])
-            print(set(station_edges[i]).symmetric_difference(set(city_cells_per_city[i])))
-            assert set(station_edges[i]) == (set(city_cells_per_city[i]))
-
-        outer_connection_points_per_city = {i: [pin for direction in city for pin in direction] for i, city in
-                                            enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
-        outer_connection_points_per_city_and_direction = {i: {k: pins for k, pins in enumerate(city)} for i, city in
-                                                          enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
-
-        print(outer_connection_points_per_city)
-        print(city_cells)
-
-        print(env.stations_links["stations"])
-        train_stations_compat = {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])}
-        print(env.stations_links["stations"])
-        station_stopping_points = {i: [(stp["node"], stp["track_number"]) for stp in v["stopping_points"]] for i, v in
-                                   enumerate(env.stations_links["stations"].values())}
-        assert station_stopping_points == train_stations_compat
-        station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
-                                   i, v in env.stations_links["stations"].items()}
-
-        station_gates = {i: [{"name": gate["name"],
-                              "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for _, gate in v["gates"].items()] for i, v
-                         in env.stations_links["stations"].items()}
-        print("station_gates")
-        print(station_gates)
-        print("outer_connection_points_per_city")
-        print(outer_connection_points_per_city)
-
-        outer_connection_points_per_city_compat = {i: [pin["node"] for _, gate in v["gates"].items() for _, pin in gate["pins"].items()] for i, v in
-                                                   env.stations_links["stations"].items()}
-        assert outer_connection_points_per_city_compat == outer_connection_points_per_city
-        print("links==")
-        print(env.stations_links["links"])
-        # 'from_station': _city_name(from_station),
-        # 'from_gate': f"{_city_name(from_station)}.{Grid4TransitionsEnum.to_char(from_gate)}",
-        # 'to_station': _city_name(to_station),
-        # 'to_gate': f"{_city_name(to_station)}.{Grid4TransitionsEnum.to_char(to_gate)}",
-        # 'fibres': [{
-        #     'from_pin': f"{_city_name(from_station)}.{Grid4TransitionsEnum.to_char(from_gate)}.{from_track}",
-        #     'to_pin': f"{_city_name(to_station)}.{Grid4TransitionsEnum.to_char(to_gate)}.{to_track}",
-        #     'edges': fibre
-        # } for fibre in fibres]
-        return {
-
-            "station_edges": station_edges,
-            "station_stopping_points": station_stopping_points,
-
-            "station_gates": station_gates,
-
-            "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
-            "links": [{
-                "fromStation": link["from_station"],
-                "fromGate": link["from_gate"],
-                "toStation": link["to_station"],
-                "toGate": link["to_gate"],
-                "fibres": [{
-                    "fromPin": fibre["from_pin"],
-                    "toPin": fibre["to_pin"],
-                    "cells": fibre["edges"],
-                } for fibre in link["fibres"]],
-            } for link in env.stations_links["links"]],
-        }
-
-    return [list(s) for s in stations]
+        "links": [{
+            "fromStation": link["from_station"],
+            "fromGate": link["from_gate"],
+            "fromFacing": link["from_facing"],
+            "toStation": link["to_station"],
+            "toGate": link["to_gate"],
+            "toFacing": link["to_facing"],
+            "fibres": [{
+                "fromPin": fibre["from_pin"],
+                "toPin": fibre["to_pin"],
+                "cells": fibre["edges"],
+            } for fibre in link["fibres"]],
+        } for link in env.stations_links["links"]],
+    }
 
 
 def _build_agents_content(env) -> list:
@@ -330,30 +255,28 @@ async def get_trajectory_transitions(trajectory_id: str):
 async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = _build_stations_content(env)
+    stations_lines = _build_stations_and_links_payload(env)
     fibres_flat = [(link, fibre) for link in stations_lines["links"] for fibre in link["fibres"]]
     if line_id < 0 or line_id >= len(fibres_flat):
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
-
-    outer_connection_points_per_city_and_direction = stations_lines["outer_connection_points_per_city_and_direction"]
-
-    reverse_outer_connection_points_per_city_and_direction = {pin: (city, direction) for city, pins_per_direction in
-                                                              outer_connection_points_per_city_and_direction.items() for direction, pins in
-                                                              pins_per_direction.items() for pin in pins}
 
     current_link, fibre = fibres_flat[line_id]
     print("fibre")
     print(fibre)
     start = tuple(fibre["cells"][0])
     end = tuple(fibre["cells"][-1])
-    city_1, city_1_facing = reverse_outer_connection_points_per_city_and_direction[start]
-    city_2, city_2_facing = reverse_outer_connection_points_per_city_and_direction[end]
+    from_station = current_link["fromStation"]
+    from_dir = current_link["fromFacing"]
+    to_station = current_link["toStation"]
+    to_dir = current_link["toFacing"]
+    from_station_idx = _city_index(from_station)
+    city_1_facing = _DIRECTION_CHARS[from_dir]
+    to_station_idx = _city_index(to_station)
+    city_2_facing = _DIRECTION_CHARS[to_dir]
 
     grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
-
-    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(city_1, city_1_facing, env, stations_lines, 1)
-
-    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(city_2, city_2_facing, env, stations_lines, 3)
+    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station_idx, city_1_facing, env, stations_lines, 1)
+    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station_idx, city_2_facing, env, stations_lines, 3)
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -513,7 +436,7 @@ def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stat
 async def get_trajectory_stations(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    return CustomEncodedJSONResponse(content=_build_stations_content(env))
+    return CustomEncodedJSONResponse(content=_build_stations_and_links_payload(env))
 
 
 @router.get("/trajectories/{trajectory_id}/agents")
@@ -524,10 +447,17 @@ async def get_trajectory_agents(trajectory_id: str):
 
 
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
+_DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
+# TODO bad code smell - should come consistently from env
 def _city_name(city_idx: int) -> str:
     return chr(ord('A') + city_idx)
+
+
+# TODO bad code smell avoid - use names passim
+def _city_index(city_name: str) -> int:
+    return ord(city_name) - ord('A')
 
 
 def _enrich_line(fibre: dict, line_id: int) -> dict:
@@ -536,8 +466,8 @@ def _enrich_line(fibre: dict, line_id: int) -> dict:
     city_to_name, to_dir, to_track = fibre["toPin"].split(".")
     return {
         **fibre,
-        "city_from": ord(city_from_name) - ord('A'),
-        "city_to": ord(city_to_name) - ord('A'),
+        "city_from": _city_index(city_from_name),
+        "city_to": _city_index(city_to_name),
         "label": f"Line {line_id} ({fibre['fromPin']} → {fibre['toPin']})",
         "start_station_name": f"Station {city_from_name}",
         "end_station_name": f"Station {city_to_name}",
@@ -548,7 +478,7 @@ def _enrich_line(fibre: dict, line_id: int) -> dict:
 async def get_trajectory_lines_list(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = _build_stations_content(env)
+    stations_lines = _build_stations_and_links_payload(env)
     fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
     return CustomEncodedJSONResponse(content=[
         _enrich_line(fibre, i) for i, fibre in enumerate(fibres_flat)
@@ -559,7 +489,7 @@ async def get_trajectory_lines_list(trajectory_id: str):
 async def get_trajectory_lines(trajectory_id: str, line_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = _build_stations_content(env)
+    stations_lines = _build_stations_and_links_payload(env)
     fibres_flat = [fibre for link in stations_lines["links"] for fibre in link["fibres"]]
     if line_id < 0 or line_id >= len(fibres_flat):
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found.")
