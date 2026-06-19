@@ -141,8 +141,8 @@
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
       <g>
-        <polyline
-          [attr.points]="getPolylinePoints(train.coordinates,  i.toString())"
+        <path
+          [attr.d]="getPolylinePath(train.coordinates)"
           [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
           fill="none"
           stroke-width="3"
@@ -158,8 +158,8 @@
       <feColorMatrix type="hueRotate" [attr.values]="(i / trainRuns.length) * 360" />
     </filter>
     <g>
-      <polyline
-        [attr.points]="getPolylinePoints(train.coordinates, i.toString())"
+      <path
+        [attr.d]="getPolylinePath(train.coordinates)"
         fill="none"
         stroke="red"
         stroke-width="3"

@@ -167,22 +167,20 @@ export class MareyComponent {
     return null
   }
 
-  getPolylinePoints(coordinates: TrainCoordinate[], i: string): string {
-    let polyPoints = coordinates
-      .map((coord) => {
-        const zwlPos = this.getZwlPosition(coord)
-        if (zwlPos === null) {
-          return null
-        }
-        const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
-        const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
-        return `${x},${y}`
-      })
-      .filter((v) => v != null)
-      .join(' ');
-    if (i == "0") {
-      console.log(`${i}: ${polyPoints} ${coordinates}`)
+  getPolylinePath(coordinates: TrainCoordinate[]): string {
+    const parts: string[] = []
+    let penDown = false
+    for (const coord of coordinates) {
+      const zwlPos = this.getZwlPosition(coord)
+      if (zwlPos === null) {
+        penDown = false
+        continue
+      }
+      const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
+      const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
+      parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
+      penDown = true
     }
-    return polyPoints
+    return parts.join(' ')
   }
 }
