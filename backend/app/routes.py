@@ -112,9 +112,6 @@ def _build_stations_content(env) -> dict:
             print(set(station_edges[i]).symmetric_difference(set(city_cells_per_city[i])))
             assert set(station_edges[i]) == (set(city_cells_per_city[i]))
 
-
-
-
         outer_connection_points_per_city = {i: [pin for direction in city for pin in direction] for i, city in
                                             enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
         outer_connection_points_per_city_and_direction = {i: {k: pins for k, pins in enumerate(city)} for i, city in
@@ -142,8 +139,13 @@ def _build_stations_content(env) -> dict:
 
         print(city_cells)
 
+        train_stations = {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])}
+        print(env.stations_links["stations"])
+        train_stations_new = {i: [stp["node"] for stp in v["stopping_points"]] for i, v in env.stations_links["stations"].items()}
+        assert train_stations_new == train_stations
         return {
             "station_edges": station_edges,
+            "train_stations": train_stations_new,
 
             "outer_connection_points_per_city": outer_connection_points_per_city,
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
@@ -166,7 +168,7 @@ def _build_stations_content(env) -> dict:
             ],
             "city_orientations": env.optionals["agents_hints"]["city_orientations"],
             # "city_names": list(range(city_cells_per_city.keys())),
-            "train_stations": {i: v for i, v in enumerate(env.optionals["agents_hints"]["train_stations"])},
+
             "train_station_labels": {
                 f"{station[0][0]},{station[0][1]}": _city_name(city_idx)
                 for city_idx, city_stations in enumerate(env.optionals["agents_hints"]["train_stations"])
