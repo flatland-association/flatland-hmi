@@ -14,12 +14,13 @@ from fastapi_lifecycle import deprecated
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 from pydantic import BaseModel
+from pyglet.libs.darwin.coreaudio import kAudioFilePropertyMagicCookieData
 
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.trajectory_context import TrajectoryContext
 from flatland.core.transition_map import GridTransitionMap
-from flatland.envs.grid.rail_env_grid import RailEnvTransitions
+from flatland.envs.grid.rail_env_grid import RailEnvTransitions, RailEnvTransitionsEnum
 from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
@@ -368,8 +369,9 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
 
+    grid_map = GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid)
     path = connect_rail_in_grid_map(
-        grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+        grid_map=grid_map,
         rail_trans=RailEnvTransitions(),
         start=mapping[start],
         end=mapping[end],
@@ -383,6 +385,11 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     print(path)
     for i, cell in enumerate(path):
         mapping[line["cells"][i]] = cell
+
+    # TODO we must find all paths of the link
+
+    # TODO find all forks/joins leaving/joining our link
+    covered = set()
 
     for other_line_id, other_line in enumerate(stations_lines["inter_city_lines"]):
         if other_line_id == line_id:
@@ -403,24 +410,39 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
                 # start of overlap -> path from start_path
                 if c not in line["cells"] and c_ in line["cells"]:
                     # path joining into line
+                    # TODO must consider direction -> otherwise not connected correctly (switche might be against the line's direction)
                     print(f"path joining into line {c_} <- {start_path}")
+                    covered.add(c_)
                     connect_rail_in_grid_map(
-                        grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+                        grid_map=grid_map,
                         rail_trans=RailEnvTransitions(),
                         start=mapping[start_path],
                         end=mapping[c_],
                     )
                     start_path = None
+                    # TODO add mapping
             # path forking from line but not joining again
             if start_path is not None:
                 print(f"path forking from line {start_path} -> {other_line["cells"][-1]}")
+                covered.add(start_path)
                 connect_rail_in_grid_map(
-                    grid_map=GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid),
+                    grid_map=grid_map,
                     rail_trans=RailEnvTransitions(),
                     start=mapping[start_path],
                     end=mapping[other_line["cells"][-1]],
                 )
-            # TODO other path mapping
+                # TODO add mapping
+    for cell in line["cells"]:
+        if not RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell[0]][cell[1]]) and not cell in covered:
+
+            zwl_cell = mapping[cell]
+            print(f"Found uncovered switch in line {cell} -> {zwl_cell}")
+            if grid[zwl_cell[0] + 1][zwl_cell[1]] == 0:
+                grid[zwl_cell[0] + 1][zwl_cell[1]] = RailEnvTransitionsEnum.vertical_straight.value
+            elif grid[zwl_cell[0] - 1][zwl_cell[1]] == 0:
+                grid[zwl_cell[0] - 1][zwl_cell[1]] = RailEnvTransitionsEnum.vertical_straight.value
+            else:
+                raise Exception("Could not")
 
     return CustomEncodedJSONResponse(content={
         # ZWL grid
