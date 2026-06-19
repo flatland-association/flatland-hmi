@@ -131,9 +131,10 @@ export class RendererService {
 
     const stoppingPointCoords = new Map<number, Map<number, { rotationClass: string; trackNumber: number }>>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
-      stoppingPoints.forEach(([[r, c], trackNumber]) => {
+      stoppingPoints.forEach(stp => {
+        const [r, c] = stp.node
         if (!stoppingPointCoords.has(r)) stoppingPointCoords.set(r, new Map())
-        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber})
+        stoppingPointCoords.get(r)!.set(c, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber})
       })
     }
 

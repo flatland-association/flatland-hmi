@@ -89,11 +89,11 @@ export class ZwlComponent implements OnInit {
         Object.entries(stations.station_stopping_points).map(([k, stationList]) => [
           k,
           stationList
-            .map(([[r, c], trackIdx]): [[number, number], number] | null => {
-              const mapped = mapCoord([r, c])
-              return mapped ? [mapped, trackIdx] : null
+            .map(stp => {
+              const mapped = mapCoord(stp.node);
+              return mapped ? {...stp, node: mapped} : null
             })
-            .filter((s): s is [[number, number], number] => s !== null),
+            .filter((s): s is { node: [number, number]; trackNumber: number; trackName: string } => s !== null),
         ])
       ),
       train_station_labels: transformLabels(stations.train_station_labels),
