@@ -24,7 +24,7 @@ export interface PolicyOption {
 
 export interface StationsResponse {
   station_edges: Record<string, [number, number][]>
-  outer_connection_points_per_city: Record<string, number[][]>
+  station_gates: Record<string, Array<{ pins: Record<string, { node: [number, number] }> }>>
   inter_city_lines: Array<{
     start: [number, number]
     end: [number, number]

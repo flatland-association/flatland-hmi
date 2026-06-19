@@ -148,9 +148,9 @@ def _build_stations_content(env) -> dict:
         station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
                                    i, v in env.stations_links["stations"].items()}
 
-        stations_gates = {i: [gate for _, gate in v["gates"].items()] for i, v in env.stations_links["stations"].items()}
+        station_gates = {i: [gate for _, gate in v["gates"].items()] for i, v in env.stations_links["stations"].items()}
         print("station_gates")
-        print(stations_gates)
+        print(station_gates)
         print("outer_connection_points_per_city")
         print(outer_connection_points_per_city)
 
@@ -162,7 +162,7 @@ def _build_stations_content(env) -> dict:
             "station_edges": station_edges,
             "station_stopping_points": station_stopping_points,
 
-            "outer_connection_points_per_city": outer_connection_points_per_city,
+            "station_gates": station_gates,
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
             "inter_city_lines": [
                 {

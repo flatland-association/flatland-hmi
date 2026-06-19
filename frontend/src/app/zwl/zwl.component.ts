@@ -79,9 +79,19 @@ export class ZwlComponent implements OnInit {
           k, cells.map(mapCoord).filter((c): c is [number, number] => c !== null),
         ])
       ),
-      outer_connection_points_per_city: Object.fromEntries(
-        Object.entries(stations.outer_connection_points_per_city).map(([k, pins]) => [
-          k, (pins as [number, number][]).map(mapCoord).filter((c): c is [number, number] => c !== null),
+      station_gates: Object.fromEntries(
+        Object.entries(stations.station_gates).map(([k, gates]) => [
+          k,
+          gates.map(gate => ({
+            pins: Object.fromEntries(
+              Object.entries(gate.pins)
+                .map(([pk, pin]) => {
+                  const mapped = mapCoord(pin.node)
+                  return mapped ? [pk, {...pin, node: mapped}] : null
+                })
+                .filter((e): e is [string, { node: [number, number] }] => e !== null)
+            ),
+          })),
         ])
       ),
       inter_city_lines: [],

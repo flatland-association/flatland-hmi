@@ -122,7 +122,7 @@ export class RendererService {
 
   public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = {
     station_edges: {},
-    outer_connection_points_per_city: {},
+    station_gates: {},
     inter_city_lines: [],
     station_stopping_points: {},
     outer_connection_point_labels: {}
@@ -144,9 +144,14 @@ export class RendererService {
     }
 
     const ocpCoords = new Map<number, Set<number>>()
-    for (const [r, c] of Object.values(stations.outer_connection_points_per_city).flat() as [number, number][]) {
-      if (!ocpCoords.has(r)) ocpCoords.set(r, new Set())
-      ocpCoords.get(r)!.add(c)
+    for (const gates of Object.values(stations.station_gates)) {
+      for (const gate of gates) {
+        for (const pin of Object.values(gate.pins)) {
+          const [r, c] = pin.node
+          if (!ocpCoords.has(r)) ocpCoords.set(r, new Set())
+          ocpCoords.get(r)!.add(c)
+        }
+      }
     }
 
     const ocpLabelCoords = new Map<number, Map<number, string>>()

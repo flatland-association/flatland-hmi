@@ -29,7 +29,7 @@ export class StateService {
     this.plans.next([])
     this.stations.next({
       station_edges: {},
-      outer_connection_points_per_city: {},
+      station_gates: {},
       inter_city_lines: [],
       station_stopping_points: {},
       outer_connection_point_labels: {},
