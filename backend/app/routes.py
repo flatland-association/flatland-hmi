@@ -355,7 +355,8 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     mapping1 = {k: (r + y_offset_1, c + x_offset_1) for k, (r, c) in mapping1.items()}
 
     y_offset_2 = 00
-    x_offset_2 = city_1_bb.shape[1] + len(line["cells"])
+    # first and last cell of line in stations bb
+    x_offset_2 = city_1_bb.shape[1] + len(line["cells"]) - 2
     if end_y < straight_y:
         y_offset_2 = straight_y - end_y
     grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
@@ -377,11 +378,11 @@ async def get_trajectory_agent_transitions(trajectory_id: str, line_id: int):
     print(path)
     assert path[0] == mapping[start]
     assert path[-1] == mapping[end]
-    factor = len(line["cells"]) / len(path)
-    print(f"factor= {factor} as {len(line["cells"])} / {len(path)}")
-    print(factor)
+    assert len(line["cells"]) == len(path)
+    print(line["cells"])
+    print(path)
     for i, cell in enumerate(path):
-        mapping[line["cells"][int(i * factor)]] = cell
+        mapping[line["cells"][i]] = cell
 
     for other_line_id, other_line in enumerate(stations_lines["inter_city_lines"]):
         if other_line_id == line_id:
