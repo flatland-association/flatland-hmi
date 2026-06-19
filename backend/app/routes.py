@@ -14,7 +14,6 @@ from fastapi_lifecycle import deprecated
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 from pydantic import BaseModel
-from pyglet.libs.darwin.coreaudio import kAudioFilePropertyMagicCookieData
 
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
@@ -97,6 +96,25 @@ def _build_stations_content(env) -> dict:
         city_cells_per_city = {i: [pin for direction in city for pin in direction if len(pin) == 2] for i, city in
                                enumerate(outer_connection_points_free_rails_merged_per_city)}
 
+        print("stations")
+        print(env.stations_links["stations"])
+        city_cells_per_city_new = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
+        print("actual")
+        print(city_cells_per_city_new)
+        print("expected")
+        print(city_cells_per_city)
+        assert set(city_cells_per_city_new.keys()) == set(city_cells_per_city.keys())
+        for i in city_cells_per_city_new.keys():
+            print(f"actual {i}")
+            print(city_cells_per_city_new[i])
+            print(f"expected {i}")
+            print(city_cells_per_city[i])
+            print(set(city_cells_per_city_new[i]).symmetric_difference(set(city_cells_per_city[i])))
+            assert set(city_cells_per_city_new[i]) == (set(city_cells_per_city[i]))
+
+
+
+
         outer_connection_points_per_city = {i: [pin for direction in city for pin in direction] for i, city in
                                             enumerate(env.optionals["agents_hints"]["outer_connection_points"])}
         outer_connection_points_per_city_and_direction = {i: {k: pins for k, pins in enumerate(city)} for i, city in
@@ -125,8 +143,8 @@ def _build_stations_content(env) -> dict:
         print(city_cells)
 
         return {
-            "city_cells": city_cells_per_city,
-            # TODO generalize to something that is graph compatible
+            "city_cells": city_cells_per_city_new,
+
             "outer_connection_points_per_city": outer_connection_points_per_city,
             "outer_connection_points_per_city_and_direction": outer_connection_points_per_city_and_direction,
             "inter_city_lines": [
