@@ -132,8 +132,6 @@ export class RendererService {
         trainStationMap.set(getLocationKey(r, c), {rotationClass: 'rotation_270', trackNumber: trackIdx})
       })
     }
-    console.log('trainStationMap', [...trainStationMap.entries()])
-    console.log('train_station_labels', Object.entries(stations.train_station_labels))
     const stationsSet = new Set(
       Object.values(stations.city_cells).flat().map(([r, c]) => getLocationKey(r, c)),
     )
@@ -151,11 +149,6 @@ export class RendererService {
 
         // Bahnhof.svg
         const stationBuilding = trainStation?.rotationClass
-        if (stationBuilding) {
-          console.log(`${i}, ${j} has Bahnhof.svg ${getLocationKey(i, j)}`)
-        }
-
-        // TODO same sourc station labels and objects?
 
         const trackNumber = trainStation?.trackNumber
         const trainStationLabel = stationBuilding
