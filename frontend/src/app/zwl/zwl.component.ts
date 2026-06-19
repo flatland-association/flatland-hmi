@@ -66,17 +66,22 @@ export class ZwlComponent implements OnInit {
       station_gates: Object.fromEntries(
         Object.entries(stations.station_gates).map(([k, gates]) => [
           k,
-          gates.map(gate => ({
-            ...gate,
-            pins: Object.fromEntries(
-              Object.entries(gate.pins)
-                .map(([pk, pin]) => {
-                  const mapped = mapCoord(pin.node)
-                  return mapped ? [pk, {...pin, node: mapped}] : null
-                })
-                .filter((e): e is [string, { name: string; node: [number, number] }] => e !== null)
-            ),
-          })),
+          Object.fromEntries(
+            Object.entries(gates).map(([gk, gate]) => [
+              gk,
+              {
+                ...gate,
+                pins: Object.fromEntries(
+                  Object.entries(gate.pins)
+                    .map(([pk, pin]) => {
+                      const mapped = mapCoord(pin.node)
+                      return mapped ? [pk, {...pin, node: mapped}] : null
+                    })
+                    .filter((e): e is [string, { name: string; node: [number, number] }] => e !== null)
+                ),
+              },
+            ])
+          ),
         ])
       ),
       station_stopping_points: Object.fromEntries(

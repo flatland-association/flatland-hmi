@@ -154,7 +154,7 @@ export class RendererService {
 
     const pinLabelCoords = new CoordMap<string>()
     for (const gates of Object.values(stations.station_gates)) {
-      for (const gate of gates) {
+      for (const gate of Object.values(gates)) {
         for (const p of Object.values(gate.pins)) {
           pinLabelCoords.set(p.node, gate.name)
         }

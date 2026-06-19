@@ -76,8 +76,9 @@ def _build_stations_and_links_payload(env) -> dict:
     station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
                                i, v in env.stations_links["stations"].items()}
 
-    station_gates = {i: [{"name": gate["name"],
-                          "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for _, gate in v["gates"].items()] for i, v
+    station_gates = {i: {gate_key: {"name": gate["name"],
+                                    "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for gate_key, gate in
+                         v["gates"].items()} for i, v
                      in env.stations_links["stations"].items()}
     return {
         "station_edges": station_edges,
