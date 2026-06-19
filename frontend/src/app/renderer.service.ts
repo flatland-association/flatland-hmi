@@ -7,7 +7,6 @@ export interface MapCell {
   station?: boolean
   outerConnectionPoint?: boolean
   outerConnectionPointLabel?: string
-  trainStationLabel?: string
   trackNumber?: number
   trackName?: string
 }
@@ -151,13 +150,6 @@ export class RendererService {
       ocpCoords.get(r)!.add(c)
     }
 
-    const stoppingPointLabelCoords = new Map<number, Map<number, string>>()
-    for (const [key, label] of Object.entries(stations.train_station_labels)) {
-      const [r, c] = key.split(',').map(Number)
-      if (!stoppingPointLabelCoords.has(r)) stoppingPointLabelCoords.set(r, new Map())
-      stoppingPointLabelCoords.get(r)!.set(c, label)
-    }
-
     const ocpLabelCoords = new Map<number, Map<number, string>>()
     for (const [key, label] of Object.entries(stations.outer_connection_point_labels)) {
       const [r, c] = key.split(',').map(Number)
@@ -178,7 +170,6 @@ export class RendererService {
         const stationBuilding = stoppingPoint?.rotationClass
         const trackNumber = stoppingPoint?.trackNumber
         const trackName = stoppingPoint?.trackName
-        const trainStationLabel = stationBuilding ? stoppingPointLabelCoords.get(i)?.get(j) : undefined
 
         const outerConnectionPoint = ocpCoords.get(i)?.has(j) ? true : undefined
         const outerConnectionPointLabel = outerConnectionPoint ? ocpLabelCoords.get(i)?.get(j) : undefined
@@ -188,7 +179,7 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trainStationLabel, trackNumber, trackName})
+        mapRow.push({ground, stationBuilding, station, outerConnectionPoint, outerConnectionPointLabel, trackNumber, trackName})
       }
       mapClasses.push(mapRow)
     }
