@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core'
-import {combineLatest, filter, from, Observable, ReplaySubject, Subject, switchMap} from 'rxjs'
+import {filter, from, Observable, ReplaySubject, Subject, switchMap} from 'rxjs'
 import {DataService, State} from './data.service'
 import {StateService} from './state.service'
 
@@ -34,10 +34,6 @@ export class ControllerService {
       switchMap(id => from(dataService.getTrajectoryLines(id)))
     ).subscribe(lines => stateService.setLines(lines))
 
-    combineLatest([nonNull, stateService.getSelectedLine()]).pipe(
-      switchMap(([id, line]) => from(dataService.getTrajectoryLineTransitions(id, line)))
-    ).subscribe(t => stateService.setLineTransitions(t))
-
     Promise.all([dataService.getEnvs(), dataService.getPolicies()]).then(([envs, policies]) => {
       stateService.setEnvs(envs)
       stateService.setPolicies(policies)
@@ -59,6 +55,7 @@ export class ControllerService {
     this.stateService.clearHistory()
     this.dataService.createTrajectory(environment, policy).then(trajectoryId => {
       this.trajectoryId.next(trajectoryId)
+      this.selectLine('0')
       this.resetSubject.next()
       Promise.all([
         this.dataService.getTrajectoryTransitions(trajectoryId),
@@ -68,6 +65,13 @@ export class ControllerService {
         this.stateService.loadTrajectory(transitions, agents, stations)
       })
     })
+  }
+
+  public selectLine(line: string): void {
+    this.stateService.selectLine(line)
+    if (!this.currentTrajectoryId) return
+    this.dataService.getTrajectoryLineTransitions(this.currentTrajectoryId, line)
+      .then(t => this.stateService.setLineTransitions(t))
   }
 
   public next(): void {

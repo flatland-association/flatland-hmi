@@ -28,6 +28,7 @@ export class ZwlComponent implements OnInit {
   constructor(
     public stateService: StateService,
     public rendererService: RendererService,
+    public controllerService: ControllerService,
   ) {
   }
 
@@ -36,7 +37,7 @@ export class ZwlComponent implements OnInit {
       this.lineOptions = lines.map((l, i) => ({value: String(i), label: l.label}))
       if (!this.lineOptions.find(o => o.value === this.selectedLine)) {
         this.selectedLine = this.lineOptions[0]?.value ?? ''
-        if (this.selectedLine) this.stateService.selectLine(this.selectedLine)
+        if (this.selectedLine) this.controllerService.selectLine(this.selectedLine)
       }
     })
     this.stateService.getLineTransitions().subscribe(data => {
@@ -68,6 +69,6 @@ export class ZwlComponent implements OnInit {
   }
 
   public onLineChange() {
-    this.stateService.selectLine(this.selectedLine)
+    this.controllerService.selectLine(this.selectedLine)
   }
 }
