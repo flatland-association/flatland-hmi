@@ -257,13 +257,17 @@ def test_get_trajectory_agents_path_traversal():
     assert response.status_code in (400, 404)
 
 
-def test_get_trajectory_lines():
+def test_get_trajectory_links():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
-    response = client.get(f"/trajectories/{ep_id}/lines/0")
+    response = client.get(f"/trajectories/{ep_id}/links")
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body, dict)
-    assert {"label", "start_station_name", "end_station_name", "city_from", "city_to"} <= body.keys()
+    assert isinstance(body, list)
+    assert {"cityFrom",
+            "cityTo",
+            "label",
+            "startStationName",
+            "endStationName", } <= body[0].keys()
 
 
 def test_get_trajectory_lines_invalid_agent():

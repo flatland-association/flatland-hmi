@@ -264,8 +264,8 @@ def _enrich_line(link: dict, link_id: int) -> dict:
     }
 
 
-@router.get("/trajectories/{trajectory_id}/links/")
-async def get_trajectory_lines_list(trajectory_id: str):
+@router.get("/trajectories/{trajectory_id}/links")
+async def get_trajectory_links(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     stations_lines = build_stations_and_links_payload(env)
