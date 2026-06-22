@@ -274,13 +274,12 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     print("fibre")
     print(fibre)
     fibre_cells = fibre["cells"]
-    stations_links = _build_stations_and_links_payload(env)
-    content = _extract_zwl(stations_links, current_link, env, fibre_cells)
+    content = _extract_link_map(stations_links, current_link, env, fibre_cells)
     return CustomEncodedJSONResponse(content=content)
 
 
 # TODO pass only env's grid, not env
-def _extract_zwl(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
+def _extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
     start = tuple(fibre_cells[0])
     end = tuple(fibre_cells[-1])
     from_station = current_link["fromStation"]
