@@ -5,8 +5,8 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from envs.grid.rail_env_grid import RailEnvTransitionsEnum
-from envs.rail_env_shortest_paths import get_k_shortest_paths
+from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
+from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
@@ -350,6 +350,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"reverse_levels={reverse_levels}")
     print(f"reverse_levels[1]={reverse_levels[1]}")
     # TODO find switches/crossing leaving the paths
+    # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     content = {
         # ZWL grid
         "grid": zwl_grid,
