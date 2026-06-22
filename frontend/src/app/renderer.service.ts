@@ -156,7 +156,7 @@ export class RendererService {
     for (const gates of Object.values(stations.station_gates)) {
       for (const gate of Object.values(gates)) {
         for (const p of Object.values(gate.pins)) {
-          pinLabelCoords.set(p.node, gate.name)
+          pinLabelCoords.set(p.node, p.name)
         }
       }
     }
