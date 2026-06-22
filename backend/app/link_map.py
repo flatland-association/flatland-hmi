@@ -5,18 +5,21 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
-from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
+from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
 from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
 from flatland.envs.rail_env import RailEnv
+from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.envs.rail_trainrun_data_structures import Waypoint
 
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
+# TODO fibres must be checked for reachability, not every  seed 44 link 6/7 must be BS1 -> AS0 and BS0 -> AS1; link 0 wrong as well
+# TODO in Block build add gate, not only station as label
+# TODO inspect more results on more randomly generated envs and on competition topology maybe
 def build_stations_and_links_payload(env) -> dict:
     station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
     station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
