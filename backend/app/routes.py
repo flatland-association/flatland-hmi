@@ -1,9 +1,10 @@
 import asyncio
 import json
+from collections import defaultdict
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 
 import numpy as np
 from attr import asdict
@@ -18,8 +19,10 @@ from pydantic import BaseModel
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.trajectory_context import TrajectoryContext
+from envs.grid.rail_env_grid import RailEnvTransitionsEnum
+from envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.core.transition_map import GridTransitionMap
-from flatland.envs.grid.rail_env_grid import RailEnvTransitions, RailEnvTransitionsEnum
+from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_action import RailEnvActions
@@ -178,6 +181,10 @@ async def get_envs():
 
 
 @router.post("/reset")
+@deprecated({
+    'replacement': 'POST /trajectories',
+    'reason': 'Moving to ID-based API.'
+})
 async def reset_env(request: Request):
     env_id = request.query_params.get("environment")
     policy_id = request.query_params.get("policy")
@@ -216,7 +223,6 @@ async def create_trajectory(body: TrajectoryCreate):
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
-
     return CustomEncodedJSONResponse(content=ctx.to_dict())
 
 
@@ -256,8 +262,10 @@ async def get_trajectory_transitions(trajectory_id: str):
 async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = _build_stations_and_links_payload(env)
-    links = stations_lines["links"]
+    stations_links = _build_stations_and_links_payload(env)
+    print("stations_links")
+    print(stations_links)
+    links = stations_links["links"]
     if link_id < 0 or link_id >= len(links):
         raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
 
@@ -265,16 +273,24 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     fibre = current_link["fibres"][0]
     print("fibre")
     print(fibre)
-    start = tuple(fibre["cells"][0])
-    end = tuple(fibre["cells"][-1])
+    fibre_cells = fibre["cells"]
+    stations_links = _build_stations_and_links_payload(env)
+    content = _extract_zwl(stations_links, current_link, env, fibre_cells)
+    return CustomEncodedJSONResponse(content=content)
+
+
+# TODO pass only env's grid, not env
+def _extract_zwl(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
+    start = tuple(fibre_cells[0])
+    end = tuple(fibre_cells[-1])
     from_station = current_link["fromStation"]
     from_facing = _DIRECTION_CHARS[current_link["fromFacing"]]
     to_station = current_link["toStation"]
     to_facing = _DIRECTION_CHARS[current_link["toFacing"]]
 
-    grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
-    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_lines, 1)
-    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_lines, 3)
+    zwl_grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
+    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_links, 1)
+    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_links, 3)
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -283,26 +299,26 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     y_offset_1 = 0
     if start_y < straight_y:
         y_offset_1 = straight_y - start_y
-    grid[y_offset_1:city_1_bb.shape[0] + y_offset_1, :city_1_bb.shape[1]] = city_1_bb
-    mapping1 = {k: (r + y_offset_1, c + x_offset_1) for k, (r, c) in mapping1.items()}
+    zwl_grid[y_offset_1:city_1_bb.shape[0] + y_offset_1, :city_1_bb.shape[1]] = city_1_bb
+    mapping1 = {k: (r + y_offset_1, pos + x_offset_1) for k, (r, pos) in mapping1.items()}
 
     y_offset_2 = 00
     # first and last cell of line in stations bb
-    x_offset_2 = city_1_bb.shape[1] + len(fibre["cells"]) - 2
+    x_offset_2 = city_1_bb.shape[1] + len(fibre_cells) - 2
     if end_y < straight_y:
         y_offset_2 = straight_y - end_y
-    grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
+    zwl_grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
 
-    grid = grid[:max(city_1_bb.shape[0] + y_offset_1, city_2_bb.shape[0] + y_offset_2), :x_offset_2 + city_2_bb.shape[1]]
+    zwl_grid = zwl_grid[:max(city_1_bb.shape[0] + y_offset_1, city_2_bb.shape[0] + y_offset_2), :x_offset_2 + city_2_bb.shape[1]]
 
-    mapping2 = {k: (r + y_offset_2, c + x_offset_2) for k, (r, c) in mapping2.items()}
+    mapping2 = {k: (r + y_offset_2, pos + x_offset_2) for k, (r, pos) in mapping2.items()}
 
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
 
-    grid_map = GridTransitionMap(height=grid.shape[0], width=grid.shape[1], transitions=RailEnvTransitions(), grid=grid)
+    zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
     path = connect_rail_in_grid_map(
-        grid_map=grid_map,
+        grid_map=zwl_grid_map,
         rail_trans=RailEnvTransitions(),
         start=mapping[start],
         end=mapping[end],
@@ -311,72 +327,195 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     print(path)
     assert path[0] == mapping[start]
     assert path[-1] == mapping[end]
-    assert len(fibre["cells"]) == len(path)
-    print(fibre["cells"])
-    print(path)
+    assert len(fibre_cells) == len(path)
+    print("fibre")
+    print(fibre_cells)
     for i, cell in enumerate(path):
-        mapping[fibre["cells"][i]] = cell
+        mapping[fibre_cells[i]] = cell
 
-    # TODO we must find all paths of the link
+    print("station_gates:")
+    for station in stations_links["station_gates"].values():
+        for gate in station.values():
+            print(gate)
 
-    # TODO find all forks/joins leaving/joining our link
-    covered = set()
+    grid_without_stations = env.rail.grid.copy()
+    pin_cells = [pin["node"] for station in stations_links["station_gates"].values() for gate in station.values() for pin in gate["pins"].values()]
+    print("pin_cells")
+    print(pin_cells)
+    for cells in stations_links["station_edges"].values():
+        for cell in cells:
+            if cell in pin_cells:
+                continue
+            grid_without_stations[cell[0]][cell[1]] = 0
+    grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
+                                                  grid=grid_without_stations)
 
-    for other_fibre in current_link["fibres"][1:]:
-        print(f"testing parallel fibre {other_fibre}")
-        print(fibre["cells"])
-        print(other_fibre["cells"])
-        start_path = other_fibre["cells"][0]
+    from_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
+                 stations_links["station_gates"][from_station][current_link["fromFacing"]]["pins"].values()]
+    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
+               stations_links["station_gates"][to_station][current_link["toFacing"]]["pins"].values()]
 
-        for c, c_ in zip(other_fibre["cells"], other_fibre["cells"][1:]):
-            # end overlap -> keep track of start_path and do later
-            if c in fibre["cells"] and c_ not in fibre["cells"]:
-                start_path = c
+    print(f"from_pins={from_pins}")
+    print(f"to_pins={to_pins}")
+    all_paths: List[List[Waypoint]] = []
+    for (source_position, source_direction) in from_pins:
+        for target_position, target_direction in to_pins:
+            paths = get_k_shortest_paths(None, rail=grid_map_without_stations,
+                                         source_position=source_position,
+                                         source_direction=source_direction,
+                                         target_position=target_position, k=10)
+            print(f"found {source_position}, {source_direction}, {target_position}, {target_direction}: {paths}")
+            all_paths.extend(paths)
 
-            # start of overlap -> path from start_path
-            if c not in fibre["cells"] and c_ in fibre["cells"]:
-                # path joining into line
-                # TODO must consider direction -> otherwise not connected correctly (switche might be against the line's direction)
-                print(f"path joining into line {c_} <- {start_path}")
-                covered.add(c_)
-                connect_rail_in_grid_map(
-                    grid_map=grid_map,
-                    rail_trans=RailEnvTransitions(),
-                    start=mapping[start_path],
-                    end=mapping[c_],
-                )
-                start_path = None
-                # TODO add mapping
-        # path forking from line but not joining again
-        if start_path is not None:
-            print(f"path forking from line {start_path} -> {other_fibre['cells'][-1]}")
-            covered.add(start_path)
-            connect_rail_in_grid_map(
-                grid_map=grid_map,
-                rail_trans=RailEnvTransitions(),
-                start=mapping[start_path],
-                end=mapping[other_fibre["cells"][-1]],
-            )
-            # TODO add mapping
-    for cell in fibre["cells"]:
-        if not RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell[0]][cell[1]]) and not cell in covered:
+    successors: dict[tuple, set[tuple[tuple, int]]] = {}
+    for path in all_paths:
+        for wp, wp_after in zip(path, path[1:]):
+            successors.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
 
-            zwl_cell = mapping[cell]
-            print(f"Found uncovered switch in line {cell} -> {zwl_cell}")
-            if grid[zwl_cell[0] + 1][zwl_cell[1]] == 0:
-                grid[zwl_cell[0] + 1][zwl_cell[1]] = RailEnvTransitionsEnum.vertical_straight.value
-            elif grid[zwl_cell[0] - 1][zwl_cell[1]] == 0:
-                grid[zwl_cell[0] - 1][zwl_cell[1]] = RailEnvTransitionsEnum.vertical_straight.value
-            else:
-                raise Exception("Could not")
+    # cell -> List[tuple[tuple,int]] covering all paths between the two gates; successors are ordered clock-wise
+    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(successors, key=lambda t: t[1])] for tup, successors in successors.items()}
+    print(f"successors {successors}")
 
-    return CustomEncodedJSONResponse(content={
+    predecessors: dict[tuple, set[tuple[tuple, int]]] = {}
+    for path in all_paths:
+        for wp, wp_after in zip(path, path[1:]):
+            predecessors.setdefault(wp_after.position, set()).add((wp.position, wp_after.direction - wp.direction))
+
+    # cell -> List[tuple[tuple,int]] covering all paths between the two gates; predecessors are ordered clock-wise
+    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(predecessors, key=lambda t: t[1])] for tup, predecessors in predecessors.items()}
+    print(f"predecessors {predecessors}")
+
+    # cells in the graph without a level assigned yet:
+    open_cells = set(successors.keys())
+    # for each cell, which level does it have: switches still at same level but next cells have level +1/-1
+    levels: dict[tuple, int] = {}
+    # for each level, which cells are at the level
+    reverse_levels: dict[int, set[tuple]] = defaultdict(set)
+
+    # define level 0:
+    for cell in fibre_cells:
+        open_cells.discard(cell)
+        levels[cell] = 0
+        reverse_levels[0].add(cell)
+
+    _NEIGHBOR_LEVEL = {0: -1, 1: 1}
+
+    print(f"reverse_levels[0]={reverse_levels[0]}")
+    print(f"open_cells={open_cells}")
+    # TODO iteratively over levels, only 0 so far
+    for pos in reverse_levels[0]:
+        if pos in successors and len(successors[pos]) == 2:
+            pass
+            # TODO handle successor case as well
+
+        if pos in predecessors and len(predecessors[pos]) == 2:
+
+            print(f"working on {pos} with predecessors {predecessors[pos]}")
+            for num_pred, pred in enumerate(predecessors[pos]):
+                if num_pred == 0:
+                    level_up_or_down = 1
+                else:
+                    level_up_or_down = -1
+                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
+
+                if pred not in open_cells:
+                    print(f"{pos} <- {pred} already done")
+                    continue
+                print(f"{pos} <- {pred}")
+                levels[pred] = levels[pos] + level_up_or_down
+                reverse_levels[levels[pos] + level_up_or_down].add(pred)
+                open_cells.discard(pred)
+                first_or_second = None
+                for j, s in enumerate(successors[pred]):
+                    print(f"{s} {pos}")
+                    if s == pos:
+                        first_or_second = j
+                assert first_or_second is not None
+
+                # one row above or below, same column:
+                new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
+                if pred not in mapping:
+                    print(f"add mapping {pred} -> {new_zwl_pos}")
+                    assert zwl_grid[*new_zwl_pos] == 0
+                    mapping[pred] = new_zwl_pos
+                else:
+                    # happens if pred is a pin
+                    pass
+
+                trans = zwl_grid_map.grid[*mapping[pos]]
+                print(RailEnvTransitions().print(trans))
+                # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
+                if level_up_or_down == 1:
+                    # from up to right:
+                    trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
+                    trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
+                else:
+                    # from down to right:
+                    trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
+                    trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
+                print(RailEnvTransitions().print(trans))
+                assert RailEnvTransitions().is_valid(trans)
+                zwl_grid_map.grid[*mapping[pos]] = trans
+
+                # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+                if level_up_or_down == 1:
+                    # up: E-N curve
+                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
+                else:
+                    # down: E-S curve
+                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
+
+                # TODO unit test. how
+
+                pred_preds = predecessors.get(pred, [])
+
+                print("pred_preds")
+                print(pred_preds)
+                pred_pred = None
+                intermediates = []
+                while len(pred_preds) == 1:
+                    print(pred_preds)
+                    pred_pred = pred_preds.pop()
+                    intermediates.append(pred_pred)
+                    pred_preds = predecessors.get(pred_pred, [])
+                if pred_pred is not None:
+                    p = connect_rail_in_grid_map(
+                        grid_map=zwl_grid_map,
+                        rail_trans=RailEnvTransitions(),
+                        start=mapping[pred_pred],
+                        end=new_zwl_pos,
+                    )
+                    print(p)
+                else:
+                    # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
+                    if new_zwl_pos[0] == mapping[pred][0]:
+                        for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
+                            assert zwl_grid[new_zwl_pos[0]][c] == 0
+                            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+                    else:
+                        connect_rail_in_grid_map(
+                            grid_map=zwl_grid_map,
+                            rail_trans=RailEnvTransitions(),
+                            start=mapping[pred],
+                            end=new_zwl_pos,
+                        )
+
+                # TODO add mapping for all intermediates!
+
+    print(f"successors={successors}")
+    print(f"predecessor={predecessors}")
+    print(f"levels={levels}")
+    print(f"reverse_levels={reverse_levels}")
+    print(f"reverse_levels[1]={reverse_levels[1]}")
+
+    content = {
         # ZWL grid
-        "grid": grid,
+        "grid": zwl_grid,
         # env -> ZWL coordindates
-        "mapping": [[[r, c], list(v)] for (r, c), v in mapping.items()],
+        "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping.items()],
         "city_cells_bbox": city_cells_bbox,
-    })
+    }
+    return content
 
 
 def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stations_lines: dict, target_facing=1) -> tuple[
