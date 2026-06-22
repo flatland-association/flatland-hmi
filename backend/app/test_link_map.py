@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from app.routes import _build_stations_and_links_payload, _extract_link_map
+from app.routes import build_stations_and_links_payload, extract_link_map
 from env_generation.env_generator import env_generator
 
 material = [(0, [(2, 8), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (2, 15), (3, 15), (4, 15), (5, 15), (6, 15), (7, 15), (8, 15),
@@ -601,13 +601,16 @@ material = [(0, [(2, 8), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1,
     'i,fibre_cells,expected',
     material
 )
-def test_(i, fibre_cells, expected):
+def test_link_map(i, fibre_cells, expected):
+    """
+    Regression test from visually inspected outputs.
+    """
     env, _, _ = env_generator(seed=44)
-    stations_links = _build_stations_and_links_payload(env)
+    stations_links = build_stations_and_links_payload(env)
     print(stations_links)
 
     link = stations_links["links"][i]
-    actual = _extract_link_map(stations_links, link, env, fibre_cells)
+    actual = extract_link_map(stations_links, link, env, fibre_cells)
     assert list(actual.keys()) == list(expected.keys())
     for k in actual.keys():
         if k == 'grid':
@@ -618,7 +621,7 @@ def test_(i, fibre_cells, expected):
 
 def _gen_material():
     env, _, _ = env_generator(seed=44)
-    stations_links = _build_stations_and_links_payload(env)
+    stations_links = build_stations_and_links_payload(env)
     print(stations_links)
 
     material = []
@@ -627,7 +630,7 @@ def _gen_material():
         fibre_cells = link["fibres"][0]["cells"]
         print(fibre_cells)
 
-        link_map = _extract_link_map(stations_links, link, env, fibre_cells)
+        link_map = extract_link_map(stations_links, link, env, fibre_cells)
         print(link_map)
 
         material.append((i, fibre_cells, link_map))
