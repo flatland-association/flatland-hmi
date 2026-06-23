@@ -258,6 +258,8 @@ def _enrich_line(link: dict, link_id: int) -> dict:
     return {
         "cityFrom": link["fromStation"],
         "cityTo": link["toStation"],
+        "fromGate": link["fromGate"],
+        "toGate": link["toGate"],
         "label": f"Link {link_id} ({link['fromGate']} → {link['toGate']})",
         "startStationName": f"Station {link['fromStation']}",
         "endStationName": f"Station {link['toStation']}",

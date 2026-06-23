@@ -34,8 +34,8 @@ export class ZwlComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.stateService.getLines().subscribe(lines => {
-      this.linkOptions = lines.map((l, i) => ({value: String(i), label: l.label}))
+    this.stateService.getLines().subscribe(links => {
+      this.linkOptions = links.map((l, i) => ({value: String(i), label: l.label}))
       if (!this.linkOptions.find(o => o.value === this.selectedLink)) {
         this.selectedLink = this.linkOptions[0]?.value ?? ''
         if (this.selectedLink) this.controllerService.selectLink(this.selectedLink)

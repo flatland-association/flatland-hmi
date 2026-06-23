@@ -17,7 +17,6 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-# TODO fibres must be checked for reachability, not every  seed 44 link 6/7 must be BS1 -> AS0 and BS0 -> AS1; link 0 wrong as well
 # TODO in Block build add gate, not only station as label
 # TODO inspect more results on more randomly generated envs and on competition topology maybe
 def build_stations_and_links_payload(env) -> dict:

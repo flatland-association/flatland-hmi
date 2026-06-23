@@ -31,6 +31,8 @@ export interface StationsResponse {
 export interface LineOption {
   cityFrom: string
   cityTo: string
+  fromGate: string
+  toGate: string
   label: string
   startStationName: string
   endStationName: string

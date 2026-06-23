@@ -131,12 +131,14 @@
 
   <!-- Station and line labels -->
   <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="start">{{ startStationName }}</text>
+        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="start">{{ fromGate }}
+  </text>
   <text [attr.x]="marginLeft + chartWidth / 2" [attr.y]="svgHeight - marginBottom + 35"
         fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="middle">{{ selectedLinkLabel }}
   </text>
   <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ endStationName }}</text>
+        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ toGate }}
+  </text>
 
   <!-- Planned trajectories -->
   @for (plan of plannedRuns; let i = $index; track $index) {
