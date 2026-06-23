@@ -94,7 +94,7 @@ export class DataService {
     )
   }
 
-  public getTrajectoryLineTransitions(trajectoryId: string, linkId: string) {
+  public getTrajectoryZWLforLink(trajectoryId: string, linkId: string) {
     return this.fetch(
       this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${linkId}`),
     )
