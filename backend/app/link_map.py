@@ -61,8 +61,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     to_facing = _DIRECTION_CHARS[current_link["toFacing"]]
 
     zwl_grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
-    city_1_bb, city_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_links, 1)
-    city_2_bb, city_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_links, 3)
+    city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_links, 1)
+    city_2_bb, city_2_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_links, 3)
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -194,6 +194,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     reverse_levels: dict[int, set[tuple]] = defaultdict(set)
 
     # define level 0:
+    print(f"level 0 for fibre cells {fibre_cells}")
     for cell in fibre_cells:
         open_cells.discard(cell)
         levels[cell] = 0
@@ -288,7 +289,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             start=mapping[succ],
                             end=new_zwl_pos,
                         )
-
+                print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
         if pos in predecessors and len(predecessors[pos]) == 2:
@@ -360,7 +361,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         start=mapping[pred_pred],
                         end=new_zwl_pos,
                     )
-                    print(p)
                 else:
                     # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
                     if new_zwl_pos[0] == mapping[succ][0]:
@@ -374,7 +374,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             start=mapping[succ],
                             end=new_zwl_pos,
                         )
-
+                print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
     print(f"find crossings")
@@ -385,6 +385,13 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             for new_direction in range(4):
                 if possible_transitions[new_direction]:
                     new_position = get_new_position(cell, new_direction)
+                    # graph already handled
+                    if new_position in successors.keys():
+                        continue
+                    # stations already handled
+                    if _within_bbox(city_1_cells_bbox, new_position) or _within_bbox(city_2_cells_bbox, new_position):
+                        continue
+
                     level_cell = levels.get(cell, None)
                     level_new_position = levels.get(new_position, None)
 
@@ -404,8 +411,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             outgoing = False
 
                         if levels[cell] >= 0:
-                            print("added a candidate below")
+
                             mapping[*new_position] = (mapping[cell][0] + 1, mapping[cell][1])
+                            print(f"added a candidate below at {mapping[*new_position]}")
 
                             if outgoing:
                                 # add transition E->S, N->W cell,dir -> new_pos,new_direction
@@ -431,8 +439,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                     # TODO happens for slips  -> need to handle separately
                                     warnings.warn(f"Cannot draw {trans}")
                         else:
-                            print("added a candidate above")
                             mapping[*new_position] = (mapping[cell][0] - 1, mapping[cell][1])
+                            print(f"added a candidate above at {mapping[*new_position]}")
 
                             if outgoing:
                                 # add transition E->N, S->W cell,dir -> new_pos,new_direction
@@ -470,10 +478,14 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         "grid": zwl_grid,
         # env -> ZWL coordindates
         "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping.items()],
-        "city_cells_bbox": city_cells_bbox,
+        "city_cells_bbox": city_1_cells_bbox,
     }
 
     return content
+
+
+def _within_bbox(city_bbox, cell: tuple[Any, Any]) -> Any:
+    return city_bbox["min_row"] <= cell[0] <= city_bbox["max_row"] and city_bbox["min_col"] <= cell[1] <= city_bbox["max_col"]
 
 
 def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stations_lines: dict, target_facing=1) -> tuple[
