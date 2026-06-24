@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from core.grid.grid4_utils import get_new_position
+from flatland.core.grid.grid4_utils import get_new_position, get_direction
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
@@ -106,30 +106,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     for i, cell in enumerate(path):
         mapping[fibre_cells[i]] = cell
 
-    def _direction(cell, cell2):
-        """
-        Returns whether cell2 is N,E,S,W from cell.
-        """
-        r, c = cell
-        r2, c2 = cell2
-        if r == r2:
-            if c2 > c:
-                # east
-                return 1
-            elif c2 < c:
-                # west
-                return 3
-        elif c == c2:
-            if r2 > r:
-                # S
-                return 2
-            elif r2 < r:
-                return 0
-        raise
-
     for i, (cell, cell2) in enumerate(zip(fibre_cells, fibre_cells[1:])):
-        d = _direction(cell, cell2)
-        d_mapping = _direction(mapping[cell], mapping[cell2])
+        d = get_direction(cell, cell2)
+        d_mapping = get_direction(mapping[cell], mapping[cell2])
         full_mapping[(cell, d)] = mapping[cell], d_mapping
 
     print("station_gates:")
@@ -380,20 +359,66 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
+        if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[*cell]):
+            print("gotcha 1")
+            if len(successors[cell]) + len(predecessors[cell]) == 2:
+                if zwl_grid[mapping[*cell][0] + 1][mapping[*cell][1]] == 0 and zwl_grid[mapping[*cell][0] - 1][mapping[*cell][1]] == 0:
+                    print("gotcha 2")
+
+                    n1 = successors[cell][0]
+                    n2 = predecessors[cell][0]
+
+                    # find missing neighbors
+                    pairs = env.rail.get_neighbor_pairs(cell)
+
+                    new_neighbors = {p for pair in pairs for p in pair if p != n1 and p != n2}
+                    assert len(new_neighbors) == 2
+
+                    above = (mapping[*cell][0] - 1, mapping[*cell][1])
+                    below = (mapping[*cell][0] + 1, mapping[*cell][1])
+                    assert zwl_grid_map.grid[*above] == 0
+                    assert zwl_grid_map.grid[*below] == 0
+
+                    # randomly assign neighbors to above and below
+                    for n, mapped in zip(new_neighbors, [above, below]):
+                        mapping[n] = mapped
+
+                    # in zwl add transitions for mapped neighbor pairs
+                    trans = zwl_grid_map.grid[*mapping[*cell]]
+                    for from_cell, to_cell in pairs:
+                        trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[*from_cell], mapping[cell]),
+                                                                        get_direction(mapping[cell], mapping[*to_cell]), 1)
+                    print(RailEnvTransitions().print(trans))
+                    if RailEnvTransitions().is_valid(trans):
+                        print("unhandled case")
+                        zwl_grid_map.grid[*mapping[*cell]] = trans
+                else:
+                    print("cannot handle")
+
+            continue
+
+        # TODO ignore single slips for now
         for dir in range(4):
             possible_transitions = env.rail.get_transitions((cell, dir))
             for new_direction in range(4):
                 if possible_transitions[new_direction]:
                     new_position = get_new_position(cell, new_direction)
+                    if cell == (15, 9) and new_position == (15, 8):
+                        pass
                     # graph already handled
                     if new_position in successors.keys():
                         continue
                     # stations already handled
-                    if _within_bbox(city_1_cells_bbox, new_position) or _within_bbox(city_2_cells_bbox, new_position):
+                    if _within_bbox_excl_boundary(city_1_cells_bbox, new_position) or _within_bbox_excl_boundary(city_2_cells_bbox, new_position):
                         continue
 
                     level_cell = levels.get(cell, None)
                     level_new_position = levels.get(new_position, None)
+
+                    zwl_new_position = mapping.get(new_position, None)
+                    if zwl_new_position is not None and zwl_grid[*zwl_new_position] != 0:
+                        # TODO check whether all transitions mapped
+                        continue
 
                     print(f"{cell} ::: {new_position} || {level_cell} {level_new_position} ")
                     if new_position not in successors and level_cell is not None and level_new_position is None:
@@ -401,21 +426,21 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
                         # new position not on paths between the gates:
                         assert new_position not in successors[cell]
-                        assert len(successors[cell]) == 1
+                        # assert len(successors[cell]) == 1
                         successor_in_graph = successors[cell][0]
 
                         # can we reach successor_in_graph from dir?
-                        if possible_transitions[_direction(cell, successor_in_graph)]:
-                            outgoing = True
+                        if possible_transitions[get_direction(cell, successor_in_graph)]:
+                            outgoing_from_graph = True
                         else:
-                            outgoing = False
+                            outgoing_from_graph = False
 
                         if levels[cell] >= 0:
 
                             mapping[*new_position] = (mapping[cell][0] + 1, mapping[cell][1])
-                            print(f"added a candidate below at {mapping[*new_position]}")
+                            print(f"added a candidate below at {mapping[*cell]}")
 
-                            if outgoing:
+                            if outgoing_from_graph:
                                 # add transition E->S, N->W cell,dir -> new_pos,new_direction
                                 trans = zwl_grid_map.grid[*mapping[*cell]]
                                 print(RailEnvTransitions().print(trans))
@@ -426,7 +451,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                     zwl_grid_map.grid[*mapping[*cell]] = trans
                                 else:
                                     # TODO happens for slips
-                                    warnings.warn(f"Cannot draw {trans}")
+                                    # TODO happens if we're on a curve
+                                    warnings.warn(f"Cannot draw {trans} at {mapping[*cell]}")
                             else:
                                 # add transition W->S, N->E cell,dir -> new_pos,new_direction
                                 trans = zwl_grid_map.grid[*mapping[*cell]]
@@ -437,12 +463,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                     zwl_grid_map.grid[*mapping[*cell]] = trans
                                 else:
                                     # TODO happens for slips  -> need to handle separately
-                                    warnings.warn(f"Cannot draw {trans}")
+                                    warnings.warn(f"Cannot draw {trans} at {mapping[*cell]}")
                         else:
                             mapping[*new_position] = (mapping[cell][0] - 1, mapping[cell][1])
-                            print(f"added a candidate above at {mapping[*new_position]}")
+                            print(f"added a candidate above at {mapping[*cell]}")
 
-                            if outgoing:
+                            if outgoing_from_graph:
                                 # add transition E->N, S->W cell,dir -> new_pos,new_direction
                                 trans = zwl_grid_map.grid[*mapping[*cell]]
                                 print(RailEnvTransitions().print(trans))
@@ -453,7 +479,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                     zwl_grid_map.grid[*mapping[*cell]] = trans
                                 else:
                                     # TODO happens for slips
-                                    warnings.warn(f"Cannot draw {trans}")
+                                    warnings.warn(f"Cannot draw {trans} at {mapping[*new_position]}")
                             else:
                                 # add transition W->N, S->E cell,dir -> new_pos,new_direction
                                 trans = zwl_grid_map.grid[*mapping[*cell]]
@@ -464,7 +490,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                     zwl_grid_map.grid[*mapping[*cell]] = trans
                                 else:
                                     # TODO happens for slips  -> need to handle separately
-                                    warnings.warn(f"Cannot draw {trans}")
+                                    warnings.warn(f"Cannot draw {trans} at {mapping[*new_position]}")
                         zwl_grid[mapping[*new_position]] = RailEnvTransitionsEnum.vertical_straight.value
 
     print(f"successors={successors}")
@@ -486,6 +512,10 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
 def _within_bbox(city_bbox, cell: tuple[Any, Any]) -> Any:
     return city_bbox["min_row"] <= cell[0] <= city_bbox["max_row"] and city_bbox["min_col"] <= cell[1] <= city_bbox["max_col"]
+
+
+def _within_bbox_excl_boundary(city_bbox, cell: tuple[Any, Any]) -> Any:
+    return city_bbox["min_row"] < cell[0] < city_bbox["max_row"] and city_bbox["min_col"] < cell[1] < city_bbox["max_col"]
 
 
 def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stations_lines: dict, target_facing=1) -> tuple[
