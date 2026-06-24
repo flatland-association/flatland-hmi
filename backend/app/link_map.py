@@ -1,4 +1,4 @@
-import warnings
+from collections import defaultdict
 from collections import defaultdict
 from typing import Any, List, Dict
 
@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from flatland.core.grid.grid4_utils import get_new_position, get_direction
+from flatland.core.grid.grid4_utils import get_direction
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
@@ -359,145 +359,44 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
-        if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[*cell]):
-            print("gotcha 1")
-            if len(successors[cell]) + len(predecessors[cell]) == 2:
-                if zwl_grid[mapping[*cell][0] + 1][mapping[*cell][1]] == 0 and zwl_grid[mapping[*cell][0] - 1][mapping[*cell][1]] == 0:
-                    print("gotcha 2")
+        # find missing neighbors
+        pairs = env.rail.get_neighbor_pairs(cell)
 
-                    n1 = successors[cell][0]
-                    n2 = predecessors[cell][0]
+        new_neighbors = {p for pair in pairs for p in pair if p not in mapping}
+        above = (mapping[*cell][0] - 1, mapping[*cell][1])
+        below = (mapping[*cell][0] + 1, mapping[*cell][1])
+        assert cell not in new_neighbors
 
-                    # find missing neighbors
-                    pairs = env.rail.get_neighbor_pairs(cell)
+        if len(new_neighbors) == 2:
 
-                    new_neighbors = {p for pair in pairs for p in pair if p != n1 and p != n2}
-                    assert len(new_neighbors) == 2
+            assert zwl_grid_map.grid[*above] == 0
+            assert zwl_grid_map.grid[*below] == 0
 
-                    above = (mapping[*cell][0] - 1, mapping[*cell][1])
-                    below = (mapping[*cell][0] + 1, mapping[*cell][1])
-                    assert zwl_grid_map.grid[*above] == 0
-                    assert zwl_grid_map.grid[*below] == 0
+            # randomly assign neighbors to above and below
+            for n, mapped in zip(new_neighbors, [above, below]):
+                mapping[n] = mapped
+        elif len(new_neighbors) == 1:
+            if zwl_grid_map.grid[*above] == 0:
+                chosen = above
+            elif zwl_grid_map.grid[*below] == 0:
+                chosen = below
+            else:
+                # TODO add warning instead?
+                raise
+            mapping[list(new_neighbors)[0]] = chosen
 
-                    # randomly assign neighbors to above and below
-                    for n, mapped in zip(new_neighbors, [above, below]):
-                        mapping[n] = mapped
+        # in zwl add transitions for mapped neighbor pairs
+        trans = zwl_grid_map.grid[*mapping[*cell]]
+        for from_cell, to_cell in pairs:
+            trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[*from_cell], mapping[cell]),
+                                                            get_direction(mapping[cell], mapping[*to_cell]), 1)
+        print(RailEnvTransitions().print(trans))
+        if RailEnvTransitions().is_valid(trans):
+            zwl_grid_map.grid[*mapping[*cell]] = trans
+        else:
+            # TODO add warning instead?
+            raise
 
-                    # in zwl add transitions for mapped neighbor pairs
-                    trans = zwl_grid_map.grid[*mapping[*cell]]
-                    for from_cell, to_cell in pairs:
-                        trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[*from_cell], mapping[cell]),
-                                                                        get_direction(mapping[cell], mapping[*to_cell]), 1)
-                    print(RailEnvTransitions().print(trans))
-                    if RailEnvTransitions().is_valid(trans):
-                        print("unhandled case")
-                        zwl_grid_map.grid[*mapping[*cell]] = trans
-                else:
-                    print("cannot handle")
-
-            continue
-
-        # TODO ignore single slips for now
-        for dir in range(4):
-            possible_transitions = env.rail.get_transitions((cell, dir))
-            for new_direction in range(4):
-                if possible_transitions[new_direction]:
-                    new_position = get_new_position(cell, new_direction)
-                    if cell == (15, 9) and new_position == (15, 8):
-                        pass
-                    # graph already handled
-                    if new_position in successors.keys():
-                        continue
-                    # stations already handled
-                    if _within_bbox_excl_boundary(city_1_cells_bbox, new_position) or _within_bbox_excl_boundary(city_2_cells_bbox, new_position):
-                        continue
-
-                    level_cell = levels.get(cell, None)
-                    level_new_position = levels.get(new_position, None)
-
-                    zwl_new_position = mapping.get(new_position, None)
-                    if zwl_new_position is not None and zwl_grid[*zwl_new_position] != 0:
-                        # TODO check whether all transitions mapped
-                        continue
-
-                    print(f"{cell} ::: {new_position} || {level_cell} {level_new_position} ")
-                    if new_position not in successors and level_cell is not None and level_new_position is None:
-                        print("found a candidate")
-
-                        # new position not on paths between the gates:
-                        assert new_position not in successors[cell]
-                        # assert len(successors[cell]) == 1
-                        successor_in_graph = successors[cell][0]
-
-                        # can we reach successor_in_graph from dir?
-                        if possible_transitions[get_direction(cell, successor_in_graph)]:
-                            outgoing_from_graph = True
-                        else:
-                            outgoing_from_graph = False
-
-                        if levels[cell] >= 0:
-
-                            mapping[*new_position] = (mapping[cell][0] + 1, mapping[cell][1])
-                            print(f"added a candidate below at {mapping[*cell]}")
-
-                            if outgoing_from_graph:
-                                # add transition E->S, N->W cell,dir -> new_pos,new_direction
-                                trans = zwl_grid_map.grid[*mapping[*cell]]
-                                print(RailEnvTransitions().print(trans))
-                                trans = zwl_grid_map.transitions.set_transition(trans, 1, 2, 1)
-                                trans = zwl_grid_map.transitions.set_transition(trans, 0, 3, 1)
-                                print(RailEnvTransitions().print(trans))
-                                if RailEnvTransitions().is_valid(trans):
-                                    zwl_grid_map.grid[*mapping[*cell]] = trans
-                                else:
-                                    # TODO happens for slips
-                                    # TODO happens if we're on a curve
-                                    warnings.warn(f"Cannot draw {trans} at {mapping[*cell]}")
-                            else:
-                                # add transition W->S, N->E cell,dir -> new_pos,new_direction
-                                trans = zwl_grid_map.grid[*mapping[*cell]]
-                                trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
-                                trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
-                                print(RailEnvTransitions().print(trans))
-                                if RailEnvTransitions().is_valid(trans):
-                                    zwl_grid_map.grid[*mapping[*cell]] = trans
-                                else:
-                                    # TODO happens for slips  -> need to handle separately
-                                    warnings.warn(f"Cannot draw {trans} at {mapping[*cell]}")
-                        else:
-                            mapping[*new_position] = (mapping[cell][0] - 1, mapping[cell][1])
-                            print(f"added a candidate above at {mapping[*cell]}")
-
-                            if outgoing_from_graph:
-                                # add transition E->N, S->W cell,dir -> new_pos,new_direction
-                                trans = zwl_grid_map.grid[*mapping[*cell]]
-                                print(RailEnvTransitions().print(trans))
-                                trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
-                                trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
-                                print(RailEnvTransitions().print(trans))
-                                if RailEnvTransitions().is_valid(trans):
-                                    zwl_grid_map.grid[*mapping[*cell]] = trans
-                                else:
-                                    # TODO happens for slips
-                                    warnings.warn(f"Cannot draw {trans} at {mapping[*new_position]}")
-                            else:
-                                # add transition W->N, S->E cell,dir -> new_pos,new_direction
-                                trans = zwl_grid_map.grid[*mapping[*cell]]
-                                trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
-                                trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
-                                print(RailEnvTransitions().print(trans))
-                                if RailEnvTransitions().is_valid(trans):
-                                    zwl_grid_map.grid[*mapping[*cell]] = trans
-                                else:
-                                    # TODO happens for slips  -> need to handle separately
-                                    warnings.warn(f"Cannot draw {trans} at {mapping[*new_position]}")
-                        zwl_grid[mapping[*new_position]] = RailEnvTransitionsEnum.vertical_straight.value
-
-    print(f"successors={successors}")
-    print(f"predecessor={predecessors}")
-    print(f"levels={levels}")
-    print(f"reverse_levels={reverse_levels}")
-    print(f"reverse_levels[1]={reverse_levels[1]}")
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     content = {
         # ZWL grid
