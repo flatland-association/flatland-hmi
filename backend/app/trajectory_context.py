@@ -35,7 +35,7 @@ class TrajectoryContext(NamedTuple):
         ep_id = str(uuid.uuid4())
         data_dir = Path(DATA_DIR) / ep_id
         data_dir.mkdir(exist_ok=True, parents=True)
-        env = env_map[env_id]["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
+        env = env_map[env_id]["factory"](seed=44, obs_builder_object=policy_map[policy_id]["obs_builder_factory"]())
         t = Trajectory.create_empty(data_dir, ep_id=ep_id, env=env)
         t_runner = PolicyRunner(
             policy=policy_map[policy_id]["factory"](),
