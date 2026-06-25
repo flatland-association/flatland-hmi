@@ -45,7 +45,7 @@ def test_get_envs():
     body = response.json()
     assert isinstance(body, list)
     ids = {e["id"] for e in body}
-    assert ids == {"generated-0", "generated-1"}
+    assert ids == {"generated-0", "generated-1", 'generated-seed-44', 'generated-seed-45', }
     assert all("description" in e for e in body)
 
 
