@@ -40,6 +40,14 @@ class InteractiveEnv:
 
 
 env_map = {
+    'generated-seed-44': {
+        'factory': lambda **kwargs: env_generator(seed=44, **kwargs)[0],
+        'description': 'Generated environment 30 x 30, 7 agents, seed 44',
+    },
+    'generated-seed-45': {
+        'factory': lambda **kwargs: env_generator(seed=45, **kwargs)[0],
+        'description': 'Generated environment 30 x 30, 7 agents, seed 45',
+    },
     'generated-0': {
         'factory': lambda **kwargs: env_generator(**kwargs)[0],
         'description': 'Generated environment 30 x 30, 7 agents',
