@@ -111,24 +111,43 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     all_paths = _find_all_paths_between_stations(current_link, env, from_station, stations_links, to_station)
 
     # cell -> List[tuple[tuple,int]]
-    successors: dict[tuple, set[tuple[tuple, int]]] = {}
+    successors_: dict[tuple, set[tuple[tuple, int]]] = {}
     for path in all_paths:
         for wp, wp_after in zip(path, path[1:]):
-            successors.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
+            successors_.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
 
     # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; successors are ordered clock-wise
-    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(successors, key=lambda t: t[1])] for tup, successors in successors.items()}
+    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(successors), key=lambda t: t[1])] for tup, successors in successors_.items()}
+    for k, v in successors.items():
+        print(k, v)
+        print(successors_[k])
+        res = []
+        for i in v:
+            if i not in res:
+                res.append(i)
+        successors[k] = res
+        assert len(res) <= 2, res
     print(f"successors {successors}")
 
     # cell -> List[tuple[tuple,int]]
-    predecessors: dict[tuple, set[tuple[tuple, int]]] = {}
+    predecessors_: dict[tuple, set[tuple[tuple, int]]] = {}
     for path in all_paths:
         for wp, wp_after in zip(path, path[1:]):
-            predecessors.setdefault(wp_after.position, set()).add((wp.position, wp_after.direction - wp.direction))
+            # TODO this is not well-defined, entering the same edge when entering switch non-pointing can go out same way - or is it no problem?
+            predecessors_.setdefault(wp_after.position, set()).add((wp.position, wp_after.direction - wp.direction))
 
     # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; predecessors are ordered clock-wise
-    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(predecessors, key=lambda t: t[1])] for tup, predecessors in predecessors.items()}
+    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(predecessors), key=lambda t: t[1])] for tup, predecessors in predecessors_.items()}
     print(f"predecessors {predecessors}")
+    for k, v in predecessors.items():
+        print(k, v)
+        print(predecessors_[k])
+        res = []
+        for i in v:
+            if i not in res:
+                res.append(i)
+        predecessors[k] = res
+        assert len(res) <= 2, res
 
     # cells in the graph without a level assigned yet:
     open_cells = set(successors.keys())
