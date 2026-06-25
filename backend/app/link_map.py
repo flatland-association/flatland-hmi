@@ -204,16 +204,16 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
-            for num_succ, succ in enumerate(predecessors[pos]):
-                level_up_or_down = - _get_new_level(LEVEL, num_succ)
-                print(f"working on {pos} with predecessors {predecessors[pos]}: {succ}")
+            for num_pred, pred in enumerate(predecessors[pos]):
+                level_up_or_down = - _get_new_level(LEVEL, num_pred)
+                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
-                if succ not in open_cells:
-                    print(f"{pos} <- {succ} already done")
+                if pred not in open_cells:
+                    print(f"{pos} <- {pred} already done")
                     continue
-                print(f"{pos} <- {succ}")
-                levels[succ] = levels[pos] + level_up_or_down
-                reverse_levels[levels[pos] + level_up_or_down].add(succ)
+                print(f"{pos} <- {pred}")
+                levels[pred] = levels[pos] + level_up_or_down
+                reverse_levels[levels[pos] + level_up_or_down].add(pred)
 
     # Based on levels, map to link map
     for pos in reverse_levels[LEVEL]:
@@ -270,22 +270,22 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
-            for num_succ, succ in enumerate(predecessors[pos]):
-                level_up_or_down = - _get_new_level(LEVEL, num_succ)
-                print(f"working on {pos} with predecessors {predecessors[pos]}: {succ}")
+            for num_pred, pred in enumerate(predecessors[pos]):
+                level_up_or_down = - _get_new_level(LEVEL, num_pred)
+                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
-                if succ not in open_cells:
-                    print(f"{pos} <- {succ} already done")
+                if pred not in open_cells:
+                    print(f"{pos} <- {pred} already done")
                     continue
-                print(f"{pos} <- {succ}")
+                print(f"{pos} <- {pred}")
                 open_cells.discard(pos)
 
                 # one row above or below, same column:
                 new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
-                if succ not in mapping:
-                    print(f"add mapping {succ} -> {new_zwl_pos}")
+                if pred not in mapping:
+                    print(f"add mapping {pred} -> {new_zwl_pos}")
                     assert zwl_grid[*new_zwl_pos] == 0
-                    mapping[succ] = new_zwl_pos
+                    mapping[pred] = new_zwl_pos
                 else:
                     # happens if pred is a pin
                     pass
@@ -313,7 +313,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # down: E-S curve
                     zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
-                for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
                     assert zwl_grid[new_zwl_pos[0]][c] == 0
                     zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
