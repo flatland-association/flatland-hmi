@@ -149,7 +149,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
     # TODO iteratively over levels, only 0->1 so far while there are open cells
-    for pos in reverse_levels[0]:
+    LEVEL = 0
+    open_level_0 = set()
+    for pos in reverse_levels[LEVEL]:
         if pos in successors and len(successors[pos]) == 2:
             print(f"working on {pos} with successors {successors[pos]}")
             for num_succ, succ in enumerate(successors[pos]):
@@ -201,19 +203,10 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # down: N-E curve
                     zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
-                # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
-                if new_zwl_pos[0] == mapping[succ][0]:
-                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
-                        assert zwl_grid[new_zwl_pos[0]][c] == 0
-                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                else:
-                    connect_rail_in_grid_map(
-                        grid_map=zwl_grid_map,
-                        rail_trans=RailEnvTransitions(),
-                        start=mapping[succ],
-                        end=new_zwl_pos,
-                    )
-                # TODO add mapping for all intermediates!
+                for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                    assert zwl_grid[new_zwl_pos[0]][c] == 0
+                    zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+
 
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
@@ -265,19 +258,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # down: E-S curve
                     zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
-                # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
-                if new_zwl_pos[0] == mapping[succ][0]:
-                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
-                        assert zwl_grid[new_zwl_pos[0]][c] == 0
-                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                else:
-                    connect_rail_in_grid_map(
-                        grid_map=zwl_grid_map,
-                        rail_trans=RailEnvTransitions(),
-                        start=mapping[succ],
-                        end=new_zwl_pos,
-                    )
-                # TODO add mapping for all intermediates!
+                for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                    assert zwl_grid[new_zwl_pos[0]][c] == 0
+                    zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+
+    # for pos in reverse_levels[LEVEL]:
+    #     if pos in successors and len(successors[pos]) == 1:
 
     print(f"find crossings")
     print(fibre_cells)
