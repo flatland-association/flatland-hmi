@@ -186,137 +186,163 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
     # TODO iteratively over levels, only 0->1 so far while there are open cells
-    LEVEL = 0
-    # Assign levels to graph
-    for pos in reverse_levels[LEVEL]:
-        if pos in successors and len(successors[pos]) == 2:
-            print(f"working on {pos} with successors {successors[pos]}")
-            for num_succ, succ in enumerate(successors[pos]):
-                level_up_or_down = _get_new_level(LEVEL, num_succ)
-                print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
+    for LEVEL in [0]:  # -1, 2 - 2]:
+        if LEVEL not in reverse_levels:
+            continue
+        reverse_levels_open = defaultdict(set)
+        # Assign levels to graph
+        for pos in reverse_levels[LEVEL]:
+            if pos in successors and len(successors[pos]) == 2:
+                print(f"working on {pos} with successors {successors[pos]}")
+                for num_succ, succ in enumerate(successors[pos]):
+                    level_up_or_down = _get_new_level(LEVEL, num_succ)
+                    print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
-                if succ not in open_cells:
-                    print(f"{pos} <- {succ} already done")
-                    continue
-                print(f"{pos} -> {succ}")
-                levels[succ] = levels[pos] + level_up_or_down
-                reverse_levels[levels[pos] + level_up_or_down].add(succ)
+                    if succ not in open_cells:
+                        print(f"{pos} <- {succ} already done")
+                        continue
+                    print(f"{pos} -> {succ}")
+                    levels[succ] = levels[pos] + level_up_or_down
+                    reverse_levels_open[levels[pos] + level_up_or_down].add(succ)
 
-        if pos in predecessors and len(predecessors[pos]) == 2:
-            print(f"working on {pos} with predecessors {predecessors[pos]}")
-            for num_pred, pred in enumerate(predecessors[pos]):
-                level_up_or_down = - _get_new_level(LEVEL, num_pred)
-                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
+            if pos in predecessors and len(predecessors[pos]) == 2:
+                print(f"working on {pos} with predecessors {predecessors[pos]}")
+                for num_pred, pred in enumerate(predecessors[pos]):
+                    level_up_or_down = - _get_new_level(LEVEL, num_pred)
+                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
-                if pred not in open_cells:
-                    print(f"{pos} <- {pred} already done")
-                    continue
-                print(f"{pos} <- {pred}")
-                levels[pred] = levels[pos] + level_up_or_down
-                reverse_levels[levels[pos] + level_up_or_down].add(pred)
+                    if pred not in open_cells:
+                        print(f"{pos} <- {pred} already done")
+                        continue
+                    print(f"{pos} <- {pred}")
+                    levels[pred] = levels[pos] + level_up_or_down
+                    reverse_levels_open[levels[pos] + level_up_or_down].add(pred)
+            for k, v in reverse_levels_open.items():
+                reverse_levels[k].update(v)
+        # treat degree 1 within LEVEL
+        for pos in reverse_levels[LEVEL]:
+            pos_ = pos
+            intermediates = []
+            while pos_ in successors and len(successors[pos_]) == 1:
+                levels[pos_] = LEVEL
+                intermediates.append(pos_)
+                pos_ = successors[pos_][0]
+                # TODO add mapping
+        for pos in reverse_levels[LEVEL]:
+            pos_ = pos
+            intermediates = []
+            while pos_ in predecessors and len(predecessors[pos_]) == 1:
+                levels[pos_] = LEVEL
+                intermediates.append(pos_)
+                pos_ = predecessors[pos_][0]
+                # TODO add mapping
 
     # Based on levels, map to link map
-    for pos in reverse_levels[LEVEL]:
-        if pos in successors and len(successors[pos]) == 2:
-            print(f"working on {pos} with successors {successors[pos]}")
-            for num_succ, succ in enumerate(successors[pos]):
-                level_up_or_down = _get_new_level(LEVEL, num_succ)
-                print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
+    for LEVEL in [0, 1, ]:  # -1, 2 - 2]:
+        if LEVEL not in reverse_levels:
+            continue
+            # treat degree 2 out of LEVEL
+        for pos in reverse_levels[LEVEL]:
+            if pos in successors and len(successors[pos]) == 2:
+                print(f"working on {pos} with successors {successors[pos]}")
+                for num_succ, succ in enumerate(successors[pos]):
+                    level_up_or_down = _get_new_level(LEVEL, num_succ)
+                    print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
-                if succ not in open_cells:
-                    print(f"{pos} <- {succ} already done")
-                    continue
-                print(f"{pos} -> {succ}")
-                # levels[succ] = levels[pos] + level_up_or_down
-                # reverse_levels[levels[pos] + level_up_or_down].add(succ)
-                open_cells.discard(pos)
+                    if succ not in open_cells:
+                        print(f"{pos} <- {succ} already done")
+                        continue
+                    print(f"{pos} -> {succ}")
+                    # levels[succ] = levels[pos] + level_up_or_down
+                    # reverse_levels[levels[pos] + level_up_or_down].add(succ)
+                    open_cells.discard(pos)
 
-                # one row above or below, same column:
-                new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
-                if succ not in mapping:
-                    print(f"add mapping {succ} -> {new_zwl_pos}")
-                    assert zwl_grid[*new_zwl_pos] == 0
-                    mapping[succ] = new_zwl_pos
-                else:
-                    # happens if pred is a pin
-                    pass
+                    # one row above or below, same column:
+                    new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
+                    if succ not in mapping:
+                        print(f"add mapping {succ} -> {new_zwl_pos}")
+                        assert zwl_grid[*new_zwl_pos] == 0
+                        mapping[succ] = new_zwl_pos
+                    else:
+                        # happens if pred is a pin
+                        pass
 
-                trans = zwl_grid_map.grid[*mapping[pos]]
-                print(RailEnvTransitions().print(trans))
+                    trans = zwl_grid_map.grid[*mapping[pos]]
+                    print(RailEnvTransitions().print(trans))
 
-                # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
-                if level_up_or_down == 1:
-                    # from right to down:
-                    trans = zwl_grid_map.transitions.set_transition(trans, 1, 2, 1)
-                    trans = zwl_grid_map.transitions.set_transition(trans, 0, 3, 1)
-                else:
-                    # from right to up:
-                    trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
-                    trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
-                print(RailEnvTransitions().print(trans))
-                assert RailEnvTransitions().is_valid(trans)
-                zwl_grid_map.grid[*mapping[pos]] = trans
+                    # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
+                    if level_up_or_down == 1:
+                        # from right to down:
+                        trans = zwl_grid_map.transitions.set_transition(trans, 1, 2, 1)
+                        trans = zwl_grid_map.transitions.set_transition(trans, 0, 3, 1)
+                    else:
+                        # from right to up:
+                        trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
+                        trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
+                    print(RailEnvTransitions().print(trans))
+                    assert RailEnvTransitions().is_valid(trans)
+                    zwl_grid_map.grid[*mapping[pos]] = trans
 
-                # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                if level_up_or_down == 1:
-                    # up: S-E curve
-                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
-                else:
-                    # down: N-E curve
-                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
+                    # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+                    if level_up_or_down == 1:
+                        # up: S-E curve
+                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
+                    else:
+                        # down: N-E curve
+                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
-                for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
-                    assert zwl_grid[new_zwl_pos[0]][c] == 0
-                    zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-        if pos in predecessors and len(predecessors[pos]) == 2:
-            print(f"working on {pos} with predecessors {predecessors[pos]}")
-            for num_pred, pred in enumerate(predecessors[pos]):
-                level_up_or_down = - _get_new_level(LEVEL, num_pred)
-                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
+                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                        assert zwl_grid[new_zwl_pos[0]][c] == 0
+                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+            if pos in predecessors and len(predecessors[pos]) == 2:
+                print(f"working on {pos} with predecessors {predecessors[pos]}")
+                for num_pred, pred in enumerate(predecessors[pos]):
+                    level_up_or_down = - _get_new_level(LEVEL, num_pred)
+                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
-                if pred not in open_cells:
-                    print(f"{pos} <- {pred} already done")
-                    continue
-                print(f"{pos} <- {pred}")
-                open_cells.discard(pos)
+                    if pred not in open_cells:
+                        print(f"{pos} <- {pred} already done")
+                        continue
+                    print(f"{pos} <- {pred}")
+                    open_cells.discard(pos)
 
-                # one row above or below, same column:
-                new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
-                if pred not in mapping:
-                    print(f"add mapping {pred} -> {new_zwl_pos}")
-                    assert zwl_grid[*new_zwl_pos] == 0
-                    mapping[pred] = new_zwl_pos
-                else:
-                    # happens if pred is a pin
-                    pass
+                    # one row above or below, same column:
+                    new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
+                    if pred not in mapping:
+                        print(f"add mapping {pred} -> {new_zwl_pos}")
+                        assert zwl_grid[*new_zwl_pos] == 0
+                        mapping[pred] = new_zwl_pos
+                    else:
+                        # happens if pred is a pin
+                        pass
 
-                trans = zwl_grid_map.grid[*mapping[pos]]
-                print(RailEnvTransitions().print(trans))
-                # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
-                if level_up_or_down == 1:
-                    # from up to right:
-                    trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
-                    trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
-                else:
-                    # from down to right:
-                    trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
-                    trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
-                print(RailEnvTransitions().print(trans))
-                assert RailEnvTransitions().is_valid(trans)
-                zwl_grid_map.grid[*mapping[pos]] = trans
+                    trans = zwl_grid_map.grid[*mapping[pos]]
+                    print(RailEnvTransitions().print(trans))
+                    # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
+                    if level_up_or_down == 1:
+                        # from up to right:
+                        trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
+                        trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
+                    else:
+                        # from down to right:
+                        trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
+                        trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
+                    print(RailEnvTransitions().print(trans))
+                    assert RailEnvTransitions().is_valid(trans)
+                    zwl_grid_map.grid[*mapping[pos]] = trans
 
-                # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                if level_up_or_down == 1:
-                    # up: E-N curve
-                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
-                else:
-                    # down: E-S curve
-                    zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
+                    # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+                    if level_up_or_down == 1:
+                        # up: E-N curve
+                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
+                    else:
+                        # down: E-S curve
+                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
-                for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
-                    assert zwl_grid[new_zwl_pos[0]][c] == 0
-                    zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-
+                    for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
+                        assert zwl_grid[new_zwl_pos[0]][c] == 0
+                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+    # treat incoming/outgoing from all paths
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
