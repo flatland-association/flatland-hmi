@@ -52,6 +52,21 @@
         @if (col.pinLabel) {
         <div class="pin-label">{{ col.pinLabel }}</div>
             }
+      </div>
+      }
+    </div>
+    }
+  </div>
+  <div class="row-col-numbers">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    @let isLastRow = $last;
+    <div class="rc-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="rc-cell">
+        @if (colIndex === 0) {<span class="row-number">{{ rowIndex }}</span>}
+        @if ($last) {<span class="row-number-right">{{ rowIndex }}</span>}
+        @if (rowIndex === 0) {<span class="col-number">{{ colIndex }}</span>}
+        @if (isLastRow) {<span class="col-number-bottom">{{ colIndex }}</span>}
           </div>
         }
       </div>
