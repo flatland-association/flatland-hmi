@@ -18,8 +18,6 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-# TODO in Block build add gate, not only station as label
-# TODO inspect more results on more randomly generated envs and on competition topology maybe
 def build_stations_and_links_payload(env) -> dict:
     station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
     station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
@@ -84,6 +82,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
     mapping2 = {k: (r + y_offset_2, pos + x_offset_2) for k, (r, pos) in mapping2.items()}
 
+    # mapping so far contains all cells in the two station bb
     mapping = {**mapping1, **mapping2}
     print(f"mapping {mapping}")
 
@@ -101,48 +100,15 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     assert len(fibre_cells) == len(path)
     print("fibre")
     print(fibre_cells)
-    full_mapping = {}
     for i, cell in enumerate(path):
         mapping[fibre_cells[i]] = cell
-
-    for i, (cell, cell2) in enumerate(zip(fibre_cells, fibre_cells[1:])):
-        d = get_direction(cell, cell2)
-        d_mapping = get_direction(mapping[cell], mapping[cell2])
-        full_mapping[(cell, d)] = mapping[cell], d_mapping
 
     print("station_gates:")
     for station in stations_links["station_gates"].values():
         for gate in station.values():
             print(gate)
 
-    grid_without_stations = env.rail.grid.copy()
-    pin_cells = [pin["node"] for station in stations_links["station_gates"].values() for gate in station.values() for pin in gate["pins"].values()]
-    print("pin_cells")
-    print(pin_cells)
-    for cells in stations_links["station_edges"].values():
-        for cell in cells:
-            if cell in pin_cells:
-                continue
-            grid_without_stations[cell[0]][cell[1]] = 0
-    grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
-                                                  grid=grid_without_stations)
-
-    from_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
-                 stations_links["station_gates"][from_station][current_link["fromFacing"]]["pins"].values()]
-    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
-               stations_links["station_gates"][to_station][current_link["toFacing"]]["pins"].values()]
-
-    print(f"from_pins={from_pins}")
-    print(f"to_pins={to_pins}")
-    all_paths: List[List[Waypoint]] = []
-    for (source_position, source_direction) in from_pins:
-        for target_position, target_direction in to_pins:
-            paths = get_k_shortest_paths(None, rail=grid_map_without_stations,
-                                         source_position=source_position,
-                                         source_direction=source_direction,
-                                         target_position=target_position, k=10)
-            print(f"found {source_position}, {source_direction}, {target_position}, {target_direction}: {paths}")
-            all_paths.extend(paths)
+    all_paths = _find_all_paths_between_stations(current_link, env, from_station, stations_links, to_station)
 
     # cell -> List[tuple[tuple,int]]
     successors: dict[tuple, set[tuple[tuple, int]]] = {}
@@ -241,11 +207,26 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 print(pred_preds)
                 pred_pred = None
                 intermediates = []
-                while len(pred_preds) == 1:
+                while len(pred_preds) > 0:
                     print(pred_preds)
                     pred_pred = pred_preds.pop()
                     intermediates.append(pred_pred)
                     pred_preds = predecessors.get(pred_pred, [])
+
+                    # are we still at level 1?
+                    if len(pred_preds) == 0:
+                        break
+                    if len(pred_preds) == 1:
+                        continue
+                    if len(pred_preds) == 2:
+                        for p in pred_preds:
+                            if p in levels and levels[p] == 0:
+                                # take other
+                                pred_preds.remove(p)
+                                break
+                    else:
+                        print(len(pred_preds))
+                        raise
                 if pred_pred is not None:
                     p = connect_rail_in_grid_map(
                         grid_map=zwl_grid_map,
@@ -267,11 +248,11 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             start=mapping[succ],
                             end=new_zwl_pos,
                         )
+                        print(p)
                 print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
         if pos in predecessors and len(predecessors[pos]) == 2:
-
             print(f"working on {pos} with predecessors {predecessors[pos]}")
             for num_succ, succ in enumerate(predecessors[pos]):
                 if num_succ == 0:
@@ -327,18 +308,36 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 print(pred_preds)
                 pred_pred = None
                 intermediates = []
-                while len(pred_preds) == 1:
+                while len(pred_preds) > 0:
                     print(pred_preds)
                     pred_pred = pred_preds.pop()
                     intermediates.append(pred_pred)
                     pred_preds = predecessors.get(pred_pred, [])
+
+                    # are we still at level 1?
+                    if len(pred_preds) == 0:
+                        break
+                    if len(pred_preds) == 1:
+                        continue
+                    if len(pred_preds) == 2:
+                        for p in pred_preds:
+                            if p in levels and levels[p] == 0:
+                                # take other
+                                pred_preds.remove(p)
+                                break
+                    else:
+                        print(len(pred_preds))
+                        raise
+
                 if pred_pred is not None:
                     p = connect_rail_in_grid_map(
                         grid_map=zwl_grid_map,
                         rail_trans=RailEnvTransitions(),
                         start=mapping[pred_pred],
                         end=new_zwl_pos,
+                        # respect_transition_validity=False,
                     )
+                    print(p)
                 else:
                     # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
                     if new_zwl_pos[0] == mapping[succ][0]:
@@ -352,12 +351,14 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             start=mapping[succ],
                             end=new_zwl_pos,
                         )
+                        print(p)
                 print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
+        # continue
         # find missing neighbors
         pairs = env.rail.get_neighbor_pairs(cell)
 
@@ -427,7 +428,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             pass
                         elif RailEnvTransitionsEnum.is_double_slip(env.rail.grid[cell]) and not is_neighbor_cell(mapping[from_cell],
                                                                                                                  mapping[cell]) and is_neighbor_cell(
-                                mapping[cell], mapping[to_cell]):
+                            mapping[cell], mapping[to_cell]):
                             trans = zwl_grid_map.transitions.set_transition(trans, get_direction(replacement, mapping[cell]),
                                                                             get_direction(mapping[cell], mapping[to_cell]), 1)
                         else:
@@ -458,6 +459,38 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     }
 
     return content
+
+
+def _find_all_paths_between_stations(current_link, env: RailEnv, from_station, stations_links, to_station) -> list[list[Waypoint]]:
+    grid_without_stations = env.rail.grid.copy()
+    pin_cells = [pin["node"] for station in stations_links["station_gates"].values() for gate in station.values() for pin in gate["pins"].values()]
+    print("pin_cells")
+    print(pin_cells)
+    for cells in stations_links["station_edges"].values():
+        for cell in cells:
+            if cell in pin_cells:
+                continue
+            grid_without_stations[cell[0]][cell[1]] = 0
+    grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
+                                                  grid=grid_without_stations)
+
+    from_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
+                 stations_links["station_gates"][from_station][current_link["fromFacing"]]["pins"].values()]
+    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
+               stations_links["station_gates"][to_station][current_link["toFacing"]]["pins"].values()]
+
+    print(f"from_pins={from_pins}")
+    print(f"to_pins={to_pins}")
+    all_paths: List[List[Waypoint]] = []
+    for (source_position, source_direction) in from_pins:
+        for target_position, target_direction in to_pins:
+            paths = get_k_shortest_paths(None, rail=grid_map_without_stations,
+                                         source_position=source_position,
+                                         source_direction=source_direction,
+                                         target_position=target_position, k=10)
+            print(f"found {source_position}, {source_direction}, {target_position}, {target_direction}: {paths}")
+            all_paths.extend(paths)
+    return all_paths
 
 
 def _within_bbox(city_bbox, cell: tuple[Any, Any]) -> Any:
