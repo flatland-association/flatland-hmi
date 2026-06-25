@@ -57,6 +57,20 @@
       </div>
     }
   </div>
+  <div class="level-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    <div class="level-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="level-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @let level = getLevel(rowIndex, colIndex);
+        @if (level !== undefined) {
+        <div class="level-label">{{ level }}</div>
+        }
+      </div>
+      }
+    </div>
+    }
+  </div>
   <div class="agents">
     @for (agent of agents; let i = $index; track $index) {
       @if (agent.position) {

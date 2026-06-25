@@ -20,6 +20,7 @@ interface SelectOption {
 export class MapComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
+  public levelCoords = new Map<number, Map<number, number>>()
   public state: State = {
     steps: 0,
     done: {
@@ -57,6 +58,17 @@ export class MapComponent implements OnInit {
       this.mapClasses = this.rendererService.renderMap(transitions, [], stations)
     })
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
+    this.stateService.getLineTransitions().subscribe(data => {
+      this.levelCoords = new Map()
+      for (const [[r, c], level] of data.levels ?? []) {
+        if (!this.levelCoords.has(r)) this.levelCoords.set(r, new Map())
+        this.levelCoords.get(r)!.set(c, level)
+      }
+    })
+  }
+
+  public getLevel(row: number, col: number): number | undefined {
+    return this.levelCoords.get(row)?.get(col)
   }
 
   public getSteps() {

@@ -167,7 +167,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 print(f"{pos} -> {succ}")
                 levels[succ] = levels[pos] + level_up_or_down
                 reverse_levels[levels[pos] + level_up_or_down].add(succ)
-                open_cells.discard(succ)
+                open_cells.discard(pos)
 
                 # one row above or below, same column:
                 new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
@@ -207,7 +207,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     assert zwl_grid[new_zwl_pos[0]][c] == 0
                     zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
-
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
             for num_succ, succ in enumerate(predecessors[pos]):
@@ -223,7 +222,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 print(f"{pos} <- {succ}")
                 levels[succ] = levels[pos] + level_up_or_down
                 reverse_levels[levels[pos] + level_up_or_down].add(succ)
-                open_cells.discard(succ)
+                open_cells.discard(pos)
 
                 # one row above or below, same column:
                 new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
@@ -366,6 +365,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         # env -> ZWL coordindates
         "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping.items()],
         "city_cells_bbox": city_1_cells_bbox,
+        "levels": [[list(k), v] for k, v in levels.items()],
     }
 
     return content

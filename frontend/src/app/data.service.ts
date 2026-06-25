@@ -10,6 +10,7 @@ export type Transitions = Array<Array<number>>
 export interface ZwlResponse {
   grid: Transitions
   mapping: Array<[[number, number], [number, number]]>
+  levels: Array<[[number, number], number]>
 }
 
 export interface EnvOption {
