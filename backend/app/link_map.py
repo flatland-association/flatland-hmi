@@ -365,6 +365,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         above = (mapping[cell][0] - 1, mapping[cell][1])
         below = (mapping[cell][0] + 1, mapping[cell][1])
         assert cell not in new_neighbors
+        chosen = None
         not_chosen = None
 
         if len(new_neighbors) == 2:
@@ -373,9 +374,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
             # randomly assign neighbors to above and below
             for n, mapped in zip(new_neighbors, [above, below]):
+                assert n not in mapping
                 mapping[n] = mapped
         elif len(new_neighbors) == 1:
-            chosen = None
             if zwl_grid_map.grid[*above] == 0:
                 chosen = above
                 not_chosen = below
@@ -385,7 +386,10 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             else:
                 # TODO add warning instead?
                 raise
-            mapping[list(new_neighbors)[0]] = chosen
+            assert zwl_grid_map.grid[*chosen] == 0
+            n = list(new_neighbors)[0]
+            assert n not in mapping
+            mapping[n] = chosen
 
         # in zwl add transitions for mapped neighbor pairs
         trans = zwl_grid_map.grid[*mapping[*cell]]
@@ -394,7 +398,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[from_cell], mapping[cell]),
                                                                 get_direction(mapping[cell], mapping[to_cell]), 1)
             else:
-                if not_chosen is not None:
+                # try to fix using not_chosen
+                if not_chosen is not None and zwl_grid_map.grid[*not_chosen] == 0:
                     if is_neighbor_cell(mapping[from_cell], mapping[cell]) and not is_neighbor_cell(mapping[cell], mapping[to_cell]):
 
                         trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[from_cell], mapping[cell]),
@@ -406,9 +411,32 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                                                         get_direction(mapping[cell], mapping[to_cell]), 1)
                         # TODO make sure the fake neighbor cannot be used any more as its transitions are 0
                 else:
-                    # TODO try to fix with 2 new neighbors
-                    # TODO add warning
-                    print("ignoring")
+                    # edge case: we're passing a pin (that is already mapped and connected to us with intermediate cells)
+                    if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[cell]):
+                        # grid
+                        all_neighbors_zwl = {(mapping[cell][0] + offset[0], mapping[cell][1] + offset[1]) for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]}
+
+                        replacement = all_neighbors_zwl.difference(set(mapping.values()))
+                        assert len(replacement) == 1
+                        replacement = list(replacement)[0]
+
+                        if is_neighbor_cell(mapping[from_cell], mapping[cell]) and not is_neighbor_cell(mapping[cell], mapping[to_cell]):
+                            trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[from_cell], mapping[cell]),
+                                                                            get_direction(mapping[cell], replacement), 1)
+
+                            pass
+                        elif RailEnvTransitionsEnum.is_double_slip(env.rail.grid[cell]) and not is_neighbor_cell(mapping[from_cell],
+                                                                                                                 mapping[cell]) and is_neighbor_cell(
+                                mapping[cell], mapping[to_cell]):
+                            trans = zwl_grid_map.transitions.set_transition(trans, get_direction(replacement, mapping[cell]),
+                                                                            get_direction(mapping[cell], mapping[to_cell]), 1)
+                        else:
+                            # TODO ignore and add warning instead?
+                            raise
+
+                    if len(new_neighbors) > 0:
+                        # TODO add warning
+                        print("ignoring")
         print(RailEnvTransitions().print(trans))
         if RailEnvTransitions().is_valid(trans):
             zwl_grid_map.grid[*mapping[*cell]] = trans
@@ -418,8 +446,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             print(orig)
             print(mapped)
             # TODO add warning instead?
-            # raise
-            print("ignoreing")
+            raise
 
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     content = {
