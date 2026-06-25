@@ -201,55 +201,18 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # down: N-E curve
                     zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
-                pred_preds = predecessors.get(succ, [])
-
-                print("pred_preds")
-                print(pred_preds)
-                pred_pred = None
-                intermediates = []
-                while len(pred_preds) > 0:
-                    print(pred_preds)
-                    pred_pred = pred_preds.pop()
-                    intermediates.append(pred_pred)
-                    pred_preds = predecessors.get(pred_pred, [])
-
-                    # are we still at level 1?
-                    if len(pred_preds) == 0:
-                        break
-                    if len(pred_preds) == 1:
-                        continue
-                    if len(pred_preds) == 2:
-                        for p in pred_preds:
-                            if p in levels and levels[p] == 0:
-                                # take other
-                                pred_preds.remove(p)
-                                break
-                    else:
-                        print(len(pred_preds))
-                        raise
-                if pred_pred is not None:
-                    p = connect_rail_in_grid_map(
+                # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
+                if new_zwl_pos[0] == mapping[succ][0]:
+                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                        assert zwl_grid[new_zwl_pos[0]][c] == 0
+                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+                else:
+                    connect_rail_in_grid_map(
                         grid_map=zwl_grid_map,
                         rail_trans=RailEnvTransitions(),
-                        start=mapping[pred_pred],
+                        start=mapping[succ],
                         end=new_zwl_pos,
                     )
-                    print(p)
-                else:
-                    # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
-                    if new_zwl_pos[0] == mapping[succ][0]:
-                        for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
-                            assert zwl_grid[new_zwl_pos[0]][c] == 0
-                            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    else:
-                        connect_rail_in_grid_map(
-                            grid_map=zwl_grid_map,
-                            rail_trans=RailEnvTransitions(),
-                            start=mapping[succ],
-                            end=new_zwl_pos,
-                        )
-                        print(p)
-                print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
         if pos in predecessors and len(predecessors[pos]) == 2:
@@ -302,57 +265,18 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # down: E-S curve
                     zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
-                pred_preds = predecessors.get(succ, [])
-
-                print("pred_preds")
-                print(pred_preds)
-                pred_pred = None
-                intermediates = []
-                while len(pred_preds) > 0:
-                    print(pred_preds)
-                    pred_pred = pred_preds.pop()
-                    intermediates.append(pred_pred)
-                    pred_preds = predecessors.get(pred_pred, [])
-
-                    # are we still at level 1?
-                    if len(pred_preds) == 0:
-                        break
-                    if len(pred_preds) == 1:
-                        continue
-                    if len(pred_preds) == 2:
-                        for p in pred_preds:
-                            if p in levels and levels[p] == 0:
-                                # take other
-                                pred_preds.remove(p)
-                                break
-                    else:
-                        print(len(pred_preds))
-                        raise
-
-                if pred_pred is not None:
-                    p = connect_rail_in_grid_map(
+                # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
+                if new_zwl_pos[0] == mapping[succ][0]:
+                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                        assert zwl_grid[new_zwl_pos[0]][c] == 0
+                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+                else:
+                    connect_rail_in_grid_map(
                         grid_map=zwl_grid_map,
                         rail_trans=RailEnvTransitions(),
-                        start=mapping[pred_pred],
+                        start=mapping[succ],
                         end=new_zwl_pos,
-                        # respect_transition_validity=False,
                     )
-                    print(p)
-                else:
-                    # TODO connect_rail_in_grid_map seems not to always work as expected, so handle this case gracefully:
-                    if new_zwl_pos[0] == mapping[succ][0]:
-                        for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
-                            assert zwl_grid[new_zwl_pos[0]][c] == 0
-                            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    else:
-                        connect_rail_in_grid_map(
-                            grid_map=zwl_grid_map,
-                            rail_trans=RailEnvTransitions(),
-                            start=mapping[succ],
-                            end=new_zwl_pos,
-                        )
-                        print(p)
-                print(f"intermediates {intermediates}")
                 # TODO add mapping for all intermediates!
 
     print(f"find crossings")
