@@ -48,6 +48,24 @@ def build_stations_and_links_payload(env) -> dict:
     }
 
 
+def _get_new_level(LEVEL: int, num_succ: int) -> int:
+    # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
+    # N.B. if we have isolated loops, this approach does not well defined:
+    #         |--1--------------------|
+    #         |  |--1-------------|   |
+    #  0 -----|--|--0-------------|---|----
+    if num_succ == 1:
+        if LEVEL >= 0:
+            level_up_or_down = 1
+        else:
+            level_up_or_down = -1
+    else:
+        if LEVEL == 0:
+            level_up_or_down = -1
+        else:
+            level_up_or_down = 0
+    return level_up_or_down
+
 # TODO pass only env's grid, not env
 def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
     start = tuple(fibre_cells[0])
@@ -174,10 +192,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         if pos in successors and len(successors[pos]) == 2:
             print(f"working on {pos} with successors {successors[pos]}")
             for num_succ, succ in enumerate(successors[pos]):
-                if num_succ == 1:
-                    level_up_or_down = 1
-                else:
-                    level_up_or_down = -1
+                level_up_or_down = _get_new_level(LEVEL, num_succ)
                 print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
                 if succ not in open_cells:
@@ -190,10 +205,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
             for num_succ, succ in enumerate(predecessors[pos]):
-                if num_succ == 0:
-                    level_up_or_down = 1
-                else:
-                    level_up_or_down = -1
+                level_up_or_down = - _get_new_level(LEVEL, num_succ)
                 print(f"working on {pos} with predecessors {predecessors[pos]}: {succ}")
 
                 if succ not in open_cells:
@@ -208,10 +220,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         if pos in successors and len(successors[pos]) == 2:
             print(f"working on {pos} with successors {successors[pos]}")
             for num_succ, succ in enumerate(successors[pos]):
-                if num_succ == 1:
-                    level_up_or_down = 1
-                else:
-                    level_up_or_down = -1
+                level_up_or_down = _get_new_level(LEVEL, num_succ)
                 print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
                 if succ not in open_cells:
@@ -262,10 +271,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         if pos in predecessors and len(predecessors[pos]) == 2:
             print(f"working on {pos} with predecessors {predecessors[pos]}")
             for num_succ, succ in enumerate(predecessors[pos]):
-                if num_succ == 0:
-                    level_up_or_down = 1
-                else:
-                    level_up_or_down = -1
+                level_up_or_down = - _get_new_level(LEVEL, num_succ)
                 print(f"working on {pos} with predecessors {predecessors[pos]}: {succ}")
 
                 if succ not in open_cells:
