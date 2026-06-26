@@ -223,14 +223,14 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         for pos in reverse_levels[LEVEL]:
             pos_ = pos
             intermediates = []
-            while pos_ in successors and len(successors[pos_]) == 1 and pos_ not in levels:
+            while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
                 levels[pos_] = LEVEL
                 intermediates.append(pos_)
                 pos_ = successors[pos_][0]
         for pos in reverse_levels[LEVEL]:
             pos_ = pos
             intermediates = []
-            while pos_ in predecessors and len(predecessors[pos_]) == 1 and pos_ not in levels:
+            while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
                 levels[pos_] = LEVEL
                 intermediates.append(pos_)
                 pos_ = predecessors[pos_][0]
@@ -248,7 +248,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     # follow same level ahead:
                     pos_ = pos
                     stretch = []
-                    while pos_ in successors and levels[pos_] == LEVEL:
+                    while pos_ in successors and levels.get(pos_) == LEVEL:
                         stretch.append(pos_)
                         next_pos_ = None
                         for s in successors[pos_]:
