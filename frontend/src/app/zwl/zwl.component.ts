@@ -25,6 +25,7 @@ export class ZwlComponent implements OnInit {
   public selectedLink = ''
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public reverseMapping: Map<number, Map<number, [number, number]>> = new Map()
+  public levelCoords = new Map<number, Map<number, number>>()
 
   constructor(
     public stateService: StateService,
@@ -47,6 +48,11 @@ export class ZwlComponent implements OnInit {
     ]).subscribe(([data, stations]) => {
       this.setMapping(data.mapping)
       this.mapClasses = this.rendererService.renderMap(data.grid, [], this.transformStationsForZwl(stations))
+      this.levelCoords = new Map()
+      for (const [[r, c], level] of data.levels ?? []) {
+        if (!this.levelCoords.has(r)) this.levelCoords.set(r, new Map())
+        this.levelCoords.get(r)!.set(c, level)
+      }
     })
     this.stateService.getAgents().subscribe(agents => {
       this.agents = agents
@@ -115,6 +121,12 @@ export class ZwlComponent implements OnInit {
 
   public getZwlPosition(x: number, y: number): [number, number] | null {
     return this.mapping.get(x)?.get(y) ?? null
+  }
+
+  public getLevel(zwlRow: number, zwlCol: number): number | undefined {
+    const envPos = this.reverseMapping.get(zwlRow)?.get(zwlCol)
+    if (!envPos) return undefined
+    return this.levelCoords.get(envPos[0])?.get(envPos[1])
   }
 
   public onLinkChange() {

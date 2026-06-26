@@ -322,6 +322,33 @@
     }
   }
 
+  .level-labels {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 9;
+    pointer-events: none;
+
+    .level-row { display: flex; flex-direction: row; }
+
+    .level-cell {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      position: relative;
+    }
+
+    .level-label {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
+      color: blue;
+    }
+  }
+
   .agents {
     left: 0;
     right: 0;
