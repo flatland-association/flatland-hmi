@@ -48,23 +48,24 @@ def build_stations_and_links_payload(env) -> dict:
     }
 
 
-def _get_new_level(LEVEL: int, num_succ: int) -> int:
+def _get_next_level(LEVEL: int, num_succ: int, succ, baseline_succ) -> int:
     # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
     # N.B. if we have isolated loops, this approach does not well defined:
     #         |--1--------------------|
     #         |  |--1-------------|   |
     #  0 -----|--|--0-------------|---|----
-    if num_succ == 1:
-        if LEVEL >= 0:
-            level_up_or_down = 1
-        else:
-            level_up_or_down = -1
+    if LEVEL == 0:
+        if baseline_succ == succ:
+            return 0
+        # preserve left/right away from baseline fibre
+        # if I'm not baseline and clockwise +1 -> right -> level +1
+        return 1 if num_succ == 1 else -1
     else:
-        if LEVEL == 0:
-            level_up_or_down = -1
+        if num_succ == 1:
+            # always branch away from baseline fibre
+            return 1 if LEVEL > 0 else -1
         else:
-            level_up_or_down = 0
-    return level_up_or_down
+            return 0
 
 # TODO pass only env's grid, not env
 def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
@@ -221,7 +222,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
     # TODO iteratively over levels, only 0->1 so far while there are open cells
-    for LEVEL in [0, 1, -1]:  # , 2 - 2]:
+    for LEVEL in [0, 1, -1, 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
         reverse_levels_open = defaultdict(set)
@@ -230,21 +231,23 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             if pos in successors and len(successors[pos]) == 2:
                 print(f"working on {pos} with successors {successors[pos]}")
                 for num_succ, succ in enumerate(successors[pos]):
-                    level_up_or_down = _get_new_level(LEVEL, num_succ)
-                    print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
+                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
+                    print(f"working on {pos} with successors {predecessors[pos]}: {succ} -> {level_up_or_down} {successors_[pos]}")
 
                     if succ not in open_cells:
                         print(f"{pos} <- {succ} already done")
                         continue
                     print(f"{pos} -> {succ}")
+
+                    # TODO extract function to verify and assign
                     levels[succ] = levels[pos] + level_up_or_down
                     reverse_levels_open[levels[pos] + level_up_or_down].add(succ)
 
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
-                    level_up_or_down = - _get_new_level(LEVEL, num_pred)
-                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
+                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
+                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred} -> {level_up_or_down} {predecessors_[pos]}")
 
                     if pred not in open_cells:
                         print(f"{pos} <- {pred} already done")
@@ -271,7 +274,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 pos_ = predecessors[pos_][0]
 
     # Based on levels, map to link map
-    for LEVEL in [0, 1, ]:  # -1, 2 - 2]:
+    # TODO fix -2/2 etc.
+    for LEVEL in [0, 1, -1]:  # , 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
 
@@ -324,7 +328,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             if pos in successors and len(successors[pos]) == 2:
                 print(f"working on {pos} with successors {successors[pos]}")
                 for num_succ, succ in enumerate(successors[pos]):
-                    level_up_or_down = _get_new_level(LEVEL, num_succ)
+                    # TODO bad code smell - levels should already be assigned!
+                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
                     print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
                     if succ not in open_cells:
@@ -378,7 +383,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
-                    level_up_or_down = - _get_new_level(LEVEL, num_pred)
+                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
                     print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
                     if pred not in open_cells:
@@ -535,6 +540,15 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     }
 
     return content
+
+
+def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]):
+    baseline_succ = None
+    for succ in successors[pos]:
+        if levels.get(succ, None) == LEVEL:
+            baseline_succ = succ
+            break
+    return baseline_succ
 
 
 def _find_all_paths_between_stations(current_link, env: RailEnv, from_station, stations_links, to_station) -> list[list[Waypoint]]:
