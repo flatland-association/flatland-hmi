@@ -54,6 +54,7 @@ def _get_next_level(LEVEL: int, num_succ: int, succ, baseline_succ) -> int:
     #         |--1--------------------|
     #         |  |--1-------------|   |
     #  0 -----|--|--0-------------|---|----
+    print(f"_get_next_level({LEVEL}, {num_succ}, {succ}, {baseline_succ})")
     if LEVEL == 0:
         if baseline_succ == succ:
             return 0
@@ -178,8 +179,13 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     predecessors_: dict[tuple, set[tuple[tuple, int]]] = {}
     for path in all_paths:
         for wp, wp_after in zip(path, path[1:]):
-            # TODO this is not well-defined, entering the same edge when entering switch non-pointing can go out same way - or is it no problem?
-            predecessors_.setdefault(wp_after.position, set()).add((wp.position, wp_after.direction - wp.direction))
+            # +1 means to to the right forward
+            # -1 means to the left forward
+            direction_change = (wp_after.direction - wp.direction) % 4
+            assert direction_change in {0, 1, 3}
+            if direction_change == 3:
+                direction_change = -1
+            predecessors_.setdefault(wp_after.position, set()).add((wp.position, direction_change))
 
     # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; predecessors are ordered clock-wise
     predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(predecessors), key=lambda t: t[1])] for tup, predecessors in predecessors_.items()}
@@ -221,12 +227,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
-    # TODO iteratively over levels, only 0->1 so far while there are open cells
+    # Iteratively, assign levels to graph (all paths between chosen link's gates)
     for LEVEL in [0, 1, -1, 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
         reverse_levels_open = defaultdict(set)
-        # Assign levels to graph
+
         for pos in reverse_levels[LEVEL]:
             if pos in successors and len(successors[pos]) == 2:
                 print(f"working on {pos} with successors {successors[pos]}")
@@ -437,6 +443,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
+        # continue
         # TODO temp workaround seed 45
         # find missing neighbors
         pairs = env.rail.get_neighbor_pairs(cell)
