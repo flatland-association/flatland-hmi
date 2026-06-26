@@ -355,10 +355,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # happens if pred is a pin
                         pass
 
-                    print(RailEnvTransitionsEnum(env.rail.grid[pos]).name)
-                    if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[pos]) or RailEnvTransitionsEnum.is_single_slip(env.rail.grid[pos]):
-                        # TODO handle double slips separately
-                        continue
                     trans = zwl_grid_map.grid[*mapping[pos]]
                     print(RailEnvTransitions().print(trans))
 
@@ -371,8 +367,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # from right to up:
                         trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
-                    print(RailEnvTransitions().print(trans))
-                    assert RailEnvTransitions().is_valid(trans)
                     zwl_grid_map.grid[*mapping[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
@@ -387,7 +381,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-
                     _handle_slips(pos, env, mapping, zwl_grid_map)
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
@@ -412,6 +405,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # happens if pred is a pin
                         pass
 
+                    # TODO merge everything in handle_slips
                     trans = zwl_grid_map.grid[*mapping[pos]]
                     print(RailEnvTransitionsEnum(trans).name)
                     print(RailEnvTransitions().print(trans))
@@ -425,8 +419,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
                     print(RailEnvTransitions().print(trans))
-
-                    assert RailEnvTransitions().is_valid(trans)
                     zwl_grid_map.grid[*mapping[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
@@ -497,6 +489,7 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
         assert n not in mapping
         mapping[n] = chosen
 
+
     # in zwl add transitions for mapped neighbor pairs
     trans = zwl_grid_map.grid[*mapping[*cell]]
     for from_cell, to_cell in pairs:
@@ -505,7 +498,7 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
                                                             get_direction(mapping[cell], mapping[to_cell]), 1)
         else:
             # try to fix using not_chosen
-            if not_chosen is not None and zwl_grid_map.grid[*not_chosen] == 0:
+            if not_chosen is not None:
                 if is_neighbor_cell(mapping[from_cell], mapping[cell]) and not is_neighbor_cell(mapping[cell], mapping[to_cell]):
 
                     trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[from_cell], mapping[cell]),
@@ -530,35 +523,30 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
                         trans = zwl_grid_map.transitions.set_transition(trans, get_direction(mapping[from_cell], mapping[cell]),
                                                                         get_direction(mapping[cell], replacement), 1)
 
-                        pass
                     elif not is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell]):
                         trans = zwl_grid_map.transitions.set_transition(trans, get_direction(replacement, mapping[cell]),
                                                                         get_direction(mapping[cell], mapping[to_cell]), 1)
                     else:
                         # TODO ignore and add warning instead?
                         raise
-                # elif RailEnvTransitionsEnum.is_single_slip(env.rail.grid[cell]):
-                #     print(f"Found single slip at {cell}")
-                #     all_neighbors_zwl = {(mapping[cell][0] + offset[0], mapping[cell][1] + offset[1]) for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]}
-                #
-                #     replacement = all_neighbors_zwl.difference(set(mapping.values()))
-                #     assert len(replacement) == 1
-                #     replacement = list(replacement)[0]
-                #     print(f"Found single slip at {cell}: {all_neighbors_zwl} {replacement}")
-
-                if len(new_neighbors) > 0:
+                elif len(new_neighbors) > 0:
                     # TODO add warning
                     print("ignoring")
+                    raise
+                else:
+                    print(f"in grid, all neighbors mapped, but in zwl not everything neighbor on {cell}")
+                    # TODO find out which level -> and fix -> maybe this is general -> keep track of levels in zwl for all cells, not only mapped ones?
+
     print(RailEnvTransitions().print(trans))
     if RailEnvTransitions().is_valid(trans):
         zwl_grid_map.grid[*mapping[*cell]] = trans
     else:
         orig = RailEnvTransitionsEnum(env.rail.grid[*cell])
-        mapped = RailEnvTransitionsEnum(zwl_grid_map.grid[*mapping[*cell]])
-        print(orig)
-        print(mapped)
+        # mapped = RailEnvTransitionsEnum(zwl_grid_map.grid[*mapping[*cell]])
+        print(orig.name)
+        # print(mapped)
         # TODO add warning instead?
-        raise
+        # raise
 
 
 def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]):
