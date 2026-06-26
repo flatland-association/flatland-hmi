@@ -323,10 +323,11 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     zwl_grid_map.grid[*mapping[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+
                     if level_up_or_down == 1:
                         # up: S-E curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
-                    else:
+                    elif level_up_or_down == -1:
                         # down: N-E curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
@@ -384,7 +385,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     if level_up_or_down == 1:
                         # up: E-N curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
-                    else:
+                    elif level_up_or_down == -1:
                         # down: E-S curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
