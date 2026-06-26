@@ -70,10 +70,36 @@ def _get_new_level(LEVEL: int, num_succ: int) -> int:
 def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
     start = tuple(fibre_cells[0])
     end = tuple(fibre_cells[-1])
+    from_pin = next((f["fromPin"] for f in current_link["fibres"] if tuple(f["cells"][0]) == start), None)
+    to_pin = next((f["toPin"] for f in current_link["fibres"] if tuple(f["cells"][-1]) == end), None)
     from_station = current_link["fromStation"]
     from_facing = _DIRECTION_CHARS[current_link["fromFacing"]]
     to_station = current_link["toStation"]
     to_facing = _DIRECTION_CHARS[current_link["toFacing"]]
+    from_gate = next(
+        (gate for gate in stations_links["station_gates"][from_station].values()
+         if any(tuple(pin["node"]) == start for pin in gate["pins"].values())),
+        None
+    )
+    from_gate_name = from_gate["name"] if from_gate else None
+    from_pin_index = next(
+        (i for i, pin in enumerate(from_gate["pins"].values()) if tuple(pin["node"]) == start),
+        None
+    ) if from_gate else None
+
+    to_gate = next(
+        (gate for gate in stations_links["station_gates"][to_station].values()
+         if any(tuple(pin["node"]) == end for pin in gate["pins"].values())),
+        None
+    )
+    to_gate_name = to_gate["name"] if to_gate else None
+    to_pin_index = next(
+        (i for i, pin in enumerate(to_gate["pins"].values()) if tuple(pin["node"]) == end),
+        None
+    ) if to_gate else None
+
+    print(
+        f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
 
     zwl_grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
     city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_links, 1)
@@ -180,6 +206,15 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         open_cells.discard(cell)
         levels[cell] = 0
         reverse_levels[0].add(cell)
+
+    # add levels to from and to pin (might not be covered by paths)
+    baseline_row = mapping[fibre_cells[0]][0]
+    for level, pin in zip(range(-from_pin_index, len(from_gate["pins"]) - from_pin_index + 1), from_gate["pins"].values()):
+        level = mapping[pin["node"]][0] - baseline_row
+        levels[pin["node"]] = level
+    for level, pin in zip(range(-to_pin_index, len(to_gate["pins"]) - to_pin_index + 1), to_gate["pins"].values()):
+        level = mapping[pin["node"]][0] - baseline_row
+        levels[pin["node"]] = level
 
     _NEIGHBOR_LEVEL = {0: -1, 1: 1}
 
@@ -362,12 +397,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     else:
                         # happens if pred is a pin
                         pass
-
-                    # TODO temp workaround seed 45
-                    # print(RailEnvTransitionsEnum(env.rail.grid[pos]).name)
-                    # if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[pos]) or RailEnvTransitionsEnum.is_single_slip(env.rail.grid[pos]):
-                    #     # TODO handle double slips separtely
-                    #     continue
 
                     trans = zwl_grid_map.grid[*mapping[pos]]
                     print(RailEnvTransitionsEnum(trans).name)
