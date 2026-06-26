@@ -48,6 +48,14 @@ def build_stations_and_links_payload(env) -> dict:
     }
 
 
+def _assign_level(cell: tuple, level: int, levels: dict, reverse_levels: dict) -> None:
+    if cell in levels:
+        assert levels[cell] == level
+        return
+    levels[cell] = level
+    reverse_levels[level].add(cell)
+
+
 def _get_next_level(LEVEL: int, num_succ: int, succ, baseline_succ) -> int:
     # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
     # N.B. if we have isolated loops, this approach does not well defined:
@@ -212,17 +220,16 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"level 0 for fibre cells {fibre_cells}")
     for cell in fibre_cells:
         open_cells.discard(cell)
-        levels[cell] = 0
-        reverse_levels[0].add(cell)
+        _assign_level(cell, 0, levels, reverse_levels)
 
     # add levels to from and to pin (might not be covered by paths)
     baseline_row = mapping[fibre_cells[0]][0]
     for level, pin in zip(range(-from_pin_index, len(from_gate["pins"]) - from_pin_index + 1), from_gate["pins"].values()):
         level = mapping[pin["node"]][0] - baseline_row
-        levels[pin["node"]] = level
+        _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
     for level, pin in zip(range(-to_pin_index, len(to_gate["pins"]) - to_pin_index + 1), to_gate["pins"].values()):
         level = mapping[pin["node"]][0] - baseline_row
-        levels[pin["node"]] = level
+        _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
 
     _NEIGHBOR_LEVEL = {0: -1, 1: 1}
 
@@ -246,9 +253,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         continue
                     print(f"{pos} -> {succ}")
 
-                    # TODO extract function to verify and assign
-                    levels[succ] = levels[pos] + level_up_or_down
-                    reverse_levels_open[levels[pos] + level_up_or_down].add(succ)
+                    _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open)
 
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
@@ -260,24 +265,19 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         print(f"{pos} <- {pred} already done")
                         continue
                     print(f"{pos} <- {pred}")
-                    levels[pred] = levels[pos] + level_up_or_down
-                    reverse_levels_open[levels[pos] + level_up_or_down].add(pred)
+                    _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
         for k, v in reverse_levels_open.items():
             reverse_levels[k].update(v)
         # treat degree 1 within LEVEL
-        for pos in reverse_levels[LEVEL]:
+        for pos in list(reverse_levels[LEVEL]):
             pos_ = pos
-            intermediates = []
             while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                levels[pos_] = LEVEL
-                intermediates.append(pos_)
+                _assign_level(pos_, LEVEL, levels, reverse_levels)
                 pos_ = successors[pos_][0]
-        for pos in reverse_levels[LEVEL]:
+        for pos in list(reverse_levels[LEVEL]):
             pos_ = pos
-            intermediates = []
             while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                levels[pos_] = LEVEL
-                intermediates.append(pos_)
+                _assign_level(pos_, LEVEL, levels, reverse_levels)
                 pos_ = predecessors[pos_][0]
 
     # Based on levels, map to link map
