@@ -4,7 +4,7 @@
     @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
         @for (col of row; let colIndex = $index; track $index) {
-          <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex" [attr.data-transition]="col.transition">
             @if (col.pin) {
             <!-- red -->
             <div class="pin"></div>

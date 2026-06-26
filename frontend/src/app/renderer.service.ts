@@ -3,6 +3,7 @@ import { Agent, StationsResponse, Transitions } from './data.service'
 
 export interface MapCell {
   ground: string
+  transition: number
   stationBuilding?: string
   station?: boolean
   pin?: boolean
@@ -97,7 +98,7 @@ function getBackgroundClasses() {
       return ['bkgnd', `bkgnd_${key}`]
     }
   }
-  return ''
+  return []
 }
 
 class CoordMap<V> {
@@ -120,9 +121,8 @@ export class RendererService {
   constructor() {}
 
   public getMapClasses(transition: number): string {
-    return (TRANSITION_CLASSES_MAP[transition] || getBackgroundClasses()).join(
-      ' ',
-    )
+    if (transition === 0) return getBackgroundClasses().join(' ')
+    return (TRANSITION_CLASSES_MAP[transition] ?? ['track', 'transition_invalid']).join(' ')
   }
 
   public getTargetClasses(transition: number): string {
@@ -167,6 +167,7 @@ export class RendererService {
       const mapRow: Array<MapCell> = []
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
+        console.log(`${i},${j} has transition ${cell}`)
         const ground = this.getMapClasses(cell)
         const stoppingPoint = stoppingPointCoords.get([i, j])
 
@@ -182,7 +183,7 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ground, stationBuilding, station, pin, pinLabel, trackNumber, trackName})
+        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackNumber, trackName})
       }
       mapClasses.push(mapRow)
     }

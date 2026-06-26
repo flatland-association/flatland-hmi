@@ -145,6 +145,10 @@
           &.transition_nn_ss_ne_ws {
             background-image: url('/svg/Weiche_vertikal_unten_rechts.svg');
           }
+
+          &.transition_invalid {
+            background-color: lightgrey;
+          }
         }
 
         .station {
