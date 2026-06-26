@@ -266,17 +266,23 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                             len_mapped = abs(from_mapped[1] - to_mapped[1]) - 1
                             start_col = min(from_mapped[1], to_mapped[1]) + 1
                             end_col = max(from_mapped[1], to_mapped[1])
-                            for c in range(start_col, end_col):
+                            for i, c in enumerate(range(start_col, end_col)):
                                 trans = zwl_grid_map.grid[(row, c)]
                                 trans = zwl_grid_map.transitions.set_transition(trans, 1, 1, 1)
                                 trans = zwl_grid_map.transitions.set_transition(trans, 3, 3, 1)
                                 print(RailEnvTransitions().print(trans))
                                 assert RailEnvTransitions().is_valid(trans)
                                 zwl_grid_map.grid[(row, c)] = trans
+                                index = int((i / len_mapped) * len(stretch))
+                                print(f"XXX {index} add mapping[{stretch[index]}]={(row, c)}")
+                                # TODO safe?
+                                if stretch[index] not in mapping:
+                                    mapping[stretch[index]] = (row, c)
+
                         else:
                             pass
                             # TODO when does it happen - ignore?
-                    print(f"LEVEL {LEVEL} found stretch {stretch}: {from_mapped} -> {to_mapped}. {len(stretch)} {len_mapped} ")
+                    print(f"LEVEL {LEVEL} found stretch {stretch}: {from_mapped} -> {to_mapped}. {len(stretch) - 2} {len_mapped} ")
 
         # treat degree 2 out of LEVEL
         for pos in reverse_levels[LEVEL]:
@@ -398,7 +404,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(fibre_cells)
     for cell in successors.keys():
         # TODO temp workaround seed 45
-        # continue
         # find missing neighbors
         pairs = env.rail.get_neighbor_pairs(cell)
 
@@ -410,6 +415,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         not_chosen = None
 
         if len(new_neighbors) == 2:
+            print(new_neighbors)
             assert zwl_grid_map.grid[*above] == 0
             assert zwl_grid_map.grid[*below] == 0
 
