@@ -167,7 +167,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         predecessors[k] = res
         assert len(res) <= 2, res
 
-    # cells in the graph without a level assigned yet:
+    # cells in the graph without a mapping assigned yet:
     open_cells = set(successors.keys())
     # for each cell, which level does it have: switches still at same level but next cells have level +1/-1
     levels: dict[tuple, int] = {}
@@ -186,7 +186,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
     # TODO iteratively over levels, only 0->1 so far while there are open cells
-    for LEVEL in [0]:  # -1, 2 - 2]:
+    for LEVEL in [0, 1, -1]:  # , 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
         reverse_levels_open = defaultdict(set)
@@ -217,8 +217,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     print(f"{pos} <- {pred}")
                     levels[pred] = levels[pos] + level_up_or_down
                     reverse_levels_open[levels[pos] + level_up_or_down].add(pred)
-            for k, v in reverse_levels_open.items():
-                reverse_levels[k].update(v)
+        for k, v in reverse_levels_open.items():
+            reverse_levels[k].update(v)
         # treat degree 1 within LEVEL
         for pos in reverse_levels[LEVEL]:
             pos_ = pos
@@ -227,7 +227,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 levels[pos_] = LEVEL
                 intermediates.append(pos_)
                 pos_ = successors[pos_][0]
-                # TODO add mapping
         for pos in reverse_levels[LEVEL]:
             pos_ = pos
             intermediates = []
@@ -235,13 +234,51 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                 levels[pos_] = LEVEL
                 intermediates.append(pos_)
                 pos_ = predecessors[pos_][0]
-                # TODO add mapping
 
     # Based on levels, map to link map
     for LEVEL in [0, 1, ]:  # -1, 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
-            # treat degree 2 out of LEVEL
+
+        # treat degree 1 out of LEVEL
+        if LEVEL != 0:
+            for pos in reverse_levels[LEVEL]:
+                # TODO follow backwards as well
+                if pos in successors and len(successors[pos]) == 1 and pos in mapping:
+                    # follow same level ahead:
+                    pos_ = pos
+                    stretch = []
+                    while pos_ in successors and levels[pos_] == LEVEL:
+                        stretch.append(pos_)
+                        next_pos_ = None
+                        for s in successors[pos_]:
+                            if levels.get(pos_, None) == LEVEL:
+                                next_pos_ = s
+                                break
+                        pos_ = next_pos_
+
+                    to_mapped = mapping.get(stretch[-1], None)
+                    from_mapped = mapping[stretch[0]]
+                    len_mapped = None
+                    if to_mapped is not None:
+                        row = from_mapped[0]
+                        if row == to_mapped[0]:
+                            len_mapped = abs(from_mapped[1] - to_mapped[1]) - 1
+                            start_col = min(from_mapped[1], to_mapped[1]) + 1
+                            end_col = max(from_mapped[1], to_mapped[1])
+                            for c in range(start_col, end_col):
+                                trans = zwl_grid_map.grid[(row, c)]
+                                trans = zwl_grid_map.transitions.set_transition(trans, 1, 1, 1)
+                                trans = zwl_grid_map.transitions.set_transition(trans, 3, 3, 1)
+                                print(RailEnvTransitions().print(trans))
+                                assert RailEnvTransitions().is_valid(trans)
+                                zwl_grid_map.grid[(row, c)] = trans
+                        else:
+                            pass
+                            # TODO when does it happen - ignore?
+                    print(f"LEVEL {LEVEL} found stretch {stretch}: {from_mapped} -> {to_mapped}. {len(stretch)} {len_mapped} ")
+
+        # treat degree 2 out of LEVEL
         for pos in reverse_levels[LEVEL]:
             if pos in successors and len(successors[pos]) == 2:
                 print(f"working on {pos} with successors {successors[pos]}")
@@ -253,8 +290,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         print(f"{pos} <- {succ} already done")
                         continue
                     print(f"{pos} -> {succ}")
-                    # levels[succ] = levels[pos] + level_up_or_down
-                    # reverse_levels[levels[pos] + level_up_or_down].add(succ)
                     open_cells.discard(pos)
 
                     # one row above or below, same column:
@@ -267,6 +302,10 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # happens if pred is a pin
                         pass
 
+                    print(RailEnvTransitionsEnum(env.rail.grid[pos]).name)
+                    if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[pos]) or RailEnvTransitionsEnum.is_single_slip(env.rail.grid[pos]):
+                        # TODO handle double slips separately
+                        continue
                     trans = zwl_grid_map.grid[*mapping[pos]]
                     print(RailEnvTransitions().print(trans))
 
@@ -310,13 +349,21 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
                     if pred not in mapping:
                         print(f"add mapping {pred} -> {new_zwl_pos}")
-                        assert zwl_grid[*new_zwl_pos] == 0
+                        # TODO why?
+                        # assert zwl_grid[*new_zwl_pos] == 0
                         mapping[pred] = new_zwl_pos
                     else:
                         # happens if pred is a pin
                         pass
 
+                    # TODO temp workaround seed 45
+                    # print(RailEnvTransitionsEnum(env.rail.grid[pos]).name)
+                    # if RailEnvTransitionsEnum.is_double_slip(env.rail.grid[pos]) or RailEnvTransitionsEnum.is_single_slip(env.rail.grid[pos]):
+                    #     # TODO handle double slips separtely
+                    #     continue
+
                     trans = zwl_grid_map.grid[*mapping[pos]]
+                    print(RailEnvTransitionsEnum(trans).name)
                     print(RailEnvTransitions().print(trans))
                     # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
                     if level_up_or_down == 1:
@@ -328,10 +375,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
                     print(RailEnvTransitions().print(trans))
+
                     assert RailEnvTransitions().is_valid(trans)
                     zwl_grid_map.grid[*mapping[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+                    # TODO curves wrong works only for level 0?
                     if level_up_or_down == 1:
                         # up: E-N curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
@@ -342,10 +391,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+
     # treat incoming/outgoing from all paths
     print(f"find crossings")
     print(fibre_cells)
     for cell in successors.keys():
+        # TODO temp workaround seed 45
         # continue
         # find missing neighbors
         pairs = env.rail.get_neighbor_pairs(cell)
