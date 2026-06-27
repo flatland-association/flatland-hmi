@@ -138,25 +138,45 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     mapping2 = {k: (r + y_offset_2, pos + x_offset_2) for k, (r, pos) in mapping2.items()}
 
     # mapping so far contains all cells in the two station bb
-    mapping = {**mapping1, **mapping2}
-    print(f"mapping {mapping}")
+    mapping_from_to_station = {**mapping1, **mapping2}
+
+    _from_to_gate_pin_nodes = {
+        tuple(pin["node"])
+        for gate in [from_gate, to_gate]
+        if gate
+        for pin in gate["pins"].values()
+    }
+    _other_station_pin_nodes = {
+                                   tuple(pin["node"])
+                                   for station_name in [from_station, to_station]
+                                   for gate in stations_links["station_gates"][station_name].values()
+                                   for pin in gate["pins"].values()
+                               } - _from_to_gate_pin_nodes
+    mapping_only_pins_from_stations = {
+        k: v
+        for k, v in mapping_from_to_station.items()
+        if k not in _other_station_pin_nodes
+    }
+    print(f"pin_to_zwl={mapping_only_pins_from_stations}")
+
+    print(f"mapping {mapping_only_pins_from_stations}")
 
     zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
     path = connect_rail_in_grid_map(
         grid_map=zwl_grid_map,
         rail_trans=RailEnvTransitions(),
-        start=mapping[start],
-        end=mapping[end],
+        start=mapping_only_pins_from_stations[start],
+        end=mapping_only_pins_from_stations[end],
     )
     print("path")
     print(path)
-    assert path[0] == mapping[start]
-    assert path[-1] == mapping[end]
+    assert path[0] == mapping_only_pins_from_stations[start]
+    assert path[-1] == mapping_only_pins_from_stations[end]
     assert len(fibre_cells) == len(path)
     print("fibre")
     print(fibre_cells)
     for i, cell in enumerate(path):
-        mapping[fibre_cells[i]] = cell
+        mapping_only_pins_from_stations[fibre_cells[i]] = cell
 
     print("station_gates:")
     for station in stations_links["station_gates"].values():
@@ -223,12 +243,12 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         _assign_level(cell, 0, levels, reverse_levels)
 
     # add levels to from and to pin (might not be covered by paths)
-    baseline_row = mapping[fibre_cells[0]][0]
+    baseline_row = mapping_only_pins_from_stations[fibre_cells[0]][0]
     for level, pin in zip(range(-from_pin_index, len(from_gate["pins"]) - from_pin_index + 1), from_gate["pins"].values()):
-        level = mapping[pin["node"]][0] - baseline_row
+        level = mapping_only_pins_from_stations[pin["node"]][0] - baseline_row
         _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
     for level, pin in zip(range(-to_pin_index, len(to_gate["pins"]) - to_pin_index + 1), to_gate["pins"].values()):
-        level = mapping[pin["node"]][0] - baseline_row
+        level = mapping_only_pins_from_stations[pin["node"]][0] - baseline_row
         _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
 
     _NEIGHBOR_LEVEL = {0: -1, 1: 1}
@@ -290,7 +310,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
         if LEVEL != 0:
             for pos in reverse_levels[LEVEL]:
                 # TODO follow backwards as well? Maybe not necessary as we say within the graph where everything is forward reachable!
-                if pos in successors and len(successors[pos]) == 1 and pos in mapping:
+                if pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations:
                     # follow same level ahead:
                     pos_ = pos
                     stretch = []
@@ -303,8 +323,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                 break
                         pos_ = next_pos_
 
-                    to_mapped = mapping.get(stretch[-1], None)
-                    from_mapped = mapping[stretch[0]]
+                    to_mapped = mapping_only_pins_from_stations.get(stretch[-1], None)
+                    from_mapped = mapping_only_pins_from_stations[stretch[0]]
                     len_mapped = None
                     if to_mapped is not None:
                         row = from_mapped[0]
@@ -322,8 +342,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                                 index = int((i / len_mapped) * len(stretch))
                                 print(f"XXX {index} add mapping[{stretch[index]}]={(row, c)}")
                                 # TODO safe?
-                                if stretch[index] not in mapping:
-                                    mapping[stretch[index]] = (row, c)
+                                if stretch[index] not in mapping_only_pins_from_stations:
+                                    mapping_only_pins_from_stations[stretch[index]] = (row, c)
 
                         else:
                             pass
@@ -346,16 +366,16 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     open_cells.discard(pos)
 
                     # one row above or below, same column:
-                    new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
-                    if succ not in mapping:
+                    new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
+                    if succ not in mapping_only_pins_from_stations:
                         print(f"add mapping {succ} -> {new_zwl_pos}")
                         assert zwl_grid[*new_zwl_pos] == 0
-                        mapping[succ] = new_zwl_pos
+                        mapping_only_pins_from_stations[succ] = new_zwl_pos
                     else:
                         # happens if pred is a pin
                         pass
 
-                    trans = zwl_grid_map.grid[*mapping[pos]]
+                    trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
                     print(RailEnvTransitions().print(trans))
 
                     # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
@@ -367,7 +387,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # from right to up:
                         trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
-                    zwl_grid_map.grid[*mapping[pos]] = trans
+                    zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
                     print(f"curve on {new_zwl_pos}")
@@ -378,10 +398,10 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # down: N-E curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
-                    for c in range(mapping[succ][1] + 1, new_zwl_pos[1]):
+                    for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    _handle_slips(pos, env, mapping, zwl_grid_map)
+                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map)
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
@@ -395,18 +415,18 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     open_cells.discard(pos)
 
                     # one row above or below, same column:
-                    new_zwl_pos = (mapping[pos][0] + level_up_or_down, mapping[pos][1])
-                    if pred not in mapping:
+                    new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
+                    if pred not in mapping_only_pins_from_stations:
                         print(f"add mapping {pred} -> {new_zwl_pos}")
                         # TODO why?
                         # assert zwl_grid[*new_zwl_pos] == 0
-                        mapping[pred] = new_zwl_pos
+                        mapping_only_pins_from_stations[pred] = new_zwl_pos
                     else:
                         # happens if pred is a pin
                         pass
 
                     # TODO merge everything in handle_slips
-                    trans = zwl_grid_map.grid[*mapping[pos]]
+                    trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
                     print(RailEnvTransitionsEnum(trans).name)
                     print(RailEnvTransitions().print(trans))
                     # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
@@ -419,7 +439,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
                     print(RailEnvTransitions().print(trans))
-                    zwl_grid_map.grid[*mapping[pos]] = trans
+                    zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
                     print(f"curve on {new_zwl_pos}")
@@ -430,24 +450,25 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         # down: E-S curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
-                    for c in range(mapping[pred][1] + 1, new_zwl_pos[1]):
+                    for c in range(mapping_only_pins_from_stations[pred][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
-                    _handle_slips(pos, env, mapping, zwl_grid_map)
+                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map)
 
     # Find missing transitions going out/coming into the graph
     # TODO why necessary? Why not handled above?
     for cell in successors.keys():
         # find missing neighbors
-        _handle_slips(cell, env, mapping, zwl_grid_map)
+        _handle_slips(cell, env, mapping_only_pins_from_stations, zwl_grid_map)
 
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
+    mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
     content = {
         # ZWL grid
         "grid": zwl_grid,
         # env -> ZWL coordindates
-        "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping.items()],
+        "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping_merged.items()],
         "city_cells_bbox": city_1_cells_bbox,
         "levels": [[list(k), v] for k, v in levels.items()],
     }

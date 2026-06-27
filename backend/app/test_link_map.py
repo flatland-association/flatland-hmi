@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from app.routes import build_stations_and_links_payload, extract_link_map
+from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
 from flatland.env_generation.env_generator import env_generator
 
 material = [(0, [(2, 8), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (2, 15), (3, 15), (4, 15), (5, 15), (6, 15), (7, 15), (8, 15),
@@ -1642,6 +1643,10 @@ def test_link_map(i, fibre_cells, expected):
     assert list(actual.keys()) == list(expected.keys())
     for k in actual.keys():
         if k == 'grid':
+            diff = np.argwhere(actual[k] != expected[k])
+            print(diff)
+            for rc in diff:
+                print(f"diff at {diff}: actual {RailEnvTransitionsEnum(actual[k][*rc]).name}, expected: {RailEnvTransitionsEnum(expected[k][*rc]).name}")
             assert np.array_equal(actual[k], expected[k])
         elif k == 'mapping':
             act = {ke: v for pairs in actual[k] for ke, v in pairs}
