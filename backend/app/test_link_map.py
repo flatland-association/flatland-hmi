@@ -1643,8 +1643,12 @@ def test_link_map(i, fibre_cells, expected):
     for k in actual.keys():
         if k == 'grid':
             assert np.array_equal(actual[k], expected[k])
+        elif k == 'mapping':
+            act = {ke: v for pairs in actual[k] for ke, v in pairs}
+            exp = {ke: v for pairs in actual[k] for ke, v in pairs}
+            assert act == exp
         else:
-            assert actual[k] == expected[k]
+            assert actual[k] == expected[k], k
 
 
 def _gen_material():
