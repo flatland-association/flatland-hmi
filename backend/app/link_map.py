@@ -5,7 +5,7 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from flatland.core.grid.grid4_utils import get_direction, is_neighbor_cell
+from flatland.core.grid.grid4_utils import get_direction, is_neighbor_cell, mirror
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
@@ -307,6 +307,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             continue
 
         # treat degree 1 out of LEVEL -> connect the level
+        # if LEVEL == 0:
+        #     for cell in reverse_levels[LEVEL]:
+        #         _handle_slips(cell, env, mapping, zwl_grid_map, levels, reverse_levels, random_allowed=True)
         if LEVEL != 0:
             for pos in reverse_levels[LEVEL]:
                 # TODO follow backwards as well? Maybe not necessary as we say within the graph where everything is forward reachable!
@@ -401,7 +404,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map)
+                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
@@ -454,13 +457,13 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
-                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map)
+                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
 
-    # Find missing transitions going out/coming into the graph
-    # TODO why necessary? Why not handled above?
+    # # Find missing transitions going out/coming into the graph
+    # # TODO why necessary? Why not handled above?
     for cell in successors.keys():
         # find missing neighbors
-        _handle_slips(cell, env, mapping_only_pins_from_stations, zwl_grid_map)
+        _handle_slips(cell, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
 
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
@@ -476,12 +479,111 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     return content
 
 
-def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_map: GridTransitionMap[Any]):
+def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_map: GridTransitionMap[Any], levels: dict, reverse_levels: dict,
+                  random_allowed: bool = False):
+    print(f"_handle_slips {cell}")
+    if RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell]):
+        return
+
+    level = levels[cell]
     pairs = env.rail.get_neighbor_pairs(cell)
+
+    level_to_neighbor = defaultdict(set)
+    for pair in pairs:
+        for p in pair:
+            level_to_neighbor[levels.get(p, None)].add(p)
+    if None in level_to_neighbor and not random_allowed:
+        assert len(level_to_neighbor[None]) == 1, level_to_neighbor
+
+    # assert len(level_to_neighbor[level]) == 2, (cell, level_to_neighbor,level)
+    # for n in level_to_neighbor[level]:
+    #     assert n in mapping
+
+    # for +0 transitions, nothing to do
+    # for +1/-1 -> same neighbor
+    # if one None: go one level further away from 0
+    # if two Nones: assign randomly
 
     new_neighbors = {p for pair in pairs for p in pair if p not in mapping}
     above = (mapping[cell][0] - 1, mapping[cell][1])
     below = (mapping[cell][0] + 1, mapping[cell][1])
+
+    print(f"  new_neighbors={new_neighbors} level_to_neighbor={level_to_neighbor}, level={level}")
+    # if level != 0:
+    #     assert len(new_neighbors) == 1, new_neighbors
+    trans = zwl_grid_map.grid[*mapping[*cell]]
+
+    if None in level_to_neighbor and len(level_to_neighbor[None]) == 1 and len(level_to_neighbor[level]) == 2 and len(level_to_neighbor[level - 1]) == 1:
+        missing = list(level_to_neighbor[None])[0]
+        level_to_neighbor.pop(None)
+        target = level + 1
+        level_to_neighbor[target].add(missing)
+        _assign_level(missing, target, levels, reverse_levels)
+    elif None in level_to_neighbor and len(level_to_neighbor[None]) == 1 and len(new_neighbors) == 1 and list(new_neighbors)[0] in levels:
+        if level == 0:
+            if len(level_to_neighbor[-1]) == 0:
+                source = 1
+                target = -1
+            elif len(level_to_neighbor[1]) == 0:
+                target = 1
+                source = -1
+            assert len(level_to_neighbor[source]) == 1
+            missing = list(level_to_neighbor[None])[0]
+            level_to_neighbor.pop(None)
+            level_to_neighbor[target].add(missing)
+            _assign_level(missing, target, levels, reverse_levels)
+            print(f"fix {missing} {levels[missing]}")
+
+        else:
+            print("no fix")
+    else:
+        print("no fix")
+    print(f"  new_neighbors={new_neighbors} level_to_neighbor={level_to_neighbor}, level={level} after fixing")
+
+    print(f"  {RailEnvTransitionsEnum(env.rail.grid[*cell]).name}")
+    cell_left = (cell[0], cell[1] - 1)
+    cell_right = (cell[0], cell[1] + 1)
+    cell_below = (cell[0] + 1, cell[1])
+    me = mapping[cell]
+    me_left = (me[0], me[1] - 1)
+    me_right = (me[0], me[1] + 1)
+    me_below = (me[0] + 1, me[1])
+    me_above = (me[0] - 1, me[1])
+    if len(new_neighbors) == 1 and None not in level_to_neighbor:
+        new_neighbor = list(new_neighbors)[0]
+        level_new_neighbor = levels[new_neighbor]
+
+        if level_new_neighbor == level:
+            assert len(level_to_neighbor[level]) == 2
+            missing_map = cell_left if cell_right in mapping else cell_right
+            assert missing_map not in mapping
+            missing_link_map = me_right if me_right == mapping[new_neighbor] else me_left
+            mapping[new_neighbor] = missing_link_map
+
+            _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
+            return
+        elif level_new_neighbor == level + 1:
+            # for slips
+            # 0  - 1 -
+            # | 1
+            # results in the two cells mapped to the same cell: a split!
+            mapping[new_neighbor] = me_below
+            _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
+            return
+    elif len(new_neighbors) == 2 and None not in level_to_neighbor and len(level_to_neighbor[level]) == 2:
+        neighbour_below_to_add = list(level_to_neighbor[level + 1])[0]
+        neighbour_above_to_add = list(level_to_neighbor[level - 1])[0]
+        mapping[neighbour_below_to_add] = me_below
+        mapping[neighbour_above_to_add] = me_above
+        _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
+        return
+    # elif len(new_neighbors) == 0 and None not in level_to_neighbor:
+    #     _fix_zwl_cell_from_grid_neighbour_pairs(cell, env, mapping, pairs, trans, zwl_grid_map)
+    #     return
+
+    # new_neighbors={(15, 7), (15, 9)} level_to_neighbor=defaultdict(<class 'set'>, {0: {(16, 8), (14, 8)}, -1: {(15, 9)}, None: {(15, 7)}}), level=0
+    #   new_neighbors={(15, 7), (15, 9)} level_to_neighbor=defaultdict(<class 'set'>, {0: {(16, 8), (14, 8)}, -1: {(15, 9)}, 1: {(15, 7)}}), level=0 after fixing
+
     assert cell not in new_neighbors
     chosen = None
     not_chosen = None
@@ -509,7 +611,6 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
         n = list(new_neighbors)[0]
         assert n not in mapping
         mapping[n] = chosen
-
 
     # in zwl add transitions for mapped neighbor pairs
     trans = zwl_grid_map.grid[*mapping[*cell]]
@@ -564,10 +665,46 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
     else:
         orig = RailEnvTransitionsEnum(env.rail.grid[*cell])
         # mapped = RailEnvTransitionsEnum(zwl_grid_map.grid[*mapping[*cell]])
+        print(cell)
         print(orig.name)
+        print((new_neighbors, level_to_neighbor, level))
         # print(mapped)
         # TODO add warning instead?
         # raise
+
+
+def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any], pairs: set[tuple[tuple[int, int], tuple[int, int]]],
+                                            trans: ndarray[Any, dtype[floating[_64Bit]]] | Any, zwl_grid_map: GridTransitionMap[Any]):
+    print(f"==== _fix_zwl_cell_from_grid_neighbour_pairs {cell}")
+    orig = trans
+    for from_cell, to_cell in pairs:
+        assert is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell]), (from_cell, cell, to_cell,
+                                                                                                                           mapping[from_cell], mapping[cell],
+                                                                                                                           mapping[to_cell])
+        print((from_cell, cell, to_cell, mapping[from_cell], mapping[cell], mapping[to_cell]), get_direction(from_cell, cell),
+              get_direction(cell, to_cell), get_direction(mapping[from_cell], mapping[cell]),
+              get_direction(mapping[cell], mapping[to_cell]))
+        from_dir = get_direction(mapping[from_cell], mapping[cell])
+        tod_dir = get_direction(mapping[cell], mapping[to_cell])
+        trans_ = zwl_grid_map.transitions.set_transition(trans, from_dir, tod_dir, 1)
+        trans_ = zwl_grid_map.transitions.set_transition(trans_, mirror(tod_dir), mirror(from_dir), 1)
+
+        if RailEnvTransitions().is_valid(trans_):
+            trans = trans_
+        else:
+            # TODO warning to frontend
+            print(f" _fix_zwl_cell_from_grid_neighbour_pairs invalid")
+    # print(RailEnvTransitions().print(trans))
+    # if RailEnvTransitions().is_valid(trans):
+    zwl_grid_map.grid[*mapping[*cell]] = trans
+    print(f" _fix_zwl_cell_from_grid_neighbour_pairs invalid -> {RailEnvTransitionsEnum(orig).name} -> {RailEnvTransitionsEnum(trans).name}")
+    # else:
+    #     orig = RailEnvTransitionsEnum(env.rail.grid[*cell])
+    #     # mapped = RailEnvTransitionsEnum(zwl_grid_map.grid[*mapping[*cell]])
+    #     print(orig.name)
+    #     # print(mapped)
+    #     # TODO add warning instead?
+    #     # raise
 
 
 def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]):
