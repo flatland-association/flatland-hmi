@@ -404,7 +404,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
+                    _handle_beyond_one_one(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
@@ -457,13 +457,13 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
-                    _handle_slips(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
+                    _handle_beyond_one_one(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
 
     # # Find missing transitions going out/coming into the graph
     # # TODO why necessary? Why not handled above?
     for cell in successors.keys():
         # find missing neighbors
-        _handle_slips(cell, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
+        _handle_beyond_one_one(cell, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
 
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
@@ -479,8 +479,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     return content
 
 
-def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_map: GridTransitionMap[Any], levels: dict, reverse_levels: dict,
-                  random_allowed: bool = False):
+def _handle_beyond_one_one(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_map: GridTransitionMap[Any], levels: dict, reverse_levels: dict,
+                           random_allowed: bool = False):
+    # TODO cleanup: fix levels/mapping first and then same call _fix_zwl_cell_from_grid_neighbour_pairs  for all cases
     print(f"_handle_slips {cell}")
     if RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell]):
         return
@@ -570,7 +571,8 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
             mapping[new_neighbor] = me_below
             _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
             return
-    elif len(new_neighbors) == 2 and None not in level_to_neighbor and len(level_to_neighbor[level]) == 2:
+    elif len(new_neighbors) == 2 and None not in level_to_neighbor and len(level_to_neighbor[level]) == 2 and len(level_to_neighbor[level + 1]) == 1 and len(
+            level_to_neighbor[level - 1]) == 1:
         neighbour_below_to_add = list(level_to_neighbor[level + 1])[0]
         neighbour_above_to_add = list(level_to_neighbor[level - 1])[0]
         mapping[neighbour_below_to_add] = me_below
@@ -588,7 +590,7 @@ def _handle_slips(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_m
     chosen = None
     not_chosen = None
 
-    if len(new_neighbors) == 2:
+    if len(new_neighbors) == 2 and level == 0:
         print(new_neighbors)
         assert zwl_grid_map.grid[*above] == 0
         assert zwl_grid_map.grid[*below] == 0
