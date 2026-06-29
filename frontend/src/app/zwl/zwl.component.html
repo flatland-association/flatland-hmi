@@ -1,3 +1,10 @@
+<div class="controller">
+  <select [(ngModel)]="selectedLink" (ngModelChange)="onLinkChange()">
+    @for (linkOption of linkOptions; track $index) {
+    <option [value]="linkOption.value">{{ linkOption.label }}</option>
+    }
+  </select>
+</div>
 
 <div class="map">
   <div class="environment">
@@ -111,10 +118,3 @@
   </div>
 </div>
 
-<div class="controller">
-  <select [(ngModel)]="selectedLink" (ngModelChange)="onLinkChange()">
-    @for (linkOption of linkOptions; track $index) {
-    <option [value]="linkOption.value">{{ linkOption.label }}</option>
-    }
-  </select>
-</div>
