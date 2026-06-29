@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core'
-import {Agent, EnvOption, LineOption, PolicyOption, State, StationsResponse, TrajectoryStep, Transitions, ZwlResponse} from './data.service'
+import {Agent, Env, Link, PolicyOption, State, StationsResponse, TrajectoryStep, Transitions, LinkMap} from './data.service'
 import {Observable, ReplaySubject} from 'rxjs'
 
 @Injectable({
@@ -18,9 +18,9 @@ export class StateService {
   private plan = new ReplaySubject<number | undefined>(1)
   private selectedLink = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
-  private lines = new ReplaySubject<Array<LineOption>>(1)
-  private lineTransitions = new ReplaySubject<ZwlResponse>(1)
-  private envs = new ReplaySubject<Array<EnvOption>>(1)
+  private links = new ReplaySubject<Array<Link>>(1)
+  private linkMap = new ReplaySubject<LinkMap>(1)
+  private envs = new ReplaySubject<Array<Env>>(1)
   private policies = new ReplaySubject<Array<PolicyOption>>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
 
@@ -35,7 +35,7 @@ export class StateService {
     this.selectedLink.next('0')
   }
 
-  public setEnvs(envs: Array<EnvOption>): void {
+  public setEnvs(envs: Array<Env>): void {
     this.envs.next(envs)
   }
 
@@ -43,12 +43,12 @@ export class StateService {
     this.policies.next(policies)
   }
 
-  public setLines(lines: Array<LineOption>): void {
-    this.lines.next(lines)
+  public setLinks(lines: Array<Link>): void {
+    this.links.next(lines)
   }
 
-  public setLineTransitions(t: ZwlResponse): void {
-    this.lineTransitions.next(t)
+  public setLinkMap(t: LinkMap): void {
+    this.linkMap.next(t)
   }
 
   public loadTrajectory(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse): void {
@@ -112,15 +112,15 @@ export class StateService {
     return this.selectedLink.asObservable()
   }
 
-  public getLines(): Observable<Array<LineOption>> {
-    return this.lines.asObservable()
+  public getLinks(): Observable<Array<Link>> {
+    return this.links.asObservable()
   }
 
-  public getLineTransitions(): Observable<ZwlResponse> {
-    return this.lineTransitions.asObservable()
+  public getLinkMap(): Observable<LinkMap> {
+    return this.linkMap.asObservable()
   }
 
-  public getEnvs(): Observable<Array<EnvOption>> {
+  public getEnvs(): Observable<Array<Env>> {
     return this.envs.asObservable()
   }
 

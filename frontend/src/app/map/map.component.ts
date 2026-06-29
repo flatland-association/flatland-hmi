@@ -58,7 +58,7 @@ export class MapComponent implements OnInit {
       this.mapClasses = this.rendererService.renderMap(transitions, [], stations)
     })
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
-    this.stateService.getLineTransitions().subscribe(data => {
+    this.stateService.getLinkMap().subscribe(data => {
       this.levelCoords = new Map()
       for (const [[r, c], level] of data.levels ?? []) {
         if (!this.levelCoords.has(r)) this.levelCoords.set(r, new Map())

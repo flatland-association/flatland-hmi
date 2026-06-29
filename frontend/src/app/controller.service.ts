@@ -32,7 +32,7 @@ export class ControllerService {
 
     nonNull.pipe(
       switchMap(id => from(dataService.getTrajectoryLinks(id)))
-    ).subscribe(lines => stateService.setLines(lines))
+    ).subscribe(lines => stateService.setLinks(lines))
 
     Promise.all([dataService.getEnvs(), dataService.getPolicies()]).then(([envs, policies]) => {
       stateService.setEnvs(envs)
@@ -71,7 +71,7 @@ export class ControllerService {
     this.stateService.selectLink(line)
     if (!this.currentTrajectoryId) return
     this.dataService.getTrajectoryZWLforLink(this.currentTrajectoryId, line)
-      .then(t => this.stateService.setLineTransitions(t))
+      .then(t => this.stateService.setLinkMap(t))
   }
 
   public next(): void {

@@ -74,8 +74,8 @@ export class MareyComponent {
 
   ngOnInit() {
     combineLatest([
-      this.stateService.getLines(),
-      this.stateService.getLineTransitions(),
+      this.stateService.getLinks(),
+      this.stateService.getLinkMap(),
       this.stateService.getSelectedLink(),
     ]).subscribe(([links, data, selectedLink]) => {
       this.selectedLink = parseInt(selectedLink)

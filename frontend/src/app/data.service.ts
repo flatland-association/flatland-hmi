@@ -7,13 +7,13 @@ const BACKEND_URL = 'http://localhost:8000'
 
 export type Transitions = Array<Array<number>>
 
-export interface ZwlResponse {
+export interface LinkMap {
   grid: Transitions
   mapping: Array<[[number, number], [number, number]]>
   levels: Array<[[number, number], number]>
 }
 
-export interface EnvOption {
+export interface Env {
   id: string
   description: string
 }
@@ -29,7 +29,7 @@ export interface StationsResponse {
   station_stopping_points: Record<string, Array<{ node: [number, number]; trackNumber: number; trackName: string }>>
 }
 
-export interface LineOption {
+export interface Link {
   cityFrom: string
   cityTo: string
   fromGate: string
@@ -97,13 +97,13 @@ export class DataService {
 
   public getTrajectoryZWLforLink(trajectoryId: string, linkId: string) {
     return this.fetch(
-      this.http.get<ZwlResponse>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${linkId}`),
+      this.http.get<LinkMap>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${linkId}`),
     )
   }
 
   public getTrajectoryLinks(trajectoryId: string) {
     return this.fetch(
-      this.http.get<Array<LineOption>>(`${BACKEND_URL}/trajectories/${trajectoryId}/links/`),
+      this.http.get<Array<Link>>(`${BACKEND_URL}/trajectories/${trajectoryId}/links/`),
     )
   }
 
@@ -120,7 +120,7 @@ export class DataService {
   }
 
   public getEnvs() {
-    return this.fetch(this.http.get<Array<EnvOption>>(`${BACKEND_URL}/envs`))
+    return this.fetch(this.http.get<Array<Env>>(`${BACKEND_URL}/envs`))
   }
 
   public getPolicies() {
