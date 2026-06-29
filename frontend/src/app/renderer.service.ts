@@ -137,7 +137,7 @@ export class RendererService {
     station_edges: {},
     station_gates: {},
     station_stopping_points: {}
-  }) {
+  }, showBackground = true) {
 
     const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackNumber: number; trackName: string }>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
@@ -168,7 +168,7 @@ export class RendererService {
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
         console.log(`${i},${j} has transition ${cell}`)
-        const ground = this.getMapClasses(cell)
+        const ground = (showBackground || cell !== 0) ? this.getMapClasses(cell) : ''
         const stoppingPoint = stoppingPointCoords.get([i, j])
 
         // Bahnhof.svg

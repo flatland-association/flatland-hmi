@@ -145,7 +145,7 @@
           }
 
           &.transition_invalid {
-            background-color: lightgrey;
+            box-shadow: inset 0 0 0 2px red;
           }
         }
 

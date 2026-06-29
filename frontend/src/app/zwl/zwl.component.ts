@@ -50,7 +50,7 @@ export class ZwlComponent implements OnInit {
       this.stateService.getStations(),
     ]).subscribe(([data, stations]) => {
       this.setMapping(data.mapping)
-      this.mapClasses = this.rendererService.renderMap(data.grid, [], this.transformStationsForZwl(stations))
+      this.mapClasses = this.rendererService.renderMap(data.grid, [], this.transformStationsForZwl(stations), false)
       this.levelCoords = new Map()
       for (const [[r, c], level] of data.levels ?? []) {
         if (!this.levelCoords.has(r)) this.levelCoords.set(r, new Map())
