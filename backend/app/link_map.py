@@ -497,7 +497,6 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                     for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
-                    # _handle_beyond_one_one(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
             if pos in predecessors and len(predecessors[pos]) == 2:
                 print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
@@ -550,11 +549,8 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
-                    _handle_beyond_one_one(pos, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels)
 
     # # Find missing transitions going out/coming into the graph
-    # # TODO why necessary? Why not handled above?
-
     for cell in successors.keys():
         # try to fix transitions
         _handle_beyond_one_one(cell, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
