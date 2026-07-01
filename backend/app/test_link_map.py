@@ -2878,6 +2878,7 @@ def test_link_map(seed, i, fibre_cells, expected):
     assert list(actual.keys()) == list(expected.keys())
     for k in actual.keys():
         if k == 'grid':
+            pass
             diff = np.argwhere(actual[k] != expected[k])
             print(diff)
             for rc in diff:
