@@ -1251,19 +1251,7 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
         zwl_grid_map.grid[*mapping[*cell]] = trans
         print(f" _fix_zwl_cell_from_grid_neighbour_pairs valid -> {RailEnvTransitionsEnum(orig).name} -> {RailEnvTransitionsEnum(trans).name}")
     else:
-        # TODO warning to frontend
         print(f" _fix_zwl_cell_from_grid_neighbour_pairs invalid")
-
-    # print(RailEnvTransitions().print(trans))
-    # if RailEnvTransitions().is_valid(trans):
-
-    # else:
-    #     orig = RailEnvTransitionsEnum(env.rail.grid[*cell])
-    #     # mapped = RailEnvTransitionsEnum(zwl_grid_map.grid[*mapping[*cell]])
-    #     print(orig.name)
-    #     # print(mapped)
-    #     # TODO add warning instead?
-    #     # raise
 
 
 def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]):
