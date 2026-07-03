@@ -167,7 +167,6 @@ export class RendererService {
       const mapRow: Array<MapCell> = []
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
-        console.log(`${i},${j} has transition ${cell}`)
         const ground = (showBackground || cell !== 0) ? this.getMapClasses(cell) : ''
         const stoppingPoint = stoppingPointCoords.get([i, j])
 
