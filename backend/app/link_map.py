@@ -712,7 +712,7 @@ def _find_all_paths_between_stations(current_link, env: RailEnv, from_station, s
 
     from_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
                  stations_links["station_gates"][from_station][current_link["fromFacing"]]["pins"].values()]
-    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
+    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["toFacing"]]) for p in
                stations_links["station_gates"][to_station][current_link["toFacing"]]["pins"].values()]
 
     print(f"from_pins={from_pins}")
