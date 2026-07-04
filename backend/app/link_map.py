@@ -366,9 +366,9 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
             print(f"tryi0 {cell} {new_neighbors} {known_incoming_neighbors} {known_outgoing_neighbors}")
             for n in new_neighbors:
                 if level > 0:
-                    _assign_level(n, level + 1, levels, level_to_neighbor)
+                    _assign_level(n, level + 1, levels, reverse_levels)
                 elif level < 0:
-                    _assign_level(n, level - 1, levels, level_to_neighbor)
+                    _assign_level(n, level - 1, levels, reverse_levels)
 
         # cover case one new neighbor first
         else:
