@@ -3,7 +3,7 @@ import json
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from attr import asdict
@@ -15,7 +15,8 @@ from pydantic import BaseModel
 
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
-from app.link_map import build_stations_and_links_payload, extract_link_map
+from app.link_map import extract_link_map
+from flatland.envs.stations_links import Gate, Link, Fibre, Pin, Station, StationsLinks, StoppingPoint
 from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.rail_trainrun_data_structures import Waypoint
@@ -64,6 +65,58 @@ def health_check_ready():
 
 def _build_transitions_content(env) -> list:
     return env.rail.grid.tolist()
+
+
+def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
+    station_edges: Dict[str, Any] = {}
+    station_stopping_points: Dict[str, List[dict]] = {}
+    station_gates: Dict[str, Dict[str, dict]] = {}
+
+    station_name: str
+    station: Station
+    for station_name, station in stations_links.stations.items():
+        station_edges[station_name] = station.edges
+
+        stp: StoppingPoint
+        station_stopping_points[station_name] = [
+            {"node": stp.node, "trackNumber": stp.track_number, "trackName": stp.name}
+            for stp in station.stopping_points
+        ]
+
+        gate_key: str
+        gate: Gate
+        station_gates[station_name] = {}
+        for gate_key, gate in station.gates.items():
+            pin_key: int
+            p: Pin
+            station_gates[station_name][gate_key] = {
+                "name": gate.name,
+                "pins": {pin_key: {"name": p.name, "node": p.node} for pin_key, p in gate.pins.items()},
+            }
+
+    links_payload: List[dict] = []
+    link: Link
+    for link in stations_links.links:
+        fibre: Fibre
+        links_payload.append({
+            "fromStation": link.from_station,
+            "fromGate": link.from_gate,
+            "fromFacing": link.from_facing,
+            "toStation": link.to_station,
+            "toGate": link.to_gate,
+            "toFacing": link.to_facing,
+            "fibres": [
+                {"fromPin": fibre.from_pin, "toPin": fibre.to_pin, "cells": fibre.edges}
+                for fibre in link.fibres
+            ],
+        })
+
+    return {
+        "station_edges": station_edges,
+        "station_stopping_points": station_stopping_points,
+        "station_gates": station_gates,
+        "links": links_payload,
+    }
 
 
 def _build_agents_content(env) -> list:
@@ -224,19 +277,17 @@ async def get_trajectory_transitions(trajectory_id: str):
 async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_links = build_stations_and_links_payload(env)
-    print("stations_links")
-    print(stations_links)
-    links = stations_links["links"]
+    links = env.stations_links.links
     if link_id < 0 or link_id >= len(links):
         raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
 
-    current_link = links[link_id]
-    fibre = current_link["fibres"][0]
+    link = links[link_id]
+    if not link.fibres:
+        raise HTTPException(status_code=422, detail=f"Link {link_id} has no fibres.")
+    fibre = link.fibres[0]
     print("fibre")
     print(fibre)
-    fibre_cells = fibre["cells"]
-    content = extract_link_map(stations_links, current_link, env, fibre_cells)
+    content = extract_link_map(env.stations_links, link, fibre, env.rail)
     return CustomEncodedJSONResponse(content=content)
 
 
@@ -244,7 +295,7 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
 async def get_trajectory_stations(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    return CustomEncodedJSONResponse(content=build_stations_and_links_payload(env))
+    return CustomEncodedJSONResponse(content=build_stations_and_links_payload(env.stations_links))
 
 
 @router.get("/trajectories/{trajectory_id}/agents")
@@ -270,7 +321,7 @@ def _enrich_line(link: dict, link_id: int) -> dict:
 async def get_trajectory_links(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = build_stations_and_links_payload(env)
+    stations_lines = build_stations_and_links_payload(env.stations_links)
     links = stations_lines["links"]
     return CustomEncodedJSONResponse(content=[
         _enrich_line(link, i) for i, link in enumerate(links)
@@ -281,7 +332,7 @@ async def get_trajectory_links(trajectory_id: str):
 async def get_trajectory_lines(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = build_stations_and_links_payload(env)
+    stations_lines = build_stations_and_links_payload(env.stations_links)
     links = stations_lines["links"]
     if link_id < 0 or link_id >= len(links):
         raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")

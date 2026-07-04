@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from app.routes import build_stations_and_links_payload, extract_link_map
+from app.routes import extract_link_map
+from envs.stations_links import Fibre
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
 
@@ -3134,11 +3135,11 @@ def test_link_map(seed, i, fibre_cells, expected):
     Regression test from visually inspected outputs.
     """
     env, _, _ = env_generator(seed=seed)
-    stations_links = build_stations_and_links_payload(env)
+    stations_links = env.stations_links
     print(stations_links)
 
-    link = stations_links["links"][i]
-    actual = extract_link_map(stations_links, link, env, fibre_cells)
+    link = stations_links.links[i]
+    actual = extract_link_map(stations_links, link, Fibre("", "", fibre_cells), env.rail)
     assert list(actual.keys()) == list(expected.keys())
     for k in actual.keys():
         if k == 'grid':
@@ -3165,15 +3166,15 @@ def _gen_material():
     material = []
     for seed in [44, 45]:
         env, _, _ = env_generator(seed=seed)
-        stations_links = build_stations_and_links_payload(env)
+        stations_links = env.stations_links
         print(stations_links)
-        for i, current_link in enumerate(stations_links["links"]):
-            fibre = current_link["fibres"][0]
+        for i, current_link in enumerate(stations_links.links):
+            fibre = current_link.fibres[0]
             print("fibre")
             print(fibre)
-            fibre_cells = fibre["cells"]
+            fibre_cells = fibre.edges
 
-            link_map = extract_link_map(stations_links, current_link, env, fibre_cells)
+            link_map = extract_link_map(stations_links, current_link, Fibre("", "", fibre_cells), env.rail)
             print(link_map)
 
             material.append((seed, i, fibre_cells, link_map))

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional, Tuple
 
 import numpy as np
 from numpy import dtype, floating, ndarray
@@ -10,45 +10,15 @@ from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
 from flatland.envs.grid4_generators_utils import connect_rail_in_grid_map
-from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.envs.rail_trainrun_data_structures import Waypoint
+from flatland.envs.stations_links import Fibre, Gate, Link, Pin, StationsLinks
 
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-def build_stations_and_links_payload(env) -> dict:
-    station_edges = {i: station["edges"] for i, station in env.stations_links["stations"].items()}
-    station_stopping_points = {i: [{"node": stp["node"], "trackNumber": stp["track_number"], "trackName": stp["name"]} for stp in v["stopping_points"]] for
-                               i, v in env.stations_links["stations"].items()}
-
-    station_gates = {i: {gate_key: {"name": gate["name"],
-                                    "pins": {k: {"name": v["name"], "node": v["node"]} for k, v in gate["pins"].items()}} for gate_key, gate in
-                         v["gates"].items()} for i, v
-                     in env.stations_links["stations"].items()}
-    return {
-        "station_edges": station_edges,
-        "station_stopping_points": station_stopping_points,
-        "station_gates": station_gates,
-
-        "links": [{
-            "fromStation": link["from_station"],
-            "fromGate": link["from_gate"],
-            "fromFacing": link["from_facing"],
-            "toStation": link["to_station"],
-            "toGate": link["to_gate"],
-            "toFacing": link["to_facing"],
-            "fibres": [{
-                "fromPin": fibre["from_pin"],
-                "toPin": fibre["to_pin"],
-                "cells": fibre["edges"],
-            } for fibre in link["fibres"]],
-        } for link in env.stations_links["links"]],
-    }
-
-
-def _assign_level(cell: tuple, level: int, levels: dict, reverse_levels: dict) -> None:
+def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
     if cell in levels:
         assert levels[cell] == level, (cell, levels[cell], level)
         return
@@ -56,7 +26,7 @@ def _assign_level(cell: tuple, level: int, levels: dict, reverse_levels: dict) -
     reverse_levels[level].add(cell)
 
 
-def _get_next_level(LEVEL: int, num_succ: int, succ, baseline_succ) -> int:
+def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optional[Tuple]) -> int:
     # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
     # N.B. if we have isolated loops, this approach does not well defined:
     #         |--1--------------------|
@@ -77,44 +47,43 @@ def _get_next_level(LEVEL: int, num_succ: int, succ, baseline_succ) -> int:
             return 0
 
 
-# TODO pass only env's grid, not env
-def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: List[tuple]) -> dict:
-    start = tuple(fibre_cells[0])
-    end = tuple(fibre_cells[-1])
-    from_pin = next((f["fromPin"] for f in current_link["fibres"] if tuple(f["cells"][0]) == start), None)
-    to_pin = next((f["toPin"] for f in current_link["fibres"] if tuple(f["cells"][-1]) == end), None)
-    from_station = current_link["fromStation"]
-    from_facing = _DIRECTION_CHARS[current_link["fromFacing"]]
-    to_station = current_link["toStation"]
-    to_facing = _DIRECTION_CHARS[current_link["toFacing"]]
-    from_gate = next(
-        (gate for gate in stations_links["station_gates"][from_station].values()
-         if any(tuple(pin["node"]) == start for pin in gate["pins"].values())),
+def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, rail: GridTransitionMap) -> dict:
+    start = tuple(fibre.edges[0])
+    end = tuple(fibre.edges[-1])
+    from_pin = next((f.from_pin for f in link.fibres if tuple(f.edges[0]) == start), None)
+    to_pin = next((f.to_pin for f in link.fibres if tuple(f.edges[-1]) == end), None)
+    from_station: str = link.from_station
+    from_facing: int = _DIRECTION_CHARS[link.from_facing]
+    to_station: str = link.to_station
+    to_facing: int = _DIRECTION_CHARS[link.to_facing]
+    from_gate: Optional[Gate] = next(
+        (gate for gate in stations_links.stations[from_station].gates.values()
+         if any(tuple(pin.node) == start for pin in gate.pins.values())),
         None
     )
-    from_gate_name = from_gate["name"] if from_gate else None
-    from_pin_index = next(
-        (i for i, pin in enumerate(from_gate["pins"].values()) if tuple(pin["node"]) == start),
+    from_gate_name: Optional[str] = from_gate.name if from_gate else None
+    from_pin_index: Optional[int] = next(
+        (i for i, pin in enumerate(from_gate.pins.values()) if tuple(pin.node) == start),
         None
     ) if from_gate else None
 
-    to_gate = next(
-        (gate for gate in stations_links["station_gates"][to_station].values()
-         if any(tuple(pin["node"]) == end for pin in gate["pins"].values())),
+    to_gate: Optional[Gate] = next(
+        (gate for gate in stations_links.stations[to_station].gates.values()
+         if any(tuple(pin.node) == end for pin in gate.pins.values())),
         None
     )
-    to_gate_name = to_gate["name"] if to_gate else None
-    to_pin_index = next(
-        (i for i, pin in enumerate(to_gate["pins"].values()) if tuple(pin["node"]) == end),
+    to_gate_name: Optional[str] = to_gate.name if to_gate else None
+    to_pin_index: Optional[int] = next(
+        (i for i, pin in enumerate(to_gate.pins.values()) if tuple(pin.node) == end),
         None
     ) if to_gate else None
 
     print(
         f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
 
-    zwl_grid = np.zeros(shape=(env.rail.grid.shape[0], env.rail.grid.shape[1] + 50), dtype=int)
-    city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, env, stations_links, 1)
-    city_2_bb, city_2_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, env, stations_links, 3)
+    zwl_grid = np.zeros(shape=(rail.grid.shape[0], rail.grid.shape[1] + 50), dtype=int)
+    city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, stations_links, rail, 1)
+    city_2_bb, city_2_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, stations_links, rail, 3)
 
     start_y = mapping1[start][0]
     end_y = mapping2[end][0]
@@ -128,7 +97,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
     y_offset_2 = 00
     # first and last cell of line in stations bb
-    x_offset_2 = city_1_bb.shape[1] + len(fibre_cells) - 2
+    x_offset_2 = city_1_bb.shape[1] + len(fibre.edges) - 2
     if end_y < straight_y:
         y_offset_2 = straight_y - end_y
     zwl_grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
@@ -141,16 +110,16 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     mapping_from_to_station = {**mapping1, **mapping2}
 
     _from_to_gate_pin_nodes = {
-        tuple(pin["node"])
+        tuple(pin.node)
         for gate in [from_gate, to_gate]
         if gate
-        for pin in gate["pins"].values()
+        for pin in gate.pins.values()
     }
     _other_station_pin_nodes = {
-                                   tuple(pin["node"])
+                                   tuple(pin.node)
                                    for station_name in [from_station, to_station]
-                                   for gate in stations_links["station_gates"][station_name].values()
-                                   for pin in gate["pins"].values()
+                                   for gate in stations_links.stations[station_name].gates.values()
+                                   for pin in gate.pins.values()
                                } - _from_to_gate_pin_nodes
     mapping_only_pins_from_stations = {
         k: v
@@ -172,18 +141,18 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     print(path)
     assert path[0] == mapping_only_pins_from_stations[start]
     assert path[-1] == mapping_only_pins_from_stations[end]
-    assert len(fibre_cells) == len(path)
+    assert len(fibre.edges) == len(path)
     print("fibre")
-    print(fibre_cells)
+    print(fibre.edges)
     for i, cell in enumerate(path):
-        mapping_only_pins_from_stations[fibre_cells[i]] = cell
+        mapping_only_pins_from_stations[tuple(fibre.edges[i])] = cell
 
     print("station_gates:")
-    for station in stations_links["station_gates"].values():
-        for gate in station.values():
+    for station in stations_links.stations.values():
+        for gate in station.gates.values():
             print(gate)
 
-    all_paths = _find_all_paths_between_stations(current_link, env, from_station, stations_links, to_station)
+    all_paths = _find_all_paths_between_stations(link, stations_links, rail)
 
     # cell -> List[tuple[tuple,int]]
     successors_: dict[tuple, set[tuple[tuple, int]]] = {}
@@ -242,19 +211,20 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     reverse_levels: dict[int, set[tuple]] = defaultdict(set)
 
     # define level 0:
-    print(f"level 0 for fibre cells {fibre_cells}")
-    for cell in fibre_cells:
+    print(f"level 0 for fibre cells {fibre.edges}")
+    for cell in (tuple(c) for c in fibre.edges):
         open_cells.discard(cell)
         _assign_level(cell, 0, levels, reverse_levels)
 
     # add levels to from and to pin (might not be covered by paths)
-    baseline_row = mapping_only_pins_from_stations[fibre_cells[0]][0]
-    for level, pin in zip(range(-from_pin_index, len(from_gate["pins"]) - from_pin_index + 1), from_gate["pins"].values()):
-        level = mapping_only_pins_from_stations[pin["node"]][0] - baseline_row
-        _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
-    for level, pin in zip(range(-to_pin_index, len(to_gate["pins"]) - to_pin_index + 1), to_gate["pins"].values()):
-        level = mapping_only_pins_from_stations[pin["node"]][0] - baseline_row
-        _assign_level(tuple(pin["node"]), level, levels, reverse_levels)
+    baseline_row = mapping_only_pins_from_stations[tuple(fibre.edges[0])][0]
+    pin: Pin
+    for level, pin in zip(range(-from_pin_index, len(from_gate.pins) - from_pin_index + 1), from_gate.pins.values()):
+        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+        _assign_level(tuple(pin.node), level, levels, reverse_levels)
+    for level, pin in zip(range(-to_pin_index, len(to_gate.pins) - to_pin_index + 1), to_gate.pins.values()):
+        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+        _assign_level(tuple(pin.node), level, levels, reverse_levels)
 
     _NEIGHBOR_LEVEL = {0: -1, 1: 1}
 
@@ -315,7 +285,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
 
         level = levels[cell]
 
-        pairs = env.rail.get_neighbor_pairs(cell)
+        pairs = rail.get_neighbor_pairs(cell)
 
         level_to_neighbor = defaultdict(set)
         for pair in pairs:
@@ -553,7 +523,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     # # Find missing transitions going out/coming into the graph
     for cell in successors.keys():
         # try to fix transitions
-        _handle_beyond_one_one(cell, env, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
+        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
 
     # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
@@ -569,7 +539,7 @@ def extract_link_map(stations_links, current_link, env: RailEnv, fibre_cells: Li
     return content
 
 
-def get_shortest(from_cell, to_cell, rail, level):
+def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, level: int) -> Optional[List[Waypoint]]:
     shortest_path = None
 
     for d in range(4):
@@ -579,14 +549,14 @@ def get_shortest(from_cell, to_cell, rail, level):
     return shortest_path
 
 
-def _handle_beyond_one_one(cell: tuple, env: RailEnv, mapping: dict[Any, Any], zwl_grid_map: GridTransitionMap[Any], levels: dict, reverse_levels: dict,
-                           random_allowed: bool = True):
+def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
+                           levels: Dict[Tuple, int], reverse_levels: Dict[int, set], random_allowed: bool = True):
     print(f"_handle_slips {cell}")
-    if RailEnvTransitionsEnum.is_one_one(env.rail.grid[cell]):
+    if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
         return
 
     level = levels[cell]
-    pairs = env.rail.get_neighbor_pairs(cell)
+    pairs = rail.get_neighbor_pairs(cell)
 
     level_to_neighbor = defaultdict(set)
     for pair in pairs:
@@ -603,7 +573,7 @@ def _handle_beyond_one_one(cell: tuple, env: RailEnv, mapping: dict[Any, Any], z
     print(f"  new_neighbors={new_neighbors} level_to_neighbor={level_to_neighbor}, level={level}")
     trans = zwl_grid_map.grid[*mapping[*cell]]
 
-    print(f"  {RailEnvTransitionsEnum(env.rail.grid[*cell]).name}")
+    print(f"  {RailEnvTransitionsEnum(rail.grid[*cell]).name}")
     cell_left = (cell[0], cell[1] - 1)
     cell_right = (cell[0], cell[1] + 1)
     cell_below = (cell[0] + 1, cell[1])
@@ -697,23 +667,23 @@ def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, su
     return baseline_succ
 
 
-def _find_all_paths_between_stations(current_link, env: RailEnv, from_station, stations_links, to_station) -> list[list[Waypoint]]:
-    grid_without_stations = env.rail.grid.copy()
-    pin_cells = [pin["node"] for station in stations_links["station_gates"].values() for gate in station.values() for pin in gate["pins"].values()]
+def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, rail: GridTransitionMap) -> List[List[Waypoint]]:
+    grid_without_stations = rail.grid.copy()
+    pin_cells = [pin.node for station in stations_links.stations.values() for gate in station.gates.values() for pin in gate.pins.values()]
     print("pin_cells")
     print(pin_cells)
-    for cells in stations_links["station_edges"].values():
-        for cell in cells:
+    for station in stations_links.stations.values():
+        for cell in station.edges:
             if cell in pin_cells:
                 continue
             grid_without_stations[cell[0]][cell[1]] = 0
     grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
                                                   grid=grid_without_stations)
 
-    from_pins = [(p["node"], _DIRECTION_CHARS[current_link["fromFacing"]]) for p in
-                 stations_links["station_gates"][from_station][current_link["fromFacing"]]["pins"].values()]
-    to_pins = [(p["node"], _DIRECTION_CHARS[current_link["toFacing"]]) for p in
-               stations_links["station_gates"][to_station][current_link["toFacing"]]["pins"].values()]
+    from_pins: List[Tuple] = [(p.node, _DIRECTION_CHARS[link.from_facing]) for p in
+                              stations_links.stations[link.from_station].gates[link.from_facing].pins.values()]
+    to_pins: List[Tuple] = [(p.node, _DIRECTION_CHARS[link.to_facing]) for p in
+                            stations_links.stations[link.to_station].gates[link.to_facing].pins.values()]
 
     print(f"from_pins={from_pins}")
     print(f"to_pins={to_pins}")
@@ -737,14 +707,14 @@ def _within_bbox_excl_boundary(city_bbox, cell: tuple[Any, Any]) -> Any:
     return city_bbox["min_row"] < cell[0] < city_bbox["max_row"] and city_bbox["min_col"] < cell[1] < city_bbox["max_col"]
 
 
-def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stations_lines: dict, target_facing=1) -> tuple[
-    ndarray[Any, dtype[floating[_64Bit]]], dict[str, Any]]:
+def _extract_city_rotated(city: str, city_orientation: int, stations_links: StationsLinks, rail: GridTransitionMap, target_facing: int = 1) -> Tuple[
+    ndarray[Any, dtype[floating[_64Bit]]], Dict[str, Any], Dict[Tuple, Tuple]]:
     num_rot = target_facing - city_orientation
     num_rot %= 4
     print(f"city_orientation={city_orientation}, target_facing={target_facing}, num_rot={num_rot}")
     print(f"rotate={num_rot}")
 
-    all_city_cells = [cell for cell in stations_lines["station_edges"][city]]
+    all_city_cells = list(stations_links.stations[city].edges)
     city_cells_bbox = {
         "min_row": min(cell[0] for cell in all_city_cells),
         "max_row": max(cell[0] for cell in all_city_cells),
@@ -754,7 +724,7 @@ def _extract_city_rotated(city: int, city_orientation, env: RailEnv | None, stat
     print("city_cells_bbox")
     print(city_cells_bbox)
 
-    city_bb = env.rail.grid[city_cells_bbox["min_row"]:city_cells_bbox["max_row"] + 1, city_cells_bbox["min_col"]:city_cells_bbox["max_col"] + 1].copy()
+    city_bb = rail.grid[city_cells_bbox["min_row"]:city_cells_bbox["max_row"] + 1, city_cells_bbox["min_col"]:city_cells_bbox["max_col"] + 1].copy()
     # print("city_bb")
     # print(city_bb)
     height, width = city_bb.shape
