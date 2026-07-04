@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from app.routes import extract_link_map
-from envs.stations_links import Fibre
+from flatland.envs.stations_links import Fibre
 from flatland.env_generation.env_generator import env_generator
 from flatland.envs.grid.rail_env_grid import RailEnvTransitionsEnum
 
