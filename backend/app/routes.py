@@ -16,10 +16,10 @@ from pydantic import BaseModel
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.link_map import extract_link_map
-from flatland.envs.stations_links import Gate, Link, Fibre, Pin, Station, StationsLinks, StoppingPoint
 from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
 from flatland.envs.rail_trainrun_data_structures import Waypoint
+from flatland.envs.stations_links import Gate, Link, Fibre, Pin, Station, StationsLinks, StoppingPoint
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 
 
@@ -298,7 +298,7 @@ async def get_trajectory_agents(trajectory_id: str):
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
 
 
-def _enrich_line(link: dict, link_id: int) -> dict:
+def _enrich_link(link: dict, link_id: int) -> dict:
     from_station, from_dir, _ = link["fromPin"].split(".")
     to_station, to_dir, _ = link["toPin"].split(".")
     return {
@@ -316,10 +316,10 @@ def _enrich_line(link: dict, link_id: int) -> dict:
 async def get_trajectory_links(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = build_stations_and_links_payload(env.stations_links)
-    links = stations_lines["links"]
+    stations_links = build_stations_and_links_payload(env.stations_links)
+    links = stations_links["links"]
     return CustomEncodedJSONResponse(content=[
-        _enrich_line(link, i) for i, link in enumerate(links)
+        _enrich_link(link, i) for i, link in enumerate(links)
     ])
 
 
@@ -327,8 +327,8 @@ async def get_trajectory_links(trajectory_id: str):
 async def get_trajectory_lines(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
-    stations_lines = build_stations_and_links_payload(env.stations_links)
-    links = stations_lines["links"]
+    stations_links = build_stations_and_links_payload(env.stations_links)
+    links = stations_links["links"]
     if link_id < 0 or link_id >= len(links):
         raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
-    return CustomEncodedJSONResponse(content=_enrich_line(links[link_id], link_id))
+    return CustomEncodedJSONResponse(content=_enrich_link(links[link_id], link_id))
