@@ -321,8 +321,6 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
         level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
         _assign_level(tuple(pin.node), level, levels, reverse_levels)
 
-    _NEIGHBOR_LEVEL = {0: -1, 1: 1}
-
     print(f"reverse_levels[0]={reverse_levels[0]}")
     print(f"open_cells={open_cells}")
     # Iteratively, assign levels to graph (all paths between chosen link's gates)
@@ -379,8 +377,6 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
     """Build the initial ZWL grid by placing the rotated bounding boxes of the two stations side by side and connecting their pins along the fibre; returns the full station-cell mapping, the pin-only mapping, the raw grid, and its `GridTransitionMap` wrapper."""
     start = tuple(fibre.edges[0])
     end = tuple(fibre.edges[-1])
-    from_pin: str = link.from_pin
-    to_pin: str = link.to_pin
 
     from_facing: int = _DIRECTION_CHARS[from_dir_char]
     to_facing: int = _DIRECTION_CHARS[to_dir_char]
@@ -501,7 +497,7 @@ def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stati
     return predecessors, successors
 
 
-def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, level: int) -> Optional[List[Waypoint]]:
+def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap) -> Optional[List[Waypoint]]:
     """Return the shortest paths found from `from_cell` to `to_cell` across all four starting directions."""
     shortest_path = None
 
@@ -513,7 +509,7 @@ def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, leve
 
 
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
-                           levels: Dict[Tuple, int], reverse_levels: Dict[int, set], random_allowed: bool = True) -> None:
+                           levels: Dict[Tuple, int], random_allowed: bool = True) -> None:
     """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
     print(f"_handle_slips {cell}")
     if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
@@ -540,7 +536,6 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
     print(f"  {RailEnvTransitionsEnum(rail.grid[*cell]).name}")
     cell_left = (cell[0], cell[1] - 1)
     cell_right = (cell[0], cell[1] + 1)
-    cell_below = (cell[0] + 1, cell[1])
     me = mapping[cell]
     me_left = (me[0], me[1] - 1)
     me_right = (me[0], me[1] + 1)
@@ -566,10 +561,8 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
         else:
             if zwl_grid_map.grid[*above] == 0:
                 chosen = above
-                not_chosen = below
             elif zwl_grid_map.grid[*below] == 0:
                 chosen = below
-                not_chosen = above
             else:
                 # TODO add warning instead?
                 raise
@@ -600,7 +593,6 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
                                             trans: ndarray[Any, dtype[floating[_64Bit]]] | Any, zwl_grid_map: GridTransitionMap[Any]):
     """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid."""
     print(f"==== _fix_zwl_cell_from_grid_neighbour_pairs {cell}")
-    orig = trans
     for from_cell, to_cell in pairs:
         if not (is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell])):
             # TODO highlight incomplete cases in frontend
@@ -791,7 +783,7 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     # # Find missing transitions going out/coming into the graph
     for cell in successors.keys():
         # try to fix transitions
-        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
+        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, random_allowed=True)
 
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
     content = {
