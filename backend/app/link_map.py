@@ -5,6 +5,7 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
+from core.grid.grid_utils import Vector2D, IntVector2D
 from flatland.core.grid.grid4_utils import get_direction, is_neighbor_cell, mirror, direction_to_point
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
@@ -16,6 +17,7 @@ from flatland.envs.stations_links import Fibre, Gate, Link, Pin, StationsLinks
 
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
+
 
 
 def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
@@ -462,6 +464,73 @@ def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stati
     return predecessors, successors
 
 
+def _map_one_new_neighbor(cell: Tuple, new_neighbors: set, level: int, level_to_neighbor: dict, levels: Dict[Tuple, int], mapping: Dict[Tuple, Tuple],
+                          zwl_grid_map: GridTransitionMap) -> None:
+    """Map the single unmapped neighbor of `cell`: continue at the same level if one is missing, split to the row below for a slip, or otherwise take the first free row above/below."""
+    me = mapping[cell]
+    above = (me[0] - 1, me[1])
+    below = (me[0] + 1, me[1])
+    cell_left = (cell[0], cell[1] - 1)
+    cell_right = (cell[0], cell[1] + 1)
+    me_left = (me[0], me[1] - 1)
+    me_right = (me[0], me[1] + 1)
+    me_below = (me[0] + 1, me[1])
+
+    new_neighbor = list(new_neighbors)[0]
+    level_new_neighbor = levels[new_neighbor]
+
+    if None not in level_to_neighbor and level_new_neighbor == level:
+        assert len(level_to_neighbor[level]) == 2
+        missing_map = cell_left if cell_right in mapping else cell_right
+        assert missing_map not in mapping
+        missing_link_map = me_right if me_right == mapping[new_neighbor] else me_left
+        mapping[new_neighbor] = missing_link_map
+
+    elif None not in level_to_neighbor and level_new_neighbor == level + 1:
+        # for slips
+        # 0  - 1 -
+        # | 1
+        # results in the two cells mapped to the same cell: a split!
+        mapping[new_neighbor] = me_below
+    else:
+        if zwl_grid_map.grid[*above] == 0:
+            chosen = above
+        elif zwl_grid_map.grid[*below] == 0:
+            chosen = below
+        else:
+            # TODO add warning instead?
+            raise
+        assert zwl_grid_map.grid[*chosen] == 0
+        n = list(new_neighbors)[0]
+        assert n not in mapping
+        mapping[n] = chosen
+
+
+def _map_two_new_neighbors_at_known_levels(cell: Tuple, level: int, level_to_neighbor: dict, mapping: Dict[Tuple, Tuple]) -> None:
+    """Map both unmapped neighbors of `cell` directly to the row above/below, using the already-known levels of the other neighbors at level±1."""
+    me = mapping[cell]
+    me_below = (me[0] + 1, me[1])
+    me_above = (me[0] - 1, me[1])
+    neighbour_below_to_add = list(level_to_neighbor[level + 1])[0]
+    neighbour_above_to_add = list(level_to_neighbor[level - 1])[0]
+    mapping[neighbour_below_to_add] = me_below
+    mapping[neighbour_above_to_add] = me_above
+
+
+def _map_two_new_neighbors_at_level_zero(cell: Tuple, new_neighbors: set, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap) -> None:
+    """Map both unmapped neighbors of a level-0 `cell` to the row above and the row below."""
+    me = mapping[cell]
+    above = (me[0] - 1, me[1])
+    below = (me[0] + 1, me[1])
+    assert zwl_grid_map.grid[*above] == 0
+    assert zwl_grid_map.grid[*below] == 0
+
+    # randomly assign neighbors to above and below
+    for n, mapped in zip(new_neighbors, [above, below]):
+        assert n not in mapping
+        mapping[n] = mapped
+
+
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
                            levels: Dict[Tuple, int], random_allowed: bool = True) -> None:
     """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
@@ -480,61 +549,16 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
 
     new_neighbors = {p for pair in pairs for p in pair if p not in mapping}
     assert cell not in new_neighbors
-    above = (mapping[cell][0] - 1, mapping[cell][1])
-    below = (mapping[cell][0] + 1, mapping[cell][1])
 
     trans = zwl_grid_map.grid[*mapping[*cell]]
 
-    cell_left = (cell[0], cell[1] - 1)
-    cell_right = (cell[0], cell[1] + 1)
-    me = mapping[cell]
-    me_left = (me[0], me[1] - 1)
-    me_right = (me[0], me[1] + 1)
-    me_below = (me[0] + 1, me[1])
-    me_above = (me[0] - 1, me[1])
     if len(new_neighbors) == 1:
-        new_neighbor = list(new_neighbors)[0]
-        level_new_neighbor = levels[new_neighbor]
-
-        if None not in level_to_neighbor and level_new_neighbor == level:
-            assert len(level_to_neighbor[level]) == 2
-            missing_map = cell_left if cell_right in mapping else cell_right
-            assert missing_map not in mapping
-            missing_link_map = me_right if me_right == mapping[new_neighbor] else me_left
-            mapping[new_neighbor] = missing_link_map
-
-        elif None not in level_to_neighbor and level_new_neighbor == level + 1:
-            # for slips
-            # 0  - 1 -
-            # | 1
-            # results in the two cells mapped to the same cell: a split!
-            mapping[new_neighbor] = me_below
-        else:
-            if zwl_grid_map.grid[*above] == 0:
-                chosen = above
-            elif zwl_grid_map.grid[*below] == 0:
-                chosen = below
-            else:
-                # TODO add warning instead?
-                raise
-            assert zwl_grid_map.grid[*chosen] == 0
-            n = list(new_neighbors)[0]
-            assert n not in mapping
-            mapping[n] = chosen
+        _map_one_new_neighbor(cell, new_neighbors, level, level_to_neighbor, levels, mapping, zwl_grid_map)
     elif len(new_neighbors) == 2 and None not in level_to_neighbor and len(level_to_neighbor[level]) == 2 and len(level_to_neighbor[level + 1]) == 1 and len(
             level_to_neighbor[level - 1]) == 1:
-        neighbour_below_to_add = list(level_to_neighbor[level + 1])[0]
-        neighbour_above_to_add = list(level_to_neighbor[level - 1])[0]
-        mapping[neighbour_below_to_add] = me_below
-        mapping[neighbour_above_to_add] = me_above
+        _map_two_new_neighbors_at_known_levels(cell, level, level_to_neighbor, mapping)
     elif len(new_neighbors) == 2 and level == 0:
-        assert zwl_grid_map.grid[*above] == 0
-        assert zwl_grid_map.grid[*below] == 0
-
-        # randomly assign neighbors to above and below
-        for n, mapped in zip(new_neighbors, [above, below]):
-            assert n not in mapping
-            mapping[n] = mapped
+        _map_two_new_neighbors_at_level_zero(cell, new_neighbors, mapping, zwl_grid_map)
 
     _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
 
