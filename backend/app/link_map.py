@@ -19,6 +19,7 @@ _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
 def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
+    """Record `cell`'s ZWL level in both `levels` and `reverse_levels`, unless it has already been assigned one."""
     if cell in levels:
         # TODO does error in some cases
         # assert levels[cell] == level, (cell, levels[cell], level)
@@ -28,6 +29,7 @@ def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_lev
 
 
 def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optional[Tuple]) -> int:
+    """Decide the level offset (-1, 0, or +1) a branch at a switch should move to, based on whether `succ` is the baseline branch and its clockwise position among its siblings."""
     # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
     # N.B. if we have isolated loops, this approach does not well defined:
     #         |--1--------------------|
@@ -51,6 +53,7 @@ def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optio
 def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_stations: GridTransitionMap[Any], open_cells: dict[int, set[tuple]],
                             predecessors: dict[tuple, list[tuple]], reverse_levels: set[tuple[Any]], successors: dict[tuple, list[tuple]],
                             zwl_grid: ndarray[Any, dtype[Any]], zwl_grid_map: dict[Any, Any]):
+    """Walk the level-assigned graph level by level, writing the corresponding curve/straight transitions into `zwl_grid`/`zwl_grid_map` and extending `mapping_only_pins_from_stations` with the newly placed cells."""
     # Based on levels, map to link map
     # TODO fix -2/2 etc.why does it fail?
     for LEVEL in [0, 1, -1]:  # , 2 - 2]:
@@ -206,6 +209,7 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
 
 def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tuple, list[tuple]], rail: GridTransitionMap, reverse_levels: set[tuple[Any]],
                                successors: dict[tuple, list[tuple]]):
+    """Extend level assignment to the neighbor cells just outside the gate-to-gate path graph (e.g. switches/crossings bordering the fibre), inferring their direction and level from the already-known predecessors/successors of each cell."""
     # assign levels for context (outside of gate-gate paths)
     for cell in successors.keys():
         assert set(predecessors[cell]).isdisjoint(successors[cell])
@@ -293,6 +297,7 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
                                                mapping_only_pins_from_stations: GridTransitionMap[Any], predecessors: dict[tuple, list[tuple]],
                                                successors: dict[tuple, list[tuple]], to_gate: Gate | None, to_pin_index: int | None) -> tuple[
     dict[tuple, int], dict[int, set[tuple]], set[tuple]]:
+    """Assign a ZWL level to every cell in the station-to-station path graph, starting from the fibre (level 0) and its gate pins, then iteratively propagate levels along degree-2 branches; returns the level map, the still-unmapped cells, and the per-level cell index."""
     # cells in the graph without a mapping assigned yet:
     open_cells = set(successors.keys())
     # for each cell, which level does it have: switches still at same level but next cells have level +1/-1
@@ -371,6 +376,7 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
                               from_station: str,
                               to_dir_char: str, to_gate: Gate | None, to_station: str) -> tuple[
     dict[Any, Any], GridTransitionMap[Any], ndarray[Any, dtype[Any]], dict[Any, Any]]:
+    """Build the initial ZWL grid by placing the rotated bounding boxes of the two stations side by side and connecting their pins along the fibre; returns the full station-cell mapping, the pin-only mapping, the raw grid, and its `GridTransitionMap` wrapper."""
     start = tuple(fibre.edges[0])
     end = tuple(fibre.edges[-1])
     from_pin: str = link.from_pin
@@ -453,6 +459,7 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
 
 
 def _build_adjacency(all_paths: List[List[Waypoint]], forward: bool, label: str) -> Dict[tuple, List[tuple]]:
+    """Build a cell -> ordered list of at most two neighbor cells (successors if `forward`, predecessors otherwise) from a set of paths, sorted clockwise by the direction change at each cell."""
     # cell -> List[tuple[tuple,int]]
     raw: dict[tuple, set[tuple[tuple, int]]] = {}
     for path in all_paths:
@@ -487,6 +494,7 @@ def _build_adjacency(all_paths: List[List[Waypoint]], forward: bool, label: str)
 
 def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stations_links: StationsLinks) -> tuple[
     dict[tuple, list[tuple]], dict[tuple, list[tuple]]]:
+    """Find all paths between the two gates of `link` and derive the successor/predecessor adjacency graph over their cells."""
     all_paths = _find_all_paths_between_stations(link, stations_links, rail)
     successors = _build_adjacency(all_paths, forward=True, label="successors")
     predecessors = _build_adjacency(all_paths, forward=False, label="predecessors")
@@ -494,17 +502,19 @@ def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stati
 
 
 def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, level: int) -> Optional[List[Waypoint]]:
+    """Return the shortest paths found from `from_cell` to `to_cell` across all four starting directions."""
     shortest_path = None
 
     for d in range(4):
         paths = get_k_shortest_paths(None, from_cell, d, to_cell, rail=rail)
-        if len(paths) > 0 and len(paths[0]) > len(shortest_path):
+        if len(paths) > 0 and len(paths[0]) < len(shortest_path):
             shortest_path = paths[0]
     return shortest_path
 
 
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
                            levels: Dict[Tuple, int], reverse_levels: Dict[int, set], random_allowed: bool = True) -> None:
+    """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
     print(f"_handle_slips {cell}")
     if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
         return
@@ -588,6 +598,7 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
 
 def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any], pairs: set[tuple[tuple[int, int], tuple[int, int]]],
                                             trans: ndarray[Any, dtype[floating[_64Bit]]] | Any, zwl_grid_map: GridTransitionMap[Any]):
+    """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid."""
     print(f"==== _fix_zwl_cell_from_grid_neighbour_pairs {cell}")
     orig = trans
     for from_cell, to_cell in pairs:
@@ -613,6 +624,7 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
 
 
 def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]) -> Optional[tuple]:
+    """Return whichever successor of `pos` is already assigned to `LEVEL` (the baseline branch), or `None` if none is."""
     baseline_succ = None
     for succ in successors[pos]:
         if levels.get(succ, None) == LEVEL:
@@ -622,6 +634,7 @@ def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, su
 
 
 def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, rail: GridTransitionMap) -> List[List[Waypoint]]:
+    """Find up to 10 shortest paths between every pin of the link's from-gate and every pin of its to-gate, searching the rail grid with all station cells (except pins) masked out."""
     from_station, from_dir_char, _ = link.from_pin.split(".")
     to_station, to_dir_char, _ = link.to_pin.split(".")
     from_facing_int: int = _DIRECTION_CHARS[from_dir_char]
@@ -658,6 +671,7 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
 
 def _extract_city_rotated(city: str, city_orientation: int, stations_links: StationsLinks, rail: GridTransitionMap, target_facing: int = 1) -> Tuple[
     ndarray[Any, dtype[floating[_64Bit]]], Dict[str, Any], Dict[Tuple, Tuple]]:
+    """Extract the bounding-box grid of `city`'s cells, rotate it (and its transitions) so its facing matches `target_facing`, and return the rotated grid together with its bounding box and a cell-to-rotated-cell coordinate mapping."""
     num_rot = target_facing - city_orientation
     num_rot %= 4
     print(f"city_orientation={city_orientation}, target_facing={target_facing}, num_rot={num_rot}")
@@ -687,6 +701,7 @@ def _extract_city_rotated(city: str, city_orientation: int, stations_links: Stat
             city_bb[r, c] = RailEnvTransitions().rotate_transition(city_bb[r, c], rotation=90 * num_rot)
 
     def rotate(r, c, max_r):
+        """Rotate a single (row, col) coordinate 90 degrees clockwise within a grid of height `max_r + 1`."""
         return c, max_r - r
 
     mapping = {}
@@ -714,6 +729,14 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     - some elements cannot be linearized along any transition (e.g. there is no single rail element when a single slip is linearized); we'd have to "make space" to map
     - some elements are not joined correctly, although they exist (e.g. symmetric switches)
     - more than two levels left/right of the fibre are not supported.
+
+    Steps:
+    1. `_init_zwl_grid_from_fibre` - place the two stations' grids and connect the fibre
+    2. `_extract_station_to_station_graph` - build the successor/predecessor graph between gates
+    3. `_assign_levels_in_station_to_station_graph` - assign levels along the gate-to-gate graph
+    4. `_assign_levels_for_context` - assign levels to cells bordering the graph
+    5. `_map_levels_to_link_map` - write levels' transitions into the link map grid
+    6. `_handle_beyond_one_one` - resolve remaining switches/slips per cell
 
 
     Parameters
