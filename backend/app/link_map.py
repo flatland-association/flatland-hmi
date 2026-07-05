@@ -441,17 +441,6 @@ def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stati
     return predecessors, successors
 
 
-def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap) -> Optional[List[Waypoint]]:
-    """Return the shortest paths found from `from_cell` to `to_cell` across all four starting directions."""
-    shortest_path = None
-
-    for d in range(4):
-        paths = get_k_shortest_paths(None, from_cell, d, to_cell, rail=rail)
-        if len(paths) > 0 and len(paths[0]) < len(shortest_path):
-            shortest_path = paths[0]
-    return shortest_path
-
-
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
                            levels: Dict[Tuple, int], random_allowed: bool = True) -> None:
     """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
