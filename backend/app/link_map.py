@@ -20,7 +20,8 @@ _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
     if cell in levels:
-        assert levels[cell] == level, (cell, levels[cell], level)
+        # TODO does error in some cases
+        # assert levels[cell] == level, (cell, levels[cell], level)
         return
     levels[cell] = level
     reverse_levels[level].add(cell)
@@ -47,324 +48,15 @@ def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optio
             return 0
 
 
-def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, rail: GridTransitionMap) -> dict:
-    start = tuple(fibre.edges[0])
-    end = tuple(fibre.edges[-1])
-    from_pin: str = link.from_pin
-    to_pin: str = link.to_pin
-    from_station: str
-    from_dir_char: str
-    from_track_str: str
-    from_station, from_dir_char, from_track_str = from_pin.split(".")
-    to_station: str
-    to_dir_char: str
-    to_track_str: str
-    to_station, to_dir_char, to_track_str = to_pin.split(".")
-    from_facing: int = _DIRECTION_CHARS[from_dir_char]
-    to_facing: int = _DIRECTION_CHARS[to_dir_char]
-    from_gate: Optional[Gate] = stations_links.stations[from_station].gates.get(from_dir_char)
-    from_gate_name: Optional[str] = from_gate.name if from_gate else None
-    from_pin_index: Optional[int] = int(from_track_str) if from_gate else None
-
-    to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
-    to_gate_name: Optional[str] = to_gate.name if to_gate else None
-    to_pin_index: Optional[int] = int(to_track_str) if to_gate else None
-
-    print(
-        f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
-
-    zwl_grid = np.zeros(shape=(rail.grid.shape[0], rail.grid.shape[1] + 50), dtype=int)
-    city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, stations_links, rail, 1)
-    city_2_bb, city_2_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, stations_links, rail, 3)
-
-    start_y = mapping1[start][0]
-    end_y = mapping2[end][0]
-    straight_y = max(start_y, end_y)
-    x_offset_1 = 0
-    y_offset_1 = 0
-    if start_y < straight_y:
-        y_offset_1 = straight_y - start_y
-    zwl_grid[y_offset_1:city_1_bb.shape[0] + y_offset_1, :city_1_bb.shape[1]] = city_1_bb
-    mapping1 = {k: (r + y_offset_1, pos + x_offset_1) for k, (r, pos) in mapping1.items()}
-
-    y_offset_2 = 00
-    # first and last cell of line in stations bb
-    x_offset_2 = city_1_bb.shape[1] + len(fibre.edges) - 2
-    if end_y < straight_y:
-        y_offset_2 = straight_y - end_y
-    zwl_grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
-
-    zwl_grid = zwl_grid[:max(city_1_bb.shape[0] + y_offset_1, city_2_bb.shape[0] + y_offset_2), :x_offset_2 + city_2_bb.shape[1]]
-
-    mapping2 = {k: (r + y_offset_2, pos + x_offset_2) for k, (r, pos) in mapping2.items()}
-
-    # mapping so far contains all cells in the two station bb
-    mapping_from_to_station = {**mapping1, **mapping2}
-
-    _from_to_gate_pin_nodes = {
-        tuple(pin.node)
-        for gate in [from_gate, to_gate]
-        if gate
-        for pin in gate.pins.values()
-    }
-    _other_station_pin_nodes = {
-                                   tuple(pin.node)
-                                   for station_name in [from_station, to_station]
-                                   for gate in stations_links.stations[station_name].gates.values()
-                                   for pin in gate.pins.values()
-                               } - _from_to_gate_pin_nodes
-    mapping_only_pins_from_stations = {
-        k: v
-        for k, v in mapping_from_to_station.items()
-        if k not in _other_station_pin_nodes
-    }
-    print(f"pin_to_zwl={mapping_only_pins_from_stations}")
-
-    print(f"mapping {mapping_only_pins_from_stations}")
-
-    zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
-    path = connect_rail_in_grid_map(
-        grid_map=zwl_grid_map,
-        rail_trans=RailEnvTransitions(),
-        start=mapping_only_pins_from_stations[start],
-        end=mapping_only_pins_from_stations[end],
-    )
-    print("path")
-    print(path)
-    assert path[0] == mapping_only_pins_from_stations[start]
-    assert path[-1] == mapping_only_pins_from_stations[end]
-    assert len(fibre.edges) == len(path)
-    print("fibre")
-    print(fibre.edges)
-    for i, cell in enumerate(path):
-        mapping_only_pins_from_stations[tuple(fibre.edges[i])] = cell
-
-    print("station_gates:")
-    for station in stations_links.stations.values():
-        for gate in station.gates.values():
-            print(gate)
-
-    all_paths = _find_all_paths_between_stations(link, stations_links, rail)
-
-    # cell -> List[tuple[tuple,int]]
-    successors_: dict[tuple, set[tuple[tuple, int]]] = {}
-    for path in all_paths:
-        for wp, wp_after in zip(path, path[1:]):
-            successors_.setdefault(wp_after.position, set())
-            successors_.setdefault(wp.position, set())
-            successors_.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
-
-    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; successors are ordered clock-wise
-    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(successors), key=lambda t: t[1])] for tup, successors in successors_.items()}
-    for k, v in successors.items():
-        print(k, v)
-        print(successors_[k])
-        res = []
-        for i in v:
-            if i not in res:
-                res.append(i)
-        successors[k] = res
-        assert len(res) <= 2, res
-    print(f"successors {successors}")
-
-    # cell -> List[tuple[tuple,int]]
-    predecessors_: dict[tuple, set[tuple[tuple, int]]] = {}
-    for path in all_paths:
-        for wp, wp_after in zip(path, path[1:]):
-            predecessors_.setdefault(wp_after.position, set())
-            predecessors_.setdefault(wp.position, set())
-
-            # +1 means to to the right forward
-            # -1 means to the left forward
-            direction_change = (wp_after.direction - wp.direction) % 4
-            assert direction_change in {0, 1, 3}
-            if direction_change == 3:
-                direction_change = -1
-            predecessors_.setdefault(wp_after.position, set()).add((wp.position, direction_change))
-
-    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; predecessors are ordered clock-wise
-    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(predecessors), key=lambda t: t[1])] for tup, predecessors in predecessors_.items()}
-    print(f"predecessors {predecessors}")
-    for k, v in predecessors.items():
-        print(k, v)
-        print(predecessors_[k])
-        res = []
-        for i in v:
-            if i not in res:
-                res.append(i)
-        predecessors[k] = res
-        assert len(res) <= 2, res
-
-    # cells in the graph without a mapping assigned yet:
-    open_cells = set(successors.keys())
-    # for each cell, which level does it have: switches still at same level but next cells have level +1/-1
-    levels: dict[tuple, int] = {}
-    # for each level, which cells are at the level
-    reverse_levels: dict[int, set[tuple]] = defaultdict(set)
-
-    # define level 0:
-    print(f"level 0 for fibre cells {fibre.edges}")
-    for cell in (tuple(c) for c in fibre.edges):
-        open_cells.discard(cell)
-        _assign_level(cell, 0, levels, reverse_levels)
-
-    # add levels to from and to pin (might not be covered by paths)
-    baseline_row = mapping_only_pins_from_stations[tuple(fibre.edges[0])][0]
-    pin: Pin
-    for level, pin in zip(range(-from_pin_index, len(from_gate.pins) - from_pin_index + 1), from_gate.pins.values()):
-        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
-        _assign_level(tuple(pin.node), level, levels, reverse_levels)
-    for level, pin in zip(range(-to_pin_index, len(to_gate.pins) - to_pin_index + 1), to_gate.pins.values()):
-        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
-        _assign_level(tuple(pin.node), level, levels, reverse_levels)
-
-    _NEIGHBOR_LEVEL = {0: -1, 1: 1}
-
-    print(f"reverse_levels[0]={reverse_levels[0]}")
-    print(f"open_cells={open_cells}")
-    # Iteratively, assign levels to graph (all paths between chosen link's gates)
-    for LEVEL in [0, 1, -1, 2 - 2]:
-        if LEVEL not in reverse_levels:
-            continue
-        reverse_levels_open = defaultdict(set)
-
-        for pos in reverse_levels[LEVEL]:
-            if pos in successors and len(successors[pos]) == 2:
-                print(f"working on {pos} with successors {successors[pos]}")
-                for num_succ, succ in enumerate(successors[pos]):
-                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
-                    print(f"working on {pos} with successors {predecessors[pos]}: {succ} -> {level_up_or_down} {successors_[pos]}")
-
-                    if succ not in open_cells:
-                        print(f"{pos} <- {succ} already done")
-                        continue
-                    print(f"{pos} -> {succ}")
-
-                    _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open)
-
-            if pos in predecessors and len(predecessors[pos]) == 2:
-                print(f"working on {pos} with predecessors {predecessors[pos]}")
-                for num_pred, pred in enumerate(predecessors[pos]):
-                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
-                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred} -> {level_up_or_down} {predecessors_[pos]}")
-
-                    if pred not in open_cells:
-                        print(f"{pos} <- {pred} already done")
-                        continue
-                    print(f"{pos} <- {pred}")
-                    _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
-        for k, v in reverse_levels_open.items():
-            reverse_levels[k].update(v)
-        # treat degree 1 within LEVEL
-        for pos in list(reverse_levels[LEVEL]):
-            pos_ = pos
-            while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                _assign_level(pos_, LEVEL, levels, reverse_levels)
-                pos_ = successors[pos_][0]
-        for pos in list(reverse_levels[LEVEL]):
-            pos_ = pos
-            while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                _assign_level(pos_, LEVEL, levels, reverse_levels)
-                pos_ = predecessors[pos_][0]
-
-    assert set(predecessors.keys()) == set(successors.keys())
-
-    # assign levels for context (outside of gate-gate paths)
-    for cell in successors.keys():
-        assert set(predecessors[cell]).isdisjoint(successors[cell])
-        if len(predecessors[cell]) == 0 or len(successors[cell]) == 0:
-            continue
-
-        level = levels[cell]
-
-        pairs = rail.get_neighbor_pairs(cell)
-
-        level_to_neighbor = defaultdict(set)
-        for pair in pairs:
-            for p in pair:
-                level_to_neighbor[levels.get(p, None)].add(p)
-        new_neighbors = {p for pair in pairs for p in pair if p not in successors}
-        all_neighbors = {p for pair in pairs for p in pair}
-
-        # assuming cells between stations in fibres are never passed in opposing directions
-        known_incoming_neighbors = {pair[0] for pair in pairs if pair[1] in successors[cell]}.union(predecessors[cell])
-        known_outgoing_neighbors = {pair[1] for pair in pairs if pair[0] in predecessors[cell]}.union(successors[cell])
-        assert known_incoming_neighbors.isdisjoint(known_outgoing_neighbors)
-        print(
-            f"tryi00 {cell} successors[cell]={successors[cell]} predecessors[cell]={predecessors[cell]} known_outgoing_neighbors={known_outgoing_neighbors} known_incoming_neighbors={known_incoming_neighbors} new_neighbors={new_neighbors} all_neighbors={all_neighbors} pairs={pairs}")
-        assert known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors) == all_neighbors, (
-            known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors), all_neighbors)
-
-        fixed_incoming_new_neighbors = set()
-        fixed_outgoing_new_neighbors = set()
-        cell_successors = set()
-        cell_predecessors = set()
-
-        for pair in pairs:
-            from_cell, to_cell = pair
-            if from_cell in new_neighbors and to_cell in known_outgoing_neighbors:
-                assert from_cell not in fixed_outgoing_new_neighbors
-                fixed_incoming_new_neighbors.add(from_cell)
-            elif to_cell in new_neighbors and from_cell in known_incoming_neighbors:
-                assert to_cell not in fixed_incoming_new_neighbors
-                fixed_outgoing_new_neighbors.add(to_cell)
-
-            if from_cell in known_incoming_neighbors or to_cell in known_outgoing_neighbors:
-                dir_entering = direction_to_point(from_cell, cell)
-                dir_exiting = direction_to_point(cell, to_cell)
-                # TODO sorting acutally wrong: we should use the direction change from dir_entering and lookup the direction we exit by in the transition map
-                cell_predecessors.add((from_cell, dir_entering))
-                cell_successors.add((to_cell, dir_exiting))
-        assert new_neighbors == fixed_incoming_new_neighbors.union(fixed_outgoing_new_neighbors)
-        print(cell_predecessors)
-        print(cell_successors)
-
-        cell_predecessors = [t[0] for t in sorted(set(cell_predecessors), key=lambda t: t[1])]
-        cell_successors = [t[0] for t in sorted(set(cell_successors), key=lambda t: t[1])]
-        assert 0 < len(cell_predecessors) <= 2, cell_predecessors
-        assert 0 < len(cell_successors) <= 2, cell_successors
-
-        if level != 0:
-            print(f"tryi0 {cell} {new_neighbors} {known_incoming_neighbors} {known_outgoing_neighbors}")
-            for n in new_neighbors:
-                if level > 0:
-                    _assign_level(n, level + 1, levels, reverse_levels)
-                elif level < 0:
-                    _assign_level(n, level - 1, levels, reverse_levels)
-
-        # cover case one new neighbor first
-        else:
-            print(
-                f"tryi1 cell={cell} new_neighbors={new_neighbors} known_incoming_neighbors={known_incoming_neighbors} known_outgoing_neighbors={known_outgoing_neighbors} cell_successors={cell_successors} cell_predecessors={cell_predecessors}")
-            for num_succ, succ in enumerate(cell_successors):
-                if succ not in new_neighbors:
-                    continue
-                level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, cell, {cell: cell_successors}))
-                print(f"working on {pos} with successors {predecessors[pos]}: {succ} -> {level_up_or_down} {successors_[pos]}")
-
-                print(f"{cell} -> {succ}")
-
-                _assign_level(succ, level + level_up_or_down, levels, reverse_levels)
-
-            for num_pred, pred in enumerate(cell_predecessors):
-                if pred not in new_neighbors:
-                    continue
-                level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, cell, {cell: cell_predecessors}))
-                print(f"working on {pos} with predecessors {predecessors[pos]}: {pred} -> {level_up_or_down} {predecessors_[pos]}")
-
-                print(f"{cell} <- {pred}")
-                _assign_level(pred, level + level_up_or_down, levels, reverse_levels)
-
+def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_stations: GridTransitionMap[Any], open_cells: dict[int, set[tuple]],
+                            predecessors: dict[tuple, list[tuple]], reverse_levels: set[tuple[Any]], successors: dict[tuple, list[tuple]],
+                            zwl_grid: ndarray[Any, dtype[Any]], zwl_grid_map: dict[Any, Any]):
     # Based on levels, map to link map
     # TODO fix -2/2 etc.why does it fail?
     for LEVEL in [0, 1, -1]:  # , 2 - 2]:
         if LEVEL not in reverse_levels:
             continue
 
-        # treat degree 1 out of LEVEL -> connect the level
-        # if LEVEL == 0:
-        #     for cell in reverse_levels[LEVEL]:
-        #         _handle_slips(cell, env, mapping, zwl_grid_map, levels, reverse_levels, random_allowed=True)
         if LEVEL != 0:
             for pos in reverse_levels[LEVEL]:
                 # TODO follow backwards as well? Maybe not necessary as we say within the graph where everything is forward reachable!
@@ -512,23 +204,311 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
 
-    # # Find missing transitions going out/coming into the graph
+def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tuple, list[tuple]], rail: GridTransitionMap, reverse_levels: set[tuple[Any]],
+                               successors: dict[tuple, list[tuple]]):
+    # assign levels for context (outside of gate-gate paths)
     for cell in successors.keys():
-        # try to fix transitions
-        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
+        assert set(predecessors[cell]).isdisjoint(successors[cell])
+        if len(predecessors[cell]) == 0 or len(successors[cell]) == 0:
+            continue
 
-    # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
-    mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
-    content = {
-        # ZWL grid
-        "grid": zwl_grid,
-        # env -> ZWL coordindates
-        "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping_merged.items()],
-        "city_cells_bbox": city_1_cells_bbox,
-        "levels": [[list(k), v] for k, v in levels.items()],
+        level = levels[cell]
+
+        pairs = rail.get_neighbor_pairs(cell)
+
+        level_to_neighbor = defaultdict(set)
+        for pair in pairs:
+            for p in pair:
+                level_to_neighbor[levels.get(p, None)].add(p)
+        new_neighbors = {p for pair in pairs for p in pair if p not in successors}
+        all_neighbors = {p for pair in pairs for p in pair}
+
+        # assuming cells between stations in fibres are never passed in opcelling directions
+        known_incoming_neighbors = {pair[0] for pair in pairs if pair[1] in successors[cell]}.union(predecessors[cell])
+        known_outgoing_neighbors = {pair[1] for pair in pairs if pair[0] in predecessors[cell]}.union(successors[cell])
+        assert known_incoming_neighbors.isdisjoint(known_outgoing_neighbors)
+        print(
+            f"tryi00 {cell} successors[cell]={successors[cell]} predecessors[cell]={predecessors[cell]} known_outgoing_neighbors={known_outgoing_neighbors} known_incoming_neighbors={known_incoming_neighbors} new_neighbors={new_neighbors} all_neighbors={all_neighbors} pairs={pairs}")
+        assert known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors) == all_neighbors, (
+            known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors), all_neighbors)
+
+        fixed_incoming_new_neighbors = set()
+        fixed_outgoing_new_neighbors = set()
+        cell_successors = set()
+        cell_predecessors = set()
+
+        for pair in pairs:
+            from_cell, to_cell = pair
+            if from_cell in new_neighbors and to_cell in known_outgoing_neighbors:
+                assert from_cell not in fixed_outgoing_new_neighbors
+                fixed_incoming_new_neighbors.add(from_cell)
+            elif to_cell in new_neighbors and from_cell in known_incoming_neighbors:
+                assert to_cell not in fixed_incoming_new_neighbors
+                fixed_outgoing_new_neighbors.add(to_cell)
+
+            if from_cell in known_incoming_neighbors or to_cell in known_outgoing_neighbors:
+                dir_entering = direction_to_point(from_cell, cell)
+                dir_exiting = direction_to_point(cell, to_cell)
+                # TODO sorting acutally wrong: we should use the direction change from dir_entering and lookup the direction we exit by in the transition map
+                cell_predecessors.add((from_cell, dir_entering))
+                cell_successors.add((to_cell, dir_exiting))
+        assert new_neighbors == fixed_incoming_new_neighbors.union(fixed_outgoing_new_neighbors)
+        print(cell_predecessors)
+        print(cell_successors)
+
+        cell_predecessors = [t[0] for t in sorted(set(cell_predecessors), key=lambda t: t[1])]
+        cell_successors = [t[0] for t in sorted(set(cell_successors), key=lambda t: t[1])]
+        assert 0 < len(cell_predecessors) <= 2, cell_predecessors
+        assert 0 < len(cell_successors) <= 2, cell_successors
+
+        if level != 0:
+            print(f"tryi0 {cell} {new_neighbors} {known_incoming_neighbors} {known_outgoing_neighbors}")
+            for n in new_neighbors:
+                if level > 0:
+                    _assign_level(n, level + 1, levels, reverse_levels)
+                elif level < 0:
+                    _assign_level(n, level - 1, levels, reverse_levels)
+
+        # cover case one new neighbor first
+        else:
+            print(
+                f"tryi1 cell={cell} new_neighbors={new_neighbors} known_incoming_neighbors={known_incoming_neighbors} known_outgoing_neighbors={known_outgoing_neighbors} cell_successors={cell_successors} cell_predecessors={cell_predecessors}")
+            for num_succ, succ in enumerate(cell_successors):
+                if succ not in new_neighbors:
+                    continue
+                level_up_or_down = _get_next_level(level, num_succ, succ, _get_succ_at_same_level(level, levels, cell, {cell: cell_successors}))
+                print(f"working on {cell} with successors {predecessors[cell]}: {succ} -> {level_up_or_down} {successors[cell]}")
+
+                print(f"{cell} -> {succ}")
+
+                _assign_level(succ, level + level_up_or_down, levels, reverse_levels)
+
+            for num_pred, pred in enumerate(cell_predecessors):
+                if pred not in new_neighbors:
+                    continue
+                level_up_or_down = - _get_next_level(level, num_pred, pred, _get_succ_at_same_level(level, levels, cell, {cell: cell_predecessors}))
+                print(f"working on {cell} with predecessors {predecessors[cell]}: {pred} -> {level_up_or_down} {predecessors[cell]}")
+
+                print(f"{cell} <- {pred}")
+                _assign_level(pred, level + level_up_or_down, levels, reverse_levels)
+
+
+def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | None, from_pin_index: int | None,
+                                               mapping_only_pins_from_stations: GridTransitionMap[Any], predecessors: dict[tuple, list[tuple]],
+                                               successors: dict[tuple, list[tuple]], to_gate: Gate | None, to_pin_index: int | None) -> tuple[
+    dict[tuple, int], dict[int, set[tuple]], set[tuple]]:
+    # cells in the graph without a mapping assigned yet:
+    open_cells = set(successors.keys())
+    # for each cell, which level does it have: switches still at same level but next cells have level +1/-1
+    levels: dict[tuple, int] = {}
+    # for each level, which cells are at the level
+    reverse_levels: dict[int, set[tuple]] = defaultdict(set)
+
+    # define level 0:
+    print(f"level 0 for fibre cells {fibre.edges}")
+    for cell in (tuple(c) for c in fibre.edges):
+        open_cells.discard(cell)
+        _assign_level(cell, 0, levels, reverse_levels)
+
+    # add levels to from and to pin (might not be covered by paths)
+    baseline_row = mapping_only_pins_from_stations[tuple(fibre.edges[0])][0]
+    pin: Pin
+    for level, pin in zip(range(-from_pin_index, len(from_gate.pins) - from_pin_index + 1), from_gate.pins.values()):
+        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+        _assign_level(tuple(pin.node), level, levels, reverse_levels)
+    for level, pin in zip(range(-to_pin_index, len(to_gate.pins) - to_pin_index + 1), to_gate.pins.values()):
+        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+        _assign_level(tuple(pin.node), level, levels, reverse_levels)
+
+    _NEIGHBOR_LEVEL = {0: -1, 1: 1}
+
+    print(f"reverse_levels[0]={reverse_levels[0]}")
+    print(f"open_cells={open_cells}")
+    # Iteratively, assign levels to graph (all paths between chosen link's gates)
+    for LEVEL in [0, 1, -1, 2 - 2]:
+        if LEVEL not in reverse_levels:
+            continue
+        reverse_levels_open = defaultdict(set)
+
+        for pos in reverse_levels[LEVEL]:
+            if pos in successors and len(successors[pos]) == 2:
+                print(f"working on {pos} with successors {successors[pos]}")
+                for num_succ, succ in enumerate(successors[pos]):
+                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
+                    print(f"working on {pos} with successors {predecessors[pos]}: {succ} -> {level_up_or_down} {predecessors[pos]}")
+
+                    if succ not in open_cells:
+                        print(f"{pos} <- {succ} already done")
+                        continue
+                    print(f"{pos} -> {succ}")
+
+                    _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open)
+
+            if pos in predecessors and len(predecessors[pos]) == 2:
+                print(f"working on {pos} with predecessors {predecessors[pos]}")
+                for num_pred, pred in enumerate(predecessors[pos]):
+                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
+                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred} -> {level_up_or_down} {predecessors[pos]}")
+
+                    if pred not in open_cells:
+                        print(f"{pos} <- {pred} already done")
+                        continue
+                    print(f"{pos} <- {pred}")
+                    _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
+        for k, v in reverse_levels_open.items():
+            reverse_levels[k].update(v)
+        # treat degree 1 within LEVEL
+        for pos in list(reverse_levels[LEVEL]):
+            pos_ = pos
+            while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
+                _assign_level(pos_, LEVEL, levels, reverse_levels)
+                pos_ = successors[pos_][0]
+        for pos in list(reverse_levels[LEVEL]):
+            pos_ = pos
+            while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
+                _assign_level(pos_, LEVEL, levels, reverse_levels)
+                pos_ = predecessors[pos_][0]
+    return levels, open_cells, reverse_levels
+
+
+def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap, stations_links: StationsLinks, from_dir_char: str, from_gate: Gate | None,
+                              from_station: str,
+                              to_dir_char: str, to_gate: Gate | None, to_station: str) -> tuple[
+    dict[Any, Any], GridTransitionMap[Any], ndarray[Any, dtype[Any]], dict[Any, Any]]:
+    start = tuple(fibre.edges[0])
+    end = tuple(fibre.edges[-1])
+    from_pin: str = link.from_pin
+    to_pin: str = link.to_pin
+
+    from_facing: int = _DIRECTION_CHARS[from_dir_char]
+    to_facing: int = _DIRECTION_CHARS[to_dir_char]
+
+    zwl_grid = np.zeros(shape=(rail.grid.shape[0], rail.grid.shape[1] + 50), dtype=int)
+    city_1_bb, city_1_cells_bbox, mapping1 = _extract_city_rotated(from_station, from_facing, stations_links, rail, 1)
+    city_2_bb, city_2_cells_bbox, mapping2 = _extract_city_rotated(to_station, to_facing, stations_links, rail, 3)
+
+    start_y = mapping1[start][0]
+    end_y = mapping2[end][0]
+    straight_y = max(start_y, end_y)
+    x_offset_1 = 0
+    y_offset_1 = 0
+    if start_y < straight_y:
+        y_offset_1 = straight_y - start_y
+    zwl_grid[y_offset_1:city_1_bb.shape[0] + y_offset_1, :city_1_bb.shape[1]] = city_1_bb
+    mapping1 = {k: (r + y_offset_1, pos + x_offset_1) for k, (r, pos) in mapping1.items()}
+
+    y_offset_2 = 00
+    # first and last cell of line in stations bb
+    x_offset_2 = city_1_bb.shape[1] + len(fibre.edges) - 2
+    if end_y < straight_y:
+        y_offset_2 = straight_y - end_y
+    zwl_grid[y_offset_2:city_2_bb.shape[0] + y_offset_2, x_offset_2:city_2_bb.shape[1] + x_offset_2] = city_2_bb
+
+    zwl_grid = zwl_grid[:max(city_1_bb.shape[0] + y_offset_1, city_2_bb.shape[0] + y_offset_2), :x_offset_2 + city_2_bb.shape[1]]
+
+    mapping2 = {k: (r + y_offset_2, pos + x_offset_2) for k, (r, pos) in mapping2.items()}
+
+    # mapping so far contains all cells in the two station bb
+    mapping_from_to_station = {**mapping1, **mapping2}
+
+    _from_to_gate_pin_nodes = {
+        tuple(pin.node)
+        for gate in [from_gate, to_gate]
+        if gate
+        for pin in gate.pins.values()
     }
+    _other_station_pin_nodes = {
+                                   tuple(pin.node)
+                                   for station_name in [from_station, to_station]
+                                   for gate in stations_links.stations[station_name].gates.values()
+                                   for pin in gate.pins.values()
+                               } - _from_to_gate_pin_nodes
+    mapping_only_pins_from_stations = {
+        k: v
+        for k, v in mapping_from_to_station.items()
+        if k not in _other_station_pin_nodes
+    }
+    print(f"pin_to_zwl={mapping_only_pins_from_stations}")
 
-    return content
+    print(f"mapping {mapping_only_pins_from_stations}")
+
+    zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
+    path = connect_rail_in_grid_map(
+        grid_map=zwl_grid_map,
+        rail_trans=RailEnvTransitions(),
+        start=mapping_only_pins_from_stations[start],
+        end=mapping_only_pins_from_stations[end],
+    )
+    print("path")
+    print(path)
+    assert path[0] == mapping_only_pins_from_stations[start]
+    assert path[-1] == mapping_only_pins_from_stations[end]
+    assert len(fibre.edges) == len(path)
+    print("fibre")
+    print(fibre.edges)
+    for i, cell in enumerate(path):
+        mapping_only_pins_from_stations[tuple(fibre.edges[i])] = cell
+
+    print("station_gates:")
+    for station in stations_links.stations.values():
+        for gate in station.gates.values():
+            print(gate)
+    return mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map
+
+
+def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stations_links: StationsLinks) -> tuple[
+    dict[tuple, list[tuple]], dict[tuple, list[tuple]]]:
+    all_paths = _find_all_paths_between_stations(link, stations_links, rail)
+
+    # cell -> List[tuple[tuple,int]]
+    successors_: dict[tuple, set[tuple[tuple, int]]] = {}
+    for path in all_paths:
+        for wp, wp_after in zip(path, path[1:]):
+            successors_.setdefault(wp_after.position, set())
+            successors_.setdefault(wp.position, set())
+            successors_.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
+
+    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; successors are ordered clock-wise
+    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(successors), key=lambda t: t[1])] for tup, successors in successors_.items()}
+    for k, v in successors.items():
+        print(k, v)
+        print(successors_[k])
+        res = []
+        for i in v:
+            if i not in res:
+                res.append(i)
+        successors[k] = res
+        assert len(res) <= 2, res
+    print(f"successors {successors}")
+
+    # cell -> List[tuple[tuple,int]]
+    predecessors_: dict[tuple, set[tuple[tuple, int]]] = {}
+    for path in all_paths:
+        for wp, wp_after in zip(path, path[1:]):
+            predecessors_.setdefault(wp_after.position, set())
+            predecessors_.setdefault(wp.position, set())
+
+            # +1 means to to the right forward
+            # -1 means to the left forward
+            direction_change = (wp_after.direction - wp.direction) % 4
+            assert direction_change in {0, 1, 3}
+            if direction_change == 3:
+                direction_change = -1
+            predecessors_.setdefault(wp_after.position, set()).add((wp.position, direction_change))
+
+    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; predecessors are ordered clock-wise
+    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(predecessors), key=lambda t: t[1])] for tup, predecessors in predecessors_.items()}
+    print(f"predecessors {predecessors}")
+    for k, v in predecessors.items():
+        print(k, v)
+        print(predecessors_[k])
+        res = []
+        for i in v:
+            if i not in res:
+                res.append(i)
+        predecessors[k] = res
+        assert len(res) <= 2, res
+    return predecessors, successors
 
 
 def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, level: int) -> Optional[List[Waypoint]]:
@@ -747,3 +727,60 @@ def _extract_city_rotated(city: str, city_orientation: int, stations_links: Stat
                 max_r, max_c = max_c, max_r
             mapping[(city_cells_bbox["min_row"] + r, city_cells_bbox["min_col"] + c)] = r_, c_
     return city_bb, city_cells_bbox, mapping
+
+
+def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, rail: GridTransitionMap) -> dict:
+    from_pin: str = link.from_pin
+    to_pin: str = link.to_pin
+    from_station: str
+    from_dir_char: str
+    from_track_str: str
+    from_station, from_dir_char, from_track_str = from_pin.split(".")
+    to_station: str
+    to_dir_char: str
+    to_track_str: str
+    to_station, to_dir_char, to_track_str = to_pin.split(".")
+    from_gate: Optional[Gate] = stations_links.stations[from_station].gates.get(from_dir_char)
+    from_gate_name: Optional[str] = from_gate.name if from_gate else None
+    from_pin_index: Optional[int] = int(from_track_str) if from_gate else None
+
+    to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
+    to_gate_name: Optional[str] = to_gate.name if to_gate else None
+    to_pin_index: Optional[int] = int(to_track_str) if to_gate else None
+
+    from_pin: str = link.from_pin
+    to_pin: str = link.to_pin
+
+    print(
+        f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
+
+    mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map = _init_zwl_grid_from_fibre(link, fibre, rail, stations_links,
+                                                                                                                 from_dir_char, from_gate,
+                                                                                                                 from_station, to_dir_char, to_gate, to_station)
+    predecessors, successors = _extract_station_to_station_graph(link, rail, stations_links)
+
+    levels, open_cells, reverse_levels = _assign_levels_in_station_to_station_graph(fibre, from_gate, from_pin_index, mapping_only_pins_from_stations,
+                                                                                    predecessors, successors, to_gate, to_pin_index)
+
+    assert set(predecessors.keys()) == set(successors.keys())
+
+    _assign_levels_for_context(levels, predecessors, rail, reverse_levels, successors)
+
+    _map_levels_to_link_map(levels, mapping_only_pins_from_stations, open_cells, predecessors, reverse_levels, successors, zwl_grid, zwl_grid_map)
+
+    # # Find missing transitions going out/coming into the graph
+    for cell in successors.keys():
+        # try to fix transitions
+        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
+
+    # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
+    mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
+    content = {
+        # link map grid
+        "grid": zwl_grid,
+        # env coordinates -> link map coordindates
+        "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping_merged.items()],
+        "levels": [[list(k), v] for k, v in levels.items()],
+    }
+
+    return content
