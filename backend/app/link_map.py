@@ -35,7 +35,6 @@ def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optio
     #         |--1--------------------|
     #         |  |--1-------------|   |
     #  0 -----|--|--0-------------|---|----
-    print(f"_get_next_level({LEVEL}, {num_succ}, {succ}, {baseline_succ})")
     if LEVEL == 0:
         if baseline_succ == succ:
             return 0
@@ -89,11 +88,9 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                                 trans = zwl_grid_map.grid[(row, c)]
                                 trans = zwl_grid_map.transitions.set_transition(trans, 1, 1, 1)
                                 trans = zwl_grid_map.transitions.set_transition(trans, 3, 3, 1)
-                                print(RailEnvTransitions().print(trans))
                                 assert RailEnvTransitions().is_valid(trans)
                                 zwl_grid_map.grid[(row, c)] = trans
                                 index = int((i / len_mapped) * len(stretch))
-                                print(f"XXX {index} add mapping[{stretch[index]}]={(row, c)}")
                                 # TODO safe?
                                 if stretch[index] not in mapping_only_pins_from_stations:
                                     mapping_only_pins_from_stations[stretch[index]] = (row, c)
@@ -101,27 +98,21 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                         else:
                             pass
                             # TODO when does it happen - ignore?
-                    print(f"LEVEL {LEVEL} found stretch {stretch}: {from_mapped} -> {to_mapped}. {len(stretch) - 2} {len_mapped} ")
 
         # treat degree 2 out of LEVEL
         for pos in reverse_levels[LEVEL]:
             if pos in successors and len(successors[pos]) == 2:
-                print(f"working on {pos} with successors {successors[pos]}")
                 for num_succ, succ in enumerate(successors[pos]):
                     # TODO bad code smell - levels should already be assigned!
                     level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
-                    print(f"working on {pos} with successors {predecessors[pos]}: {succ}")
 
                     if succ not in open_cells:
-                        print(f"{pos} <- {succ} already done")
                         continue
-                    print(f"{pos} -> {succ}")
                     open_cells.discard(pos)
 
                     # one row above or below, same column:
                     new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
                     if succ not in mapping_only_pins_from_stations:
-                        print(f"add mapping {succ} -> {new_zwl_pos}")
                         assert zwl_grid[*new_zwl_pos] == 0
                         mapping_only_pins_from_stations[succ] = new_zwl_pos
                     else:
@@ -129,7 +120,6 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                         pass
 
                     trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
-                    print(RailEnvTransitions().print(trans))
 
                     # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
                     if level_up_or_down == 1:
@@ -143,7 +133,6 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                     zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                    print(f"curve on {new_zwl_pos}")
                     if level_up_or_down == 1:
                         # up: S-E curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
@@ -155,21 +144,16 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                         assert zwl_grid[new_zwl_pos[0]][c] == 0
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
             if pos in predecessors and len(predecessors[pos]) == 2:
-                print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
                     level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
-                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred}")
 
                     if pred not in open_cells:
-                        print(f"{pos} <- {pred} already done")
                         continue
-                    print(f"{pos} <- {pred}")
                     open_cells.discard(pos)
 
                     # one row above or below, same column:
                     new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
                     if pred not in mapping_only_pins_from_stations:
-                        print(f"add mapping {pred} -> {new_zwl_pos}")
                         # TODO why?
                         # assert zwl_grid[*new_zwl_pos] == 0
                         mapping_only_pins_from_stations[pred] = new_zwl_pos
@@ -179,8 +163,6 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
 
                     # TODO merge everything in handle_slips
                     trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
-                    print(RailEnvTransitionsEnum(trans).name)
-                    print(RailEnvTransitions().print(trans))
                     # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
                     if level_up_or_down == 1:
                         # from up to right:
@@ -190,11 +172,9 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                         # from down to right:
                         trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
                         trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
-                    print(RailEnvTransitions().print(trans))
                     zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
 
                     # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                    print(f"curve on {new_zwl_pos}")
                     if level_up_or_down == 1:
                         # up: E-N curve
                         zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
@@ -227,8 +207,6 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
         known_incoming_neighbors = {pair[0] for pair in pairs if pair[1] in successors[cell]}.union(predecessors[cell])
         known_outgoing_neighbors = {pair[1] for pair in pairs if pair[0] in predecessors[cell]}.union(successors[cell])
         assert known_incoming_neighbors.isdisjoint(known_outgoing_neighbors)
-        print(
-            f"tryi00 {cell} successors[cell]={successors[cell]} predecessors[cell]={predecessors[cell]} known_outgoing_neighbors={known_outgoing_neighbors} known_incoming_neighbors={known_incoming_neighbors} new_neighbors={new_neighbors} all_neighbors={all_neighbors} pairs={pairs}")
         assert known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors) == all_neighbors, (
             known_incoming_neighbors.union(known_outgoing_neighbors).union(new_neighbors), all_neighbors)
 
@@ -253,8 +231,6 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
                 cell_predecessors.add((from_cell, dir_entering))
                 cell_successors.add((to_cell, dir_exiting))
         assert new_neighbors == fixed_incoming_new_neighbors.union(fixed_outgoing_new_neighbors)
-        print(cell_predecessors)
-        print(cell_successors)
 
         cell_predecessors = [t[0] for t in sorted(set(cell_predecessors), key=lambda t: t[1])]
         cell_successors = [t[0] for t in sorted(set(cell_successors), key=lambda t: t[1])]
@@ -262,7 +238,6 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
         assert 0 < len(cell_successors) <= 2, cell_successors
 
         if level != 0:
-            print(f"tryi0 {cell} {new_neighbors} {known_incoming_neighbors} {known_outgoing_neighbors}")
             for n in new_neighbors:
                 if level > 0:
                     _assign_level(n, level + 1, levels, reverse_levels)
@@ -271,15 +246,11 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
 
         # cover case one new neighbor first
         else:
-            print(
-                f"tryi1 cell={cell} new_neighbors={new_neighbors} known_incoming_neighbors={known_incoming_neighbors} known_outgoing_neighbors={known_outgoing_neighbors} cell_successors={cell_successors} cell_predecessors={cell_predecessors}")
             for num_succ, succ in enumerate(cell_successors):
                 if succ not in new_neighbors:
                     continue
                 level_up_or_down = _get_next_level(level, num_succ, succ, _get_succ_at_same_level(level, levels, cell, {cell: cell_successors}))
-                print(f"working on {cell} with successors {predecessors[cell]}: {succ} -> {level_up_or_down} {successors[cell]}")
 
-                print(f"{cell} -> {succ}")
 
                 _assign_level(succ, level + level_up_or_down, levels, reverse_levels)
 
@@ -287,9 +258,7 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
                 if pred not in new_neighbors:
                     continue
                 level_up_or_down = - _get_next_level(level, num_pred, pred, _get_succ_at_same_level(level, levels, cell, {cell: cell_predecessors}))
-                print(f"working on {cell} with predecessors {predecessors[cell]}: {pred} -> {level_up_or_down} {predecessors[cell]}")
 
-                print(f"{cell} <- {pred}")
                 _assign_level(pred, level + level_up_or_down, levels, reverse_levels)
 
 
@@ -306,7 +275,6 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
     reverse_levels: dict[int, set[tuple]] = defaultdict(set)
 
     # define level 0:
-    print(f"level 0 for fibre cells {fibre.edges}")
     for cell in (tuple(c) for c in fibre.edges):
         open_cells.discard(cell)
         _assign_level(cell, 0, levels, reverse_levels)
@@ -321,8 +289,6 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
         level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
         _assign_level(tuple(pin.node), level, levels, reverse_levels)
 
-    print(f"reverse_levels[0]={reverse_levels[0]}")
-    print(f"open_cells={open_cells}")
     # Iteratively, assign levels to graph (all paths between chosen link's gates)
     for LEVEL in [0, 1, -1, 2 - 2]:
         if LEVEL not in reverse_levels:
@@ -331,28 +297,20 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
 
         for pos in reverse_levels[LEVEL]:
             if pos in successors and len(successors[pos]) == 2:
-                print(f"working on {pos} with successors {successors[pos]}")
                 for num_succ, succ in enumerate(successors[pos]):
                     level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
-                    print(f"working on {pos} with successors {predecessors[pos]}: {succ} -> {level_up_or_down} {predecessors[pos]}")
 
                     if succ not in open_cells:
-                        print(f"{pos} <- {succ} already done")
                         continue
-                    print(f"{pos} -> {succ}")
 
                     _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open)
 
             if pos in predecessors and len(predecessors[pos]) == 2:
-                print(f"working on {pos} with predecessors {predecessors[pos]}")
                 for num_pred, pred in enumerate(predecessors[pos]):
                     level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
-                    print(f"working on {pos} with predecessors {predecessors[pos]}: {pred} -> {level_up_or_down} {predecessors[pos]}")
 
                     if pred not in open_cells:
-                        print(f"{pos} <- {pred} already done")
                         continue
-                    print(f"{pos} <- {pred}")
                     _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
         for k, v in reverse_levels_open.items():
             reverse_levels[k].update(v)
@@ -426,9 +384,7 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
         for k, v in mapping_from_to_station.items()
         if k not in _other_station_pin_nodes
     }
-    print(f"pin_to_zwl={mapping_only_pins_from_stations}")
 
-    print(f"mapping {mapping_only_pins_from_stations}")
 
     zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
     path = connect_rail_in_grid_map(
@@ -437,20 +393,12 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
         start=mapping_only_pins_from_stations[start],
         end=mapping_only_pins_from_stations[end],
     )
-    print("path")
-    print(path)
     assert path[0] == mapping_only_pins_from_stations[start]
     assert path[-1] == mapping_only_pins_from_stations[end]
     assert len(fibre.edges) == len(path)
-    print("fibre")
-    print(fibre.edges)
     for i, cell in enumerate(path):
         mapping_only_pins_from_stations[tuple(fibre.edges[i])] = cell
 
-    print("station_gates:")
-    for station in stations_links.stations.values():
-        for gate in station.gates.values():
-            print(gate)
     return mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map
 
 
@@ -476,15 +424,12 @@ def _build_adjacency(all_paths: List[List[Waypoint]], forward: bool, label: str)
     # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; ordered clock-wise
     adjacency: Dict[tuple, List[tuple]] = {cell: [t[0] for t in sorted(neighbors, key=lambda t: t[1])] for cell, neighbors in raw.items()}
     for k, v in adjacency.items():
-        print(k, v)
-        print(raw[k])
         res = []
         for i in v:
             if i not in res:
                 res.append(i)
         adjacency[k] = res
         assert len(res) <= 2, res
-    print(f"{label} {adjacency}")
     return adjacency
 
 
@@ -511,7 +456,6 @@ def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap) -> O
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
                            levels: Dict[Tuple, int], random_allowed: bool = True) -> None:
     """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
-    print(f"_handle_slips {cell}")
     if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
         return
 
@@ -530,10 +474,8 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
     above = (mapping[cell][0] - 1, mapping[cell][1])
     below = (mapping[cell][0] + 1, mapping[cell][1])
 
-    print(f"  new_neighbors={new_neighbors} level_to_neighbor={level_to_neighbor}, level={level}")
     trans = zwl_grid_map.grid[*mapping[*cell]]
 
-    print(f"  {RailEnvTransitionsEnum(rail.grid[*cell]).name}")
     cell_left = (cell[0], cell[1] - 1)
     cell_right = (cell[0], cell[1] + 1)
     me = mapping[cell]
@@ -577,7 +519,6 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
         mapping[neighbour_below_to_add] = me_below
         mapping[neighbour_above_to_add] = me_above
     elif len(new_neighbors) == 2 and level == 0:
-        print(new_neighbors)
         assert zwl_grid_map.grid[*above] == 0
         assert zwl_grid_map.grid[*below] == 0
 
@@ -592,7 +533,6 @@ def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[T
 def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any], pairs: set[tuple[tuple[int, int], tuple[int, int]]],
                                             trans: ndarray[Any, dtype[floating[_64Bit]]] | Any, zwl_grid_map: GridTransitionMap[Any]):
     """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid."""
-    print(f"==== _fix_zwl_cell_from_grid_neighbour_pairs {cell}")
     for from_cell, to_cell in pairs:
         if not (is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell])):
             # TODO highlight incomplete cases in frontend
@@ -600,9 +540,6 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
         assert is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell]), (from_cell, cell, to_cell,
                                                                                                                            mapping[from_cell], mapping[cell],
                                                                                                                            mapping[to_cell])
-        print((from_cell, cell, to_cell, mapping[from_cell], mapping[cell], mapping[to_cell]), get_direction(from_cell, cell),
-              get_direction(cell, to_cell), get_direction(mapping[from_cell], mapping[cell]),
-              get_direction(mapping[cell], mapping[to_cell]))
         from_dir = get_direction(mapping[from_cell], mapping[cell])
         tod_dir = get_direction(mapping[cell], mapping[to_cell])
         trans = zwl_grid_map.transitions.set_transition(trans, from_dir, tod_dir, 1)
@@ -610,9 +547,6 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
 
     if RailEnvTransitions().is_valid(trans):
         zwl_grid_map.grid[*mapping[*cell]] = trans
-        print(f" _fix_zwl_cell_from_grid_neighbour_pairs valid -> {RailEnvTransitionsEnum(trans).name}")
-    else:
-        print(f" _fix_zwl_cell_from_grid_neighbour_pairs invalid")
 
 
 def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]) -> Optional[tuple]:
@@ -634,8 +568,6 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
 
     grid_without_stations = rail.grid.copy()
     pin_cells = [pin.node for station in stations_links.stations.values() for gate in station.gates.values() for pin in gate.pins.values()]
-    print("pin_cells")
-    print(pin_cells)
     for station in stations_links.stations.values():
         for cell in station.edges:
             if cell in pin_cells:
@@ -647,8 +579,6 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
     from_pins: List[Tuple] = [(p.node, from_facing_int) for p in stations_links.stations[from_station].gates[from_dir_char].pins.values()]
     to_pins: List[Tuple] = [(p.node, to_facing_int) for p in stations_links.stations[to_station].gates[to_dir_char].pins.values()]
 
-    print(f"from_pins={from_pins}")
-    print(f"to_pins={to_pins}")
     all_paths: List[List[Waypoint]] = []
     for (source_position, source_direction) in from_pins:
         for target_position, target_direction in to_pins:
@@ -656,7 +586,6 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
                                          source_position=source_position,
                                          source_direction=source_direction,
                                          target_position=target_position, k=10)
-            print(f"found {source_position}, {source_direction}, {target_position}, {target_direction}: {paths}")
             all_paths.extend(paths)
     return all_paths
 
@@ -666,8 +595,6 @@ def _extract_city_rotated(city: str, city_orientation: int, stations_links: Stat
     """Extract the bounding-box grid of `city`'s cells, rotate it (and its transitions) so its facing matches `target_facing`, and return the rotated grid together with its bounding box and a cell-to-rotated-cell coordinate mapping."""
     num_rot = target_facing - city_orientation
     num_rot %= 4
-    print(f"city_orientation={city_orientation}, target_facing={target_facing}, num_rot={num_rot}")
-    print(f"rotate={num_rot}")
 
     all_city_cells = list(stations_links.stations[city].edges)
     city_cells_bbox = {
@@ -676,17 +603,11 @@ def _extract_city_rotated(city: str, city_orientation: int, stations_links: Stat
         "min_col": min(cell[1] for cell in all_city_cells),
         "max_col": max(cell[1] for cell in all_city_cells),
     }
-    print("city_cells_bbox")
-    print(city_cells_bbox)
 
     city_bb = rail.grid[city_cells_bbox["min_row"]:city_cells_bbox["max_row"] + 1, city_cells_bbox["min_col"]:city_cells_bbox["max_col"] + 1].copy()
-    # print("city_bb")
-    # print(city_bb)
     height, width = city_bb.shape
 
     city_bb = np.rot90(city_bb, -1 * num_rot)
-    # print("city_bb after rotation")
-    # print(city_bb)
 
     for r in range(city_bb.shape[0]):
         for c in range(city_bb.shape[1]):
@@ -714,14 +635,6 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     """
     Extract a link map (an extract of a rail grid linearized along a link fibre between to stations) and a partial mapping from grid cells to link map cells.
 
-
-    The current approach has several limitations:
-    - L/R and straight/deviating are not always preserved (e.g. the straight crossing might be transformed to a deviating if the linearization is along the deviation)
-    - intertwined fork/joins from the same level will not work as they are mapped to the same next level
-    - some elements cannot be linearized along any transition (e.g. there is no single rail element when a single slip is linearized); we'd have to "make space" to map
-    - some elements are not joined correctly, although they exist (e.g. symmetric switches)
-    - more than two levels left/right of the fibre are not supported.
-
     Steps:
     1. `_init_zwl_grid_from_fibre` - place the two stations' grids and connect the fibre
     2. `_extract_station_to_station_graph` - build the successor/predecessor graph between gates
@@ -729,6 +642,13 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     4. `_assign_levels_for_context` - assign levels to cells bordering the graph
     5. `_map_levels_to_link_map` - write levels' transitions into the link map grid
     6. `_handle_beyond_one_one` - resolve remaining switches/slips per cell
+
+    The current approach has several limitations:
+    - L/R and straight/deviating are not always preserved (e.g. the straight crossing might be transformed to a deviating if the linearization is along the deviation)
+    - intertwined fork/joins from the same level will not work as they are mapped to the same next level
+    - some elements cannot be linearized along any transition (e.g. there is no single rail element when a single slip is linearized); we'd have to "make space" to map
+    - some elements are not joined correctly, although they exist (e.g. symmetric switches)
+    - more than two levels left/right of the fibre are not supported.
 
 
     Parameters
@@ -753,18 +673,14 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     to_track_str: str
     to_station, to_dir_char, to_track_str = to_pin.split(".")
     from_gate: Optional[Gate] = stations_links.stations[from_station].gates.get(from_dir_char)
-    from_gate_name: Optional[str] = from_gate.name if from_gate else None
     from_pin_index: Optional[int] = int(from_track_str) if from_gate else None
 
     to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
-    to_gate_name: Optional[str] = to_gate.name if to_gate else None
     to_pin_index: Optional[int] = int(to_track_str) if to_gate else None
 
     from_pin: str = link.from_pin
     to_pin: str = link.to_pin
 
-    print(
-        f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
 
     mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map = _init_zwl_grid_from_fibre(link, fibre, rail, stations_links,
                                                                                                                  from_dir_char, from_gate,
@@ -780,7 +696,7 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
 
     _map_levels_to_link_map(levels, mapping_only_pins_from_stations, open_cells, predecessors, reverse_levels, successors, zwl_grid, zwl_grid_map)
 
-    # # Find missing transitions going out/coming into the graph
+    # Find missing transitions going out/coming into the graph
     for cell in successors.keys():
         # try to fix transitions
         _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, random_allowed=True)
