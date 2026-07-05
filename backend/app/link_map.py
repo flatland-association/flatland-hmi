@@ -730,6 +730,29 @@ def _extract_city_rotated(city: str, city_orientation: int, stations_links: Stat
 
 
 def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, rail: GridTransitionMap) -> dict:
+    """
+    Extract a link map (an extract of a rail grid linearized along a link fibre between to stations) and a partial mapping from grid cells to link map cells.
+
+
+    The current approach has several limitations:
+    - L/R and straight/deviating are not always preserved (e.g. the straight crossing might be transformed to a deviating if the linearization is along the deviation)
+    - intertwined fork/joins from the same level will not work as they are mapped to the same next level
+    - some elements cannot be linearized along any transition (e.g. there is no single rail element when a single slip is linearized); we'd have to "make space" to map
+    - some elements are not joined correctly, although they exist (e.g. symmetric switches)
+    - more than two levels left/right of the fibre are not supported.
+
+
+    Parameters
+    ----------
+    stations_links
+    link
+    fibre
+    rail
+
+    Returns
+    -------
+
+    """
     from_pin: str = link.from_pin
     to_pin: str = link.to_pin
     from_station: str
@@ -773,7 +796,6 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
         # try to fix transitions
         _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, reverse_levels, random_allowed=True)
 
-    # TODO document behaviour where this approach does not reflect the grid faithfully -> add sanity check, that the graph remains the same and fail/inform when the link map does not reflect the grid faithfully?
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
     content = {
         # link map grid
