@@ -504,7 +504,7 @@ def get_shortest(from_cell: Tuple, to_cell: Tuple, rail: GridTransitionMap, leve
 
 
 def _handle_beyond_one_one(cell: Tuple, rail: GridTransitionMap, mapping: Dict[Tuple, Tuple], zwl_grid_map: GridTransitionMap,
-                           levels: Dict[Tuple, int], reverse_levels: Dict[int, set], random_allowed: bool = True):
+                           levels: Dict[Tuple, int], reverse_levels: Dict[int, set], random_allowed: bool = True) -> None:
     print(f"_handle_slips {cell}")
     if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
         return
@@ -612,7 +612,7 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
         print(f" _fix_zwl_cell_from_grid_neighbour_pairs invalid")
 
 
-def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]):
+def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]) -> Optional[tuple]:
     baseline_succ = None
     for succ in successors[pos]:
         if levels.get(succ, None) == LEVEL:
