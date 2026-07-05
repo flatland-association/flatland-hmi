@@ -494,8 +494,7 @@ def _map_one_new_neighbor(cell: IntVector2D, new_neighbors: Set, level: int, lev
         elif zwl_grid_map.grid[*below] == 0:
             chosen = below
         else:
-            # TODO add warning instead?
-            raise
+            raise RuntimeError(f"No free ZWL row above {above} or below {below} to map the new neighbor of {cell}.")
         assert zwl_grid_map.grid[*chosen] == 0
         n = list(new_neighbors)[0]
         assert n not in mapping
