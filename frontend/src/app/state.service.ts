@@ -28,9 +28,9 @@ export class StateService {
     this.history.next([])
     this.plans.next([])
     this.stations.next({
-      station_edges: {},
-      station_gates: {},
-      station_stopping_points: {},
+      stationEdges: {},
+      stationGates: {},
+      stationStoppingPoints: {},
     })
     this.selectedLink.next('0')
   }

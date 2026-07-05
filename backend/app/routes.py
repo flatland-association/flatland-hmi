@@ -105,9 +105,9 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
         })
 
     return {
-        "station_edges": station_edges,
-        "station_stopping_points": station_stopping_points,
-        "station_gates": station_gates,
+        "stationEdges": station_edges,
+        "stationStoppingPoints": station_stopping_points,
+        "stationGates": station_gates,
         "links": links_payload,
     }
 

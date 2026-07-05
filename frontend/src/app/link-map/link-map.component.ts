@@ -67,13 +67,13 @@ export class LinkMapComponent implements OnInit {
       this.mapping.get(r)?.get(c) ?? null
 
     return {
-      station_edges: Object.fromEntries(
-        Object.entries(stations.station_edges).map(([k, cells]) => [
+      stationEdges: Object.fromEntries(
+        Object.entries(stations.stationEdges).map(([k, cells]) => [
           k, cells.map(mapCoord).filter((c): c is [number, number] => c !== null),
         ])
       ),
-      station_gates: Object.fromEntries(
-        Object.entries(stations.station_gates).map(([k, gates]) => [
+      stationGates: Object.fromEntries(
+        Object.entries(stations.stationGates).map(([k, gates]) => [
           k,
           Object.fromEntries(
             Object.entries(gates).map(([gk, gate]) => [
@@ -93,8 +93,8 @@ export class LinkMapComponent implements OnInit {
           ),
         ])
       ),
-      station_stopping_points: Object.fromEntries(
-        Object.entries(stations.station_stopping_points).map(([k, stationList]) => [
+      stationStoppingPoints: Object.fromEntries(
+        Object.entries(stations.stationStoppingPoints).map(([k, stationList]) => [
           k,
           stationList
             .map(stp => {

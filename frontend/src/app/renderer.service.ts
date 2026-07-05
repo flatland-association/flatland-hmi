@@ -133,26 +133,26 @@ export class RendererService {
   }
 
   public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = {
-    station_edges: {},
-    station_gates: {},
-    station_stopping_points: {}
+    stationEdges: {},
+    stationGates: {},
+    stationStoppingPoints: {}
   }, showBackground = true) {
 
     const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackName: string }>()
-    for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
+    for (const stoppingPoints of Object.values(stations.stationStoppingPoints)) {
       stoppingPoints.forEach(stp => {
         stoppingPointCoords.set(stp.node, {rotationClass: 'rotation_270', trackName: stp.trackName})
       })
     }
 
     const stationEdgeCoords = new Map<number, Set<number>>()
-    for (const [r, c] of Object.values(stations.station_edges).flat()) {
+    for (const [r, c] of Object.values(stations.stationEdges).flat()) {
       if (!stationEdgeCoords.has(r)) stationEdgeCoords.set(r, new Set())
       stationEdgeCoords.get(r)!.add(c)
     }
 
     const pinLabelCoords = new CoordMap<string>()
-    for (const gates of Object.values(stations.station_gates)) {
+    for (const gates of Object.values(stations.stationGates)) {
       for (const gate of Object.values(gates)) {
         for (const p of Object.values(gate.pins)) {
           pinLabelCoords.set(p.node, p.name)
