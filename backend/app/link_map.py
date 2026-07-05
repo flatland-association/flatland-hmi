@@ -251,7 +251,6 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
                     continue
                 level_up_or_down = _get_next_level(level, num_succ, succ, _get_succ_at_same_level(level, levels, cell, {cell: cell_successors}))
 
-
                 _assign_level(succ, level + level_up_or_down, levels, reverse_levels)
 
             for num_pred, pred in enumerate(cell_predecessors):
@@ -333,6 +332,7 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
                               to_dir_char: str, to_gate: Gate | None, to_station: str) -> tuple[
     dict[Any, Any], GridTransitionMap[Any], ndarray[Any, dtype[Any]], dict[Any, Any]]:
     """Build the initial ZWL grid by placing the rotated bounding boxes of the two stations side by side and connecting their pins along the fibre; returns the full station-cell mapping, the pin-only mapping, the raw grid, and its `GridTransitionMap` wrapper."""
+
     start = tuple(fibre.edges[0])
     end = tuple(fibre.edges[-1])
 
@@ -385,7 +385,6 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
         if k not in _other_station_pin_nodes
     }
 
-
     zwl_grid_map = GridTransitionMap(height=zwl_grid.shape[0], width=zwl_grid.shape[1], transitions=RailEnvTransitions(), grid=zwl_grid)
     path = connect_rail_in_grid_map(
         grid_map=zwl_grid_map,
@@ -410,15 +409,15 @@ def _build_adjacency(all_paths: List[List[Waypoint]], forward: bool, label: str)
         for wp, wp_after in zip(path, path[1:]):
             raw.setdefault(wp_after.position, set())
             raw.setdefault(wp.position, set())
+            # +1 means to the right forward
+            # -1 means to the left forward
+            direction_change = (wp_after.direction - wp.direction) % 4
+            assert direction_change in {0, 1, 3}
+            if direction_change == 3:
+                direction_change = -1
             if forward:
-                raw.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
+                raw.setdefault(wp.position, set()).add((wp_after.position, direction_change))
             else:
-                # +1 means to the right forward
-                # -1 means to the left forward
-                direction_change = (wp_after.direction - wp.direction) % 4
-                assert direction_change in {0, 1, 3}
-                if direction_change == 3:
-                    direction_change = -1
                 raw.setdefault(wp_after.position, set()).add((wp.position, direction_change))
 
     # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; ordered clock-wise
@@ -677,10 +676,6 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
 
     to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
     to_pin_index: Optional[int] = int(to_track_str) if to_gate else None
-
-    from_pin: str = link.from_pin
-    to_pin: str = link.to_pin
-
 
     mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map = _init_zwl_grid_from_fibre(link, fibre, rail, stations_links,
                                                                                                                  from_dir_char, from_gate,
