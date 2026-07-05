@@ -1,5 +1,5 @@
 import {HttpClient, HttpErrorResponse} from '@angular/common/http'
-import { Injectable } from '@angular/core'
+import {Injectable} from '@angular/core'
 import {catchError, firstValueFrom, Observable, throwError} from 'rxjs'
 import {ErrorMessageService} from './features/error-message/error-message.service'
 
@@ -11,6 +11,7 @@ export interface LinkMap {
   grid: Transitions
   mapping: Array<[[number, number], [number, number]]>
   levels: Array<[[number, number], number]>
+  incompleteCells: Array<[[number, number], string]>
 }
 
 export interface Env {

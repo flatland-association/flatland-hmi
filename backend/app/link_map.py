@@ -528,8 +528,8 @@ def _map_two_new_neighbors_at_level_zero(cell: IntVector2D, new_neighbors: Set, 
 
 
 def _handle_beyond_one_one(cell: IntVector2D, rail: GridTransitionMap, mapping: Dict[IntVector2D, IntVector2D], zwl_grid_map: GridTransitionMap,
-                           levels: Dict[IntVector2D, int], random_allowed: bool = True) -> None:
-    """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels."""
+                           levels: Dict[IntVector2D, int], incomplete_cells: Dict[IntVector2D, str], random_allowed: bool = True) -> None:
+    """Complete the ZWL mapping for a cell that is not a simple 1-in-1-out crossing (e.g. a switch or slip) by mapping its still-unmapped grid neighbors to the free cell(s) above/below/at the same row, based on their assigned levels; cells whose transition cannot be fully derived are recorded in `incomplete_cells`."""
     if RailEnvTransitionsEnum.is_one_one(rail.grid[cell]):
         return
 
@@ -556,15 +556,20 @@ def _handle_beyond_one_one(cell: IntVector2D, rail: GridTransitionMap, mapping: 
     elif len(new_neighbors) == 2 and level == 0:
         _map_two_new_neighbors_at_level_zero(cell, new_neighbors, mapping, zwl_grid_map)
 
-    _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map)
+    _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map, incomplete_cells)
 
 
 def _fix_zwl_cell_from_grid_neighbour_pairs(cell: IntVector2D, mapping: Dict, pairs: Set[Tuple[IntVector2D, IntVector2D]],
-                                            trans: ndarray, zwl_grid_map: GridTransitionMap):
-    """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid."""
+                                            trans: ndarray, zwl_grid_map: GridTransitionMap, incomplete_cells: Dict[IntVector2D, str]):
+    """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid; neighbor pairs that cannot be mapped are recorded in `incomplete_cells` with a root-cause message instead."""
     for from_cell, to_cell in pairs:
         if not (is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell])):
-            # TODO highlight incomplete cases in frontend
+            reason = (
+                f"Grid neighbour pair {from_cell} -> {cell} -> {to_cell} does not map to adjacent ZWL cells "
+                f"({mapping[from_cell]} -> {mapping[cell]} -> {mapping[to_cell]})."
+            )
+            zwl_cell = mapping[cell]
+            incomplete_cells[zwl_cell] = f"{incomplete_cells[zwl_cell]}; {reason}" if zwl_cell in incomplete_cells else reason
             continue
         assert is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell]), (from_cell, cell, to_cell,
                                                                                                                            mapping[from_cell], mapping[cell],
@@ -724,9 +729,10 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     _map_levels_to_link_map(levels, mapping_only_pins_from_stations, open_cells, predecessors, reverse_levels, successors, zwl_grid, zwl_grid_map)
 
     # Find missing transitions going out/coming into the graph
+    incomplete_cells: Dict[IntVector2D, str] = {}
     for cell in successors.keys():
         # try to fix transitions
-        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, random_allowed=True)
+        _handle_beyond_one_one(cell, rail, mapping_only_pins_from_stations, zwl_grid_map, levels, incomplete_cells, random_allowed=True)
 
     mapping_merged = {**mapping_only_pins_from_stations, **mapping_from_to_station}
     content = {
@@ -735,6 +741,8 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
         # env coordinates -> link map coordindates
         "mapping": [[[r, pos], list(v)] for (r, pos), v in mapping_merged.items()],
         "levels": [[list(k), v] for k, v in levels.items()],
+        # link map coordinates -> root-cause message, for cells whose transition could not be fully derived
+        "incompleteCells": [[list(k), v] for k, v in incomplete_cells.items()],
     }
 
     return content

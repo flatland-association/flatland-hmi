@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core'
-import { Agent, StationsResponse, Transitions } from './data.service'
+import {Injectable} from '@angular/core'
+import {Agent, StationsResponse, Transitions} from './data.service'
 
 export interface MapCell {
   ground: string
@@ -9,6 +9,7 @@ export interface MapCell {
   pin?: boolean
   pinLabel?: string
   trackName?: string
+  incompleteReason?: string
 }
 
 const BACKGROUND_CLASSES_WEIGHT = {
@@ -136,7 +137,12 @@ export class RendererService {
     stationEdges: {},
     stationGates: {},
     stationStoppingPoints: {}
-  }, showBackground = true) {
+  }, showBackground = true, incompleteCells: Array<[[number, number], string]> = []) {
+
+    const incompleteCellCoords = new CoordMap<string>()
+    for (const [[r, c], reason] of incompleteCells) {
+      incompleteCellCoords.set([r, c], reason)
+    }
 
     const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackName: string }>()
     for (const stoppingPoints of Object.values(stations.stationStoppingPoints)) {
@@ -166,7 +172,11 @@ export class RendererService {
       const mapRow: Array<MapCell> = []
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
-        const ground = (showBackground || cell !== 0) ? this.getMapClasses(cell) : ''
+        const incompleteReason = incompleteCellCoords.get([i, j])
+        let ground = (showBackground || cell !== 0) ? this.getMapClasses(cell) : ''
+        if (incompleteReason !== undefined) {
+          ground = `${ground} transition_invalid`.trim()
+        }
         const stoppingPoint = stoppingPointCoords.get([i, j])
 
         // Bahnhof.svg
@@ -180,7 +190,7 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackName})
+        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackName, incompleteReason})
       }
       mapClasses.push(mapRow)
     }
