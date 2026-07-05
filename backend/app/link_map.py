@@ -5,7 +5,6 @@ import numpy as np
 from numpy import dtype, floating, ndarray
 from numpy._typing import _64Bit
 
-from core.grid.grid_utils import Vector2D, IntVector2D
 from flatland.core.grid.grid4_utils import get_direction, is_neighbor_cell, mirror, direction_to_point
 from flatland.core.transition_map import GridTransitionMap
 from flatland.envs.grid.rail_env_grid import RailEnvTransitions
@@ -17,7 +16,6 @@ from flatland.envs.stations_links import Fibre, Gate, Link, Pin, StationsLinks
 
 _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
-
 
 
 def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
