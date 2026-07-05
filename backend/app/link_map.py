@@ -50,33 +50,25 @@ def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optio
 def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, rail: GridTransitionMap) -> dict:
     start = tuple(fibre.edges[0])
     end = tuple(fibre.edges[-1])
-    from_pin = next((f.from_pin for f in link.fibres if tuple(f.edges[0]) == start), None)
-    to_pin = next((f.to_pin for f in link.fibres if tuple(f.edges[-1]) == end), None)
-    from_station: str = link.from_station
-    from_facing: int = _DIRECTION_CHARS[link.from_facing]
-    to_station: str = link.to_station
-    to_facing: int = _DIRECTION_CHARS[link.to_facing]
-    from_gate: Optional[Gate] = next(
-        (gate for gate in stations_links.stations[from_station].gates.values()
-         if any(tuple(pin.node) == start for pin in gate.pins.values())),
-        None
-    )
+    from_pin: str = link.from_pin
+    to_pin: str = link.to_pin
+    from_station: str
+    from_dir_char: str
+    from_track_str: str
+    from_station, from_dir_char, from_track_str = from_pin.split(".")
+    to_station: str
+    to_dir_char: str
+    to_track_str: str
+    to_station, to_dir_char, to_track_str = to_pin.split(".")
+    from_facing: int = _DIRECTION_CHARS[from_dir_char]
+    to_facing: int = _DIRECTION_CHARS[to_dir_char]
+    from_gate: Optional[Gate] = stations_links.stations[from_station].gates.get(from_dir_char)
     from_gate_name: Optional[str] = from_gate.name if from_gate else None
-    from_pin_index: Optional[int] = next(
-        (i for i, pin in enumerate(from_gate.pins.values()) if tuple(pin.node) == start),
-        None
-    ) if from_gate else None
+    from_pin_index: Optional[int] = int(from_track_str) if from_gate else None
 
-    to_gate: Optional[Gate] = next(
-        (gate for gate in stations_links.stations[to_station].gates.values()
-         if any(tuple(pin.node) == end for pin in gate.pins.values())),
-        None
-    )
+    to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
     to_gate_name: Optional[str] = to_gate.name if to_gate else None
-    to_pin_index: Optional[int] = next(
-        (i for i, pin in enumerate(to_gate.pins.values()) if tuple(pin.node) == end),
-        None
-    ) if to_gate else None
+    to_pin_index: Optional[int] = int(to_track_str) if to_gate else None
 
     print(
         f"from_pin={from_pin},from_gate={from_gate_name}, from_pin_index={from_pin_index}, to_pin={to_pin},to_gate={to_gate_name}, to_pin_index={to_pin_index}")
@@ -668,6 +660,11 @@ def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, su
 
 
 def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, rail: GridTransitionMap) -> List[List[Waypoint]]:
+    from_station, from_dir_char, _ = link.from_pin.split(".")
+    to_station, to_dir_char, _ = link.to_pin.split(".")
+    from_facing_int: int = _DIRECTION_CHARS[from_dir_char]
+    to_facing_int: int = _DIRECTION_CHARS[to_dir_char]
+
     grid_without_stations = rail.grid.copy()
     pin_cells = [pin.node for station in stations_links.stations.values() for gate in station.gates.values() for pin in gate.pins.values()]
     print("pin_cells")
@@ -680,10 +677,8 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
     grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
                                                   grid=grid_without_stations)
 
-    from_pins: List[Tuple] = [(p.node, _DIRECTION_CHARS[link.from_facing]) for p in
-                              stations_links.stations[link.from_station].gates[link.from_facing].pins.values()]
-    to_pins: List[Tuple] = [(p.node, _DIRECTION_CHARS[link.to_facing]) for p in
-                            stations_links.stations[link.to_station].gates[link.to_facing].pins.values()]
+    from_pins: List[Tuple] = [(p.node, from_facing_int) for p in stations_links.stations[from_station].gates[from_dir_char].pins.values()]
+    to_pins: List[Tuple] = [(p.node, to_facing_int) for p in stations_links.stations[to_station].gates[to_dir_char].pins.values()]
 
     print(f"from_pins={from_pins}")
     print(f"to_pins={to_pins}")

@@ -79,7 +79,7 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
 
         stp: StoppingPoint
         station_stopping_points[station_name] = [
-            {"node": stp.node, "trackNumber": stp.track_number, "trackName": stp.name}
+            {"node": stp.node, "trackName": stp.name}
             for stp in station.stopping_points
         ]
 
@@ -99,16 +99,9 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
     for link in stations_links.links:
         fibre: Fibre
         links_payload.append({
-            "fromStation": link.from_station,
-            "fromGate": link.from_gate,
-            "fromFacing": link.from_facing,
-            "toStation": link.to_station,
-            "toGate": link.to_gate,
-            "toFacing": link.to_facing,
-            "fibres": [
-                {"fromPin": fibre.from_pin, "toPin": fibre.to_pin, "cells": fibre.edges}
-                for fibre in link.fibres
-            ],
+            "fromPin": link.from_pin,
+            "toPin": link.to_pin,
+            "fibres": [{"cells": fibre.edges} for fibre in link.fibres],
         })
 
     return {
@@ -306,14 +299,16 @@ async def get_trajectory_agents(trajectory_id: str):
 
 
 def _enrich_line(link: dict, link_id: int) -> dict:
+    from_station, from_dir, _ = link["fromPin"].split(".")
+    to_station, to_dir, _ = link["toPin"].split(".")
     return {
-        "cityFrom": link["fromStation"],
-        "cityTo": link["toStation"],
-        "fromGate": link["fromGate"],
-        "toGate": link["toGate"],
-        "label": f"Link {link_id} ({link['fromGate']} → {link['toGate']})",
-        "startStationName": f"Station {link['fromStation']}",
-        "endStationName": f"Station {link['toStation']}",
+        "cityFrom": from_station,
+        "cityTo": to_station,
+        "fromGate": f"{from_station}.{from_dir}",
+        "toGate": f"{to_station}.{to_dir}",
+        "label": f"Link {link_id} ({link['fromPin']} → {link['toPin']})",
+        "startStationName": f"Station {from_station}",
+        "endStationName": f"Station {to_station}",
     }
 
 

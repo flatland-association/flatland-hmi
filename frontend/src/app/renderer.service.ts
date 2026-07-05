@@ -8,7 +8,6 @@ export interface MapCell {
   station?: boolean
   pin?: boolean
   pinLabel?: string
-  trackNumber?: number
   trackName?: string
 }
 
@@ -139,10 +138,10 @@ export class RendererService {
     station_stopping_points: {}
   }, showBackground = true) {
 
-    const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackNumber: number; trackName: string }>()
+    const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackName: string }>()
     for (const stoppingPoints of Object.values(stations.station_stopping_points)) {
       stoppingPoints.forEach(stp => {
-        stoppingPointCoords.set(stp.node, {rotationClass: 'rotation_270', trackNumber: stp.trackNumber, trackName: stp.trackName})
+        stoppingPointCoords.set(stp.node, {rotationClass: 'rotation_270', trackName: stp.trackName})
       })
     }
 
@@ -172,7 +171,6 @@ export class RendererService {
 
         // Bahnhof.svg
         const stationBuilding = stoppingPoint?.rotationClass
-        const trackNumber = stoppingPoint?.trackNumber
         const trackName = stoppingPoint?.trackName
 
         const pinLabel = pinLabelCoords.get([i, j])
@@ -182,7 +180,7 @@ export class RendererService {
           station = undefined
         }
 
-        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackNumber, trackName})
+        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackName})
       }
       mapClasses.push(mapRow)
     }

@@ -26,7 +26,7 @@ export interface PolicyOption {
 export interface StationsResponse {
   station_edges: Record<string, [number, number][]>
   station_gates: Record<string, Record<string, { name: string; pins: Record<string, { name: string; node: [number, number] }> }>>
-  station_stopping_points: Record<string, Array<{ node: [number, number]; trackNumber: number; trackName: string }>>
+  station_stopping_points: Record<string, Array<{ node: [number, number]; trackName: string }>>
 }
 
 export interface Link {

@@ -3139,7 +3139,7 @@ def test_link_map(seed, i, fibre_cells, expected):
     print(stations_links)
 
     link = stations_links.links[i]
-    actual = extract_link_map(stations_links, link, Fibre("", "", fibre_cells), env.rail)
+    actual = extract_link_map(stations_links, link, Fibre(edges=fibre_cells), env.rail)
     assert list(actual.keys()) == list(expected.keys())
     for k in actual.keys():
         if k == 'grid':
@@ -3174,7 +3174,7 @@ def _gen_material():
             print(fibre)
             fibre_cells = fibre.edges
 
-            link_map = extract_link_map(stations_links, current_link, Fibre("", "", fibre_cells), env.rail)
+            link_map = extract_link_map(stations_links, current_link, Fibre(edges=fibre_cells), env.rail)
             print(link_map)
 
             material.append((seed, i, fibre_cells, link_map))
