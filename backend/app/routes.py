@@ -273,7 +273,7 @@ async def get_trajectory_transitions(trajectory_id: str):
     return _build_transitions_content(env)
 
 
-@router.get("/trajectories/{trajectory_id}/zwl/{link_id}")
+@router.get("/trajectories/{trajectory_id}/link/{link_id}/map")
 async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()

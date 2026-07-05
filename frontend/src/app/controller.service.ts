@@ -70,7 +70,7 @@ export class ControllerService {
   public selectLink(line: string): void {
     this.stateService.selectLink(line)
     if (!this.currentTrajectoryId) return
-    this.dataService.getTrajectoryZWLforLink(this.currentTrajectoryId, line)
+    this.dataService.getTrajectoryLinkMap(this.currentTrajectoryId, line)
       .then(t => this.stateService.setLinkMap(t))
   }
 

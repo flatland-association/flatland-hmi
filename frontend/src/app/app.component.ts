@@ -13,11 +13,11 @@ import {AuthService} from './features/auth/auth.service'
 import {ErrorMessage, ErrorMessageService} from './features/error-message/error-message.service'
 import {MareyComponent} from './marey/marey.component';
 import {MapComponent} from './map/map.component';
-import {ZwlComponent} from './zwl/zwl.component';
+import {LinkMapComponent} from './link-map/link-map.component';
 
 @Component({
   selector: 'app-root',
-  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, ZwlComponent, ModalComponent,], //, BreadcrumbsComponent],
+  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, LinkMapComponent, ModalComponent,], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

@@ -95,9 +95,9 @@ export class DataService {
     )
   }
 
-  public getTrajectoryZWLforLink(trajectoryId: string, linkId: string) {
+  public getTrajectoryLinkMap(trajectoryId: string, linkId: string) {
     return this.fetch(
-      this.http.get<LinkMap>(`${BACKEND_URL}/trajectories/${trajectoryId}/zwl/${linkId}`),
+      this.http.get<LinkMap>(`${BACKEND_URL}/trajectories/${trajectoryId}/link/${linkId}/map`),
     )
   }
 

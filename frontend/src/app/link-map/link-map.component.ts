@@ -12,12 +12,12 @@ interface SelectOption {
 }
 
 @Component({
-  selector: 'app-zwl',
+  selector: 'app-link-map',
   imports: [FormsModule],
-  templateUrl: './zwl.component.html',
-  styleUrl: './zwl.component.scss',
+  templateUrl: './link-map.component.html',
+  styleUrl: './link-map.component.scss',
 })
-export class ZwlComponent implements OnInit {
+export class LinkMapComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
 
