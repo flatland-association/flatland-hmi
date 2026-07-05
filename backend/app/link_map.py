@@ -27,14 +27,14 @@ def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_lev
     reverse_levels[level].add(cell)
 
 
-def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optional[Tuple]) -> int:
+def _get_next_level(level: int, num_succ: int, succ: Tuple, baseline_succ: Optional[Tuple]) -> int:
     """Decide the level offset (-1, 0, or +1) a branch at a switch should move to, based on whether `succ` is the baseline branch and its clockwise position among its siblings."""
     # N.B. left/right is preserved only for 0->1 / 0->-1, for other levels it's always away.
     # N.B. if we have isolated loops, this approach does not well defined:
     #         |--1--------------------|
     #         |  |--1-------------|   |
     #  0 -----|--|--0-------------|---|----
-    if LEVEL == 0:
+    if level == 0:
         if baseline_succ == succ:
             return 0
         # preserve left/right away from baseline fibre
@@ -43,7 +43,7 @@ def _get_next_level(LEVEL: int, num_succ: int, succ: Tuple, baseline_succ: Optio
     else:
         if num_succ == 1:
             # always branch away from baseline fibre
-            return 1 if LEVEL > 0 else -1
+            return 1 if level > 0 else -1
         else:
             return 0
 
@@ -54,22 +54,22 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
     """Walk the level-assigned graph level by level, writing the corresponding curve/straight transitions into `zwl_grid`/`zwl_grid_map` and extending `mapping_only_pins_from_stations` with the newly placed cells."""
     # Based on levels, map to link map
     # TODO fix -2/2 etc.why does it fail?
-    for LEVEL in [0, 1, -1]:  # , 2 - 2]:
-        if LEVEL not in reverse_levels:
+    for level in [0, 1, -1]:  # , 2 - 2]:
+        if level not in reverse_levels:
             continue
 
-        if LEVEL != 0:
-            for pos in reverse_levels[LEVEL]:
+        if level != 0:
+            for pos in reverse_levels[level]:
                 #  within the station-station graph, everything is forward reachable, so no need to do same backwards
                 if pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations:
                     # follow same level ahead:
                     pos_ = pos
                     stretch = []
-                    while pos_ in successors and levels.get(pos_) == LEVEL:
+                    while pos_ in successors and levels.get(pos_) == level:
                         stretch.append(pos_)
                         next_pos_ = None
                         for s in successors[pos_]:
-                            if levels.get(pos_, None) == LEVEL:
+                            if levels.get(pos_, None) == level:
                                 next_pos_ = s
                                 break
                         pos_ = next_pos_
@@ -97,16 +97,15 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                             pass
                             # TODO when does it happen - ignore?
 
-        # treat degree 2 out of LEVEL
-        for pos in reverse_levels[LEVEL]:
+        # treat degree 2 out of level
+        for pos in reverse_levels[level]:
             if pos in successors and len(successors[pos]) == 2:
                 for num_succ, succ in enumerate(successors[pos]):
-                    # TODO bad code smell - levels should already be assigned!
-                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
-
                     if succ not in open_cells:
                         continue
-                    open_cells.discard(pos)
+                    open_cells.discard(succ)
+
+                    level_up_or_down = levels[succ] - level
 
                     # one row above or below, same column:
                     new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
@@ -143,11 +142,11 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
                         zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
             if pos in predecessors and len(predecessors[pos]) == 2:
                 for num_pred, pred in enumerate(predecessors[pos]):
-                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
-
                     if pred not in open_cells:
                         continue
-                    open_cells.discard(pos)
+                    open_cells.discard(pred)
+
+                    level_up_or_down = levels[pred] - level
 
                     # one row above or below, same column:
                     new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
@@ -289,15 +288,15 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
             _assign_level(tuple(pin.node), level, levels, reverse_levels)
 
     # Iteratively, assign levels to graph (all paths between chosen link's gates)
-    for LEVEL in [0, 1, -1, 2 - 2]:
-        if LEVEL not in reverse_levels:
+    for level in [0, 1, -1, 2 - 2]:
+        if level not in reverse_levels:
             continue
         reverse_levels_open = defaultdict(set)
 
-        for pos in reverse_levels[LEVEL]:
+        for pos in reverse_levels[level]:
             if pos in successors and len(successors[pos]) == 2:
                 for num_succ, succ in enumerate(successors[pos]):
-                    level_up_or_down = _get_next_level(LEVEL, num_succ, succ, _get_succ_at_same_level(LEVEL, levels, pos, successors))
+                    level_up_or_down = _get_next_level(level, num_succ, succ, _get_succ_at_same_level(level, levels, pos, successors))
 
                     if succ not in open_cells:
                         continue
@@ -306,23 +305,23 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
 
             if pos in predecessors and len(predecessors[pos]) == 2:
                 for num_pred, pred in enumerate(predecessors[pos]):
-                    level_up_or_down = - _get_next_level(LEVEL, num_pred, pred, _get_succ_at_same_level(LEVEL, levels, pos, predecessors))
+                    level_up_or_down = - _get_next_level(level, num_pred, pred, _get_succ_at_same_level(level, levels, pos, predecessors))
 
                     if pred not in open_cells:
                         continue
                     _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
         for k, v in reverse_levels_open.items():
             reverse_levels[k].update(v)
-        # treat degree 1 within LEVEL
-        for pos in list(reverse_levels[LEVEL]):
+        # treat degree 1 within level
+        for pos in list(reverse_levels[level]):
             pos_ = pos
-            while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                _assign_level(pos_, LEVEL, levels, reverse_levels)
+            while pos_ in successors and len(successors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == level):
+                _assign_level(pos_, level, levels, reverse_levels)
                 pos_ = successors[pos_][0]
-        for pos in list(reverse_levels[LEVEL]):
+        for pos in list(reverse_levels[level]):
             pos_ = pos
-            while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == LEVEL):
-                _assign_level(pos_, LEVEL, levels, reverse_levels)
+            while pos_ in predecessors and len(predecessors[pos_]) == 1 and (pos_ not in levels or levels.get(pos_, None) == level):
+                _assign_level(pos_, level, levels, reverse_levels)
                 pos_ = predecessors[pos_][0]
     return levels, open_cells, reverse_levels
 
@@ -537,11 +536,11 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: tuple, mapping: dict[Any, Any]
         zwl_grid_map.grid[*mapping[*cell]] = trans
 
 
-def _get_succ_at_same_level(LEVEL: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]) -> Optional[tuple]:
-    """Return whichever successor of `pos` is already assigned to `LEVEL` (the baseline branch), or `None` if none is."""
+def _get_succ_at_same_level(level: int, levels: dict[tuple, int], pos: tuple, successors: dict[tuple, list[tuple]]) -> Optional[tuple]:
+    """Return whichever successor of `pos` is already assigned to `level` (the baseline branch), or `None` if none is."""
     baseline_succ = None
     for succ in successors[pos]:
-        if levels.get(succ, None) == LEVEL:
+        if levels.get(succ, None) == level:
             baseline_succ = succ
             break
     return baseline_succ
