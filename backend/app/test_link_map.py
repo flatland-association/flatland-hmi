@@ -3140,7 +3140,10 @@ def test_link_map(seed, i, fibre_cells, expected):
 
     link = stations_links.links[i]
     actual = extract_link_map(stations_links, link, Fibre(edges=fibre_cells), env.rail)
-    # assert list(actual.keys()) == list(expected.keys())
+    # update material without
+    exepected_keys = set(expected.keys())
+    exepected_keys.remove("city_cells_bbox")
+    assert set(actual.keys()) == exepected_keys
     for k in actual.keys():
         if k == 'grid':
             pass
@@ -3151,7 +3154,7 @@ def test_link_map(seed, i, fibre_cells, expected):
             assert np.array_equal(actual[k], expected[k])
         elif k == 'mapping':
             act = {ke: v for pairs in actual[k] for ke, v in pairs}
-            exp = {ke: v for pairs in actual[k] for ke, v in pairs}
+            exp = {ke: v for pairs in expected[k] for ke, v in pairs}
             assert act == exp
         else:
             assert actual[k] == expected[k], k

@@ -103,7 +103,7 @@ export class DataService {
 
   public getTrajectoryLinks(trajectoryId: string) {
     return this.fetch(
-      this.http.get<Array<Link>>(`${BACKEND_URL}/trajectories/${trajectoryId}/links/`),
+      this.http.get<Array<Link>>(`${BACKEND_URL}/trajectories/${trajectoryId}/links`),
     )
   }
 
