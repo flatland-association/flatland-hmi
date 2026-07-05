@@ -216,10 +216,6 @@ def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tupl
 
         pairs = rail.get_neighbor_pairs(cell)
 
-        level_to_neighbor = defaultdict(set)
-        for pair in pairs:
-            for p in pair:
-                level_to_neighbor[levels.get(p, None)].add(p)
         new_neighbors = {p for pair in pairs for p in pair if p not in successors}
         all_neighbors = {p for pair in pairs for p in pair}
 
@@ -658,14 +654,6 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
             print(f"found {source_position}, {source_direction}, {target_position}, {target_direction}: {paths}")
             all_paths.extend(paths)
     return all_paths
-
-
-def _within_bbox(city_bbox, cell: tuple[Any, Any]) -> Any:
-    return city_bbox["min_row"] <= cell[0] <= city_bbox["max_row"] and city_bbox["min_col"] <= cell[1] <= city_bbox["max_col"]
-
-
-def _within_bbox_excl_boundary(city_bbox, cell: tuple[Any, Any]) -> Any:
-    return city_bbox["min_row"] < cell[0] < city_bbox["max_row"] and city_bbox["min_col"] < cell[1] < city_bbox["max_col"]
 
 
 def _extract_city_rotated(city: str, city_orientation: int, stations_links: StationsLinks, rail: GridTransitionMap, target_facing: int = 1) -> Tuple[
