@@ -55,8 +55,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          # TODO revert once merged into main.
-          python -m pip install -U git+https://github.com/flatland-association/flatland-rl.git@feature/generator-stations
       - name: Run pytest
         working-directory: backend
         run: |
