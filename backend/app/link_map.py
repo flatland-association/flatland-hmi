@@ -21,8 +21,7 @@ _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 def _assign_level(cell: Tuple, level: int, levels: Dict[Tuple, int], reverse_levels: Dict[int, set]) -> None:
     """Record `cell`'s ZWL level in both `levels` and `reverse_levels`, unless it has already been assigned one."""
     if cell in levels:
-        # TODO does error in some cases
-        # assert levels[cell] == level, (cell, levels[cell], level)
+        assert levels[cell] == level, (cell, levels[cell], level)
         return
     levels[cell] = level
     reverse_levels[level].add(cell)
@@ -61,7 +60,7 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
 
         if LEVEL != 0:
             for pos in reverse_levels[LEVEL]:
-                # TODO follow backwards as well? Maybe not necessary as we say within the graph where everything is forward reachable!
+                #  within the station-station graph, everything is forward reachable, so no need to do same backwards
                 if pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations:
                     # follow same level ahead:
                     pos_ = pos
@@ -77,7 +76,6 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
 
                     to_mapped = mapping_only_pins_from_stations.get(stretch[-1], None)
                     from_mapped = mapping_only_pins_from_stations[stretch[0]]
-                    len_mapped = None
                     if to_mapped is not None:
                         row = from_mapped[0]
                         if row == to_mapped[0]:
@@ -281,12 +279,14 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate | N
     # add levels to from and to pin (might not be covered by paths)
     baseline_row = mapping_only_pins_from_stations[tuple(fibre.edges[0])][0]
     pin: Pin
-    for level, pin in zip(range(-from_pin_index, len(from_gate.pins) - from_pin_index + 1), from_gate.pins.values()):
-        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
-        _assign_level(tuple(pin.node), level, levels, reverse_levels)
-    for level, pin in zip(range(-to_pin_index, len(to_gate.pins) - to_pin_index + 1), to_gate.pins.values()):
-        level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
-        _assign_level(tuple(pin.node), level, levels, reverse_levels)
+    if from_gate is not None:
+        for level, pin in zip(range(-from_pin_index, len(from_gate.pins) - from_pin_index + 1), from_gate.pins.values()):
+            level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+            _assign_level(tuple(pin.node), level, levels, reverse_levels)
+    if to_gate is not None:
+        for level, pin in zip(range(-to_pin_index, len(to_gate.pins) - to_pin_index + 1), to_gate.pins.values()):
+            level = mapping_only_pins_from_stations[tuple(pin.node)][0] - baseline_row
+            _assign_level(tuple(pin.node), level, levels, reverse_levels)
 
     # Iteratively, assign levels to graph (all paths between chosen link's gates)
     for LEVEL in [0, 1, -1, 2 - 2]:
