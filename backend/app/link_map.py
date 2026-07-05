@@ -48,6 +48,141 @@ def _get_next_level(level: int, num_succ: int, succ: Tuple, baseline_succ: Optio
             return 0
 
 
+def _stretch_straight_transitions_at_same_level(pos: tuple, level: int, levels: dict[tuple, int], successors: dict[tuple, list[tuple]],
+                                                mapping_only_pins_from_stations: GridTransitionMap[Any], zwl_grid_map: dict[Any, Any]) -> None:
+    """For a degree-1 successor chain from `pos` that stays at `level` and is already mapped at both ends, fill in straight transitions and interpolated cell mappings along the row between them."""
+    #  within the station-station graph, everything is forward reachable, so no need to do same backwards
+    if not (pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations):
+        return
+    # follow same level ahead:
+    pos_ = pos
+    stretch = []
+    while pos_ in successors and levels.get(pos_) == level:
+        stretch.append(pos_)
+        next_pos_ = None
+        for s in successors[pos_]:
+            if levels.get(pos_, None) == level:
+                next_pos_ = s
+                break
+        pos_ = next_pos_
+
+    to_mapped = mapping_only_pins_from_stations.get(stretch[-1], None)
+    from_mapped = mapping_only_pins_from_stations[stretch[0]]
+    if to_mapped is not None:
+        row = from_mapped[0]
+        if row == to_mapped[0]:
+            len_mapped = abs(from_mapped[1] - to_mapped[1]) - 1
+            start_col = min(from_mapped[1], to_mapped[1]) + 1
+            end_col = max(from_mapped[1], to_mapped[1])
+            for i, c in enumerate(range(start_col, end_col)):
+                trans = zwl_grid_map.grid[(row, c)]
+                trans = zwl_grid_map.transitions.set_transition(trans, 1, 1, 1)
+                trans = zwl_grid_map.transitions.set_transition(trans, 3, 3, 1)
+                assert RailEnvTransitions().is_valid(trans)
+                zwl_grid_map.grid[(row, c)] = trans
+                index = int((i / len_mapped) * len(stretch))
+                # TODO safe?
+                if stretch[index] not in mapping_only_pins_from_stations:
+                    mapping_only_pins_from_stations[stretch[index]] = (row, c)
+
+        else:
+            pass
+            # TODO when does it happen - ignore?
+
+
+def _branch_successors_to_next_level(pos: tuple, level: int, levels: dict[tuple, int], successors: dict[tuple, list[tuple]], open_cells: dict[int, set[tuple]],
+                                     mapping_only_pins_from_stations: GridTransitionMap[Any], zwl_grid: ndarray[Any, dtype[Any]],
+                                     zwl_grid_map: dict[Any, Any]) -> None:
+    """Map each still-open successor of a degree-2 `pos` to the ZWL row above/below and write the curve/straight transitions connecting them."""
+    for num_succ, succ in enumerate(successors[pos]):
+        if succ not in open_cells:
+            continue
+        open_cells.discard(succ)
+
+        level_up_or_down = levels[succ] - level
+
+        # one row above or below, same column:
+        new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
+        if succ not in mapping_only_pins_from_stations:
+            assert zwl_grid[*new_zwl_pos] == 0
+            mapping_only_pins_from_stations[succ] = new_zwl_pos
+        else:
+            # happens if pred is a pin
+            pass
+
+        trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
+
+        # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
+        if level_up_or_down == 1:
+            # from right to down:
+            trans = zwl_grid_map.transitions.set_transition(trans, 1, 2, 1)
+            trans = zwl_grid_map.transitions.set_transition(trans, 0, 3, 1)
+        else:
+            # from right to up:
+            trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
+            trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
+        zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
+
+        # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+        if level_up_or_down == 1:
+            # up: S-E curve
+            zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
+        elif level_up_or_down == -1:
+            # down: N-E curve
+            zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
+
+        for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
+            assert zwl_grid[new_zwl_pos[0]][c] == 0
+            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+
+
+def _branch_predecessors_to_next_level(pos: tuple, level: int, levels: dict[tuple, int], predecessors: dict[tuple, list[tuple]],
+                                       open_cells: dict[int, set[tuple]],
+                                       mapping_only_pins_from_stations: GridTransitionMap[Any], zwl_grid: ndarray[Any, dtype[Any]],
+                                       zwl_grid_map: dict[Any, Any]) -> None:
+    """Map each still-open predecessor of a degree-2 `pos` to the ZWL row above/below and write the curve/straight transitions connecting them."""
+    for num_pred, pred in enumerate(predecessors[pos]):
+        if pred not in open_cells:
+            continue
+        open_cells.discard(pred)
+
+        level_up_or_down = levels[pred] - level
+
+        # one row above or below, same column:
+        new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
+        if pred not in mapping_only_pins_from_stations:
+            # TODO why?
+            # assert zwl_grid[*new_zwl_pos] == 0
+            mapping_only_pins_from_stations[pred] = new_zwl_pos
+        else:
+            # happens if pred is a pin
+            pass
+
+        trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
+        # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
+        if level_up_or_down == 1:
+            # from up to right:
+            trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
+            trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
+        else:
+            # from down to right:
+            trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
+            trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
+        zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
+
+        # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
+        if level_up_or_down == 1:
+            # up: E-N curve
+            zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
+        elif level_up_or_down == -1:
+            # down: E-S curve
+            zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
+
+        for c in range(mapping_only_pins_from_stations[pred][1] + 1, new_zwl_pos[1]):
+            assert zwl_grid[new_zwl_pos[0]][c] == 0
+            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+
+
 def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_stations: GridTransitionMap[Any], open_cells: dict[int, set[tuple]],
                             predecessors: dict[tuple, list[tuple]], reverse_levels: set[tuple[Any]], successors: dict[tuple, list[tuple]],
                             zwl_grid: ndarray[Any, dtype[Any]], zwl_grid_map: dict[Any, Any]):
@@ -58,130 +193,17 @@ def _map_levels_to_link_map(levels: dict[tuple, int], mapping_only_pins_from_sta
         if level not in reverse_levels:
             continue
 
+        # level 0 already done at initialization
         if level != 0:
             for pos in reverse_levels[level]:
-                #  within the station-station graph, everything is forward reachable, so no need to do same backwards
-                if pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations:
-                    # follow same level ahead:
-                    pos_ = pos
-                    stretch = []
-                    while pos_ in successors and levels.get(pos_) == level:
-                        stretch.append(pos_)
-                        next_pos_ = None
-                        for s in successors[pos_]:
-                            if levels.get(pos_, None) == level:
-                                next_pos_ = s
-                                break
-                        pos_ = next_pos_
+                _stretch_straight_transitions_at_same_level(pos, level, levels, successors, mapping_only_pins_from_stations, zwl_grid_map)
 
-                    to_mapped = mapping_only_pins_from_stations.get(stretch[-1], None)
-                    from_mapped = mapping_only_pins_from_stations[stretch[0]]
-                    if to_mapped is not None:
-                        row = from_mapped[0]
-                        if row == to_mapped[0]:
-                            len_mapped = abs(from_mapped[1] - to_mapped[1]) - 1
-                            start_col = min(from_mapped[1], to_mapped[1]) + 1
-                            end_col = max(from_mapped[1], to_mapped[1])
-                            for i, c in enumerate(range(start_col, end_col)):
-                                trans = zwl_grid_map.grid[(row, c)]
-                                trans = zwl_grid_map.transitions.set_transition(trans, 1, 1, 1)
-                                trans = zwl_grid_map.transitions.set_transition(trans, 3, 3, 1)
-                                assert RailEnvTransitions().is_valid(trans)
-                                zwl_grid_map.grid[(row, c)] = trans
-                                index = int((i / len_mapped) * len(stretch))
-                                # TODO safe?
-                                if stretch[index] not in mapping_only_pins_from_stations:
-                                    mapping_only_pins_from_stations[stretch[index]] = (row, c)
-
-                        else:
-                            pass
-                            # TODO when does it happen - ignore?
-
-        # treat degree 2 out of level
+        # treat degree 2 to the next level
         for pos in reverse_levels[level]:
             if pos in successors and len(successors[pos]) == 2:
-                for num_succ, succ in enumerate(successors[pos]):
-                    if succ not in open_cells:
-                        continue
-                    open_cells.discard(succ)
-
-                    level_up_or_down = levels[succ] - level
-
-                    # one row above or below, same column:
-                    new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
-                    if succ not in mapping_only_pins_from_stations:
-                        assert zwl_grid[*new_zwl_pos] == 0
-                        mapping_only_pins_from_stations[succ] = new_zwl_pos
-                    else:
-                        # happens if pred is a pin
-                        pass
-
-                    trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
-
-                    # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
-                    if level_up_or_down == 1:
-                        # from right to down:
-                        trans = zwl_grid_map.transitions.set_transition(trans, 1, 2, 1)
-                        trans = zwl_grid_map.transitions.set_transition(trans, 0, 3, 1)
-                    else:
-                        # from right to up:
-                        trans = zwl_grid_map.transitions.set_transition(trans, 1, 0, 1)
-                        trans = zwl_grid_map.transitions.set_transition(trans, 2, 3, 1)
-                    zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
-
-                    # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                    if level_up_or_down == 1:
-                        # up: S-E curve
-                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_east.value
-                    elif level_up_or_down == -1:
-                        # down: N-E curve
-                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
-
-                    for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
-                        assert zwl_grid[new_zwl_pos[0]][c] == 0
-                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+                _branch_successors_to_next_level(pos, level, levels, successors, open_cells, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map)
             if pos in predecessors and len(predecessors[pos]) == 2:
-                for num_pred, pred in enumerate(predecessors[pos]):
-                    if pred not in open_cells:
-                        continue
-                    open_cells.discard(pred)
-
-                    level_up_or_down = levels[pred] - level
-
-                    # one row above or below, same column:
-                    new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
-                    if pred not in mapping_only_pins_from_stations:
-                        # TODO why?
-                        # assert zwl_grid[*new_zwl_pos] == 0
-                        mapping_only_pins_from_stations[pred] = new_zwl_pos
-                    else:
-                        # happens if pred is a pin
-                        pass
-
-                    # TODO merge everything in handle_slips
-                    trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
-                    # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
-                    if level_up_or_down == 1:
-                        # from up to right:
-                        trans = zwl_grid_map.transitions.set_transition(trans, 0, 1, 1)
-                        trans = zwl_grid_map.transitions.set_transition(trans, 3, 2, 1)
-                    else:
-                        # from down to right:
-                        trans = zwl_grid_map.transitions.set_transition(trans, 2, 1, 1)
-                        trans = zwl_grid_map.transitions.set_transition(trans, 3, 0, 1)
-                    zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]] = trans
-
-                    # on pred, add curve: if +1, add E-N curve, if -1 add E-S curve
-                    if level_up_or_down == 1:
-                        # up: E-N curve
-                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_north.value
-                    elif level_up_or_down == -1:
-                        # down: E-S curve
-                        zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
-
-                    for c in range(mapping_only_pins_from_stations[pred][1] + 1, new_zwl_pos[1]):
-                        assert zwl_grid[new_zwl_pos[0]][c] == 0
-                        zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+                _branch_predecessors_to_next_level(pos, level, levels, predecessors, open_cells, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map)
 
 
 def _assign_levels_for_context(levels: dict[tuple, int], predecessors: dict[tuple, list[tuple]], rail: GridTransitionMap, reverse_levels: set[tuple[Any]],
