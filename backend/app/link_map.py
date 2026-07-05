@@ -456,58 +456,44 @@ def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap,
     return mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map
 
 
+def _build_adjacency(all_paths: List[List[Waypoint]], forward: bool, label: str) -> Dict[tuple, List[tuple]]:
+    # cell -> List[tuple[tuple,int]]
+    raw: dict[tuple, set[tuple[tuple, int]]] = {}
+    for path in all_paths:
+        for wp, wp_after in zip(path, path[1:]):
+            raw.setdefault(wp_after.position, set())
+            raw.setdefault(wp.position, set())
+            if forward:
+                raw.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
+            else:
+                # +1 means to the right forward
+                # -1 means to the left forward
+                direction_change = (wp_after.direction - wp.direction) % 4
+                assert direction_change in {0, 1, 3}
+                if direction_change == 3:
+                    direction_change = -1
+                raw.setdefault(wp_after.position, set()).add((wp.position, direction_change))
+
+    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; ordered clock-wise
+    adjacency: Dict[tuple, List[tuple]] = {cell: [t[0] for t in sorted(neighbors, key=lambda t: t[1])] for cell, neighbors in raw.items()}
+    for k, v in adjacency.items():
+        print(k, v)
+        print(raw[k])
+        res = []
+        for i in v:
+            if i not in res:
+                res.append(i)
+        adjacency[k] = res
+        assert len(res) <= 2, res
+    print(f"{label} {adjacency}")
+    return adjacency
+
+
 def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stations_links: StationsLinks) -> tuple[
     dict[tuple, list[tuple]], dict[tuple, list[tuple]]]:
     all_paths = _find_all_paths_between_stations(link, stations_links, rail)
-
-    # cell -> List[tuple[tuple,int]]
-    successors_: dict[tuple, set[tuple[tuple, int]]] = {}
-    for path in all_paths:
-        for wp, wp_after in zip(path, path[1:]):
-            successors_.setdefault(wp_after.position, set())
-            successors_.setdefault(wp.position, set())
-            successors_.setdefault(wp.position, set()).add((wp_after.position, wp_after.direction - wp.direction))
-
-    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; successors are ordered clock-wise
-    successors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(successors), key=lambda t: t[1])] for tup, successors in successors_.items()}
-    for k, v in successors.items():
-        print(k, v)
-        print(successors_[k])
-        res = []
-        for i in v:
-            if i not in res:
-                res.append(i)
-        successors[k] = res
-        assert len(res) <= 2, res
-    print(f"successors {successors}")
-
-    # cell -> List[tuple[tuple,int]]
-    predecessors_: dict[tuple, set[tuple[tuple, int]]] = {}
-    for path in all_paths:
-        for wp, wp_after in zip(path, path[1:]):
-            predecessors_.setdefault(wp_after.position, set())
-            predecessors_.setdefault(wp.position, set())
-
-            # +1 means to to the right forward
-            # -1 means to the left forward
-            direction_change = (wp_after.direction - wp.direction) % 4
-            assert direction_change in {0, 1, 3}
-            if direction_change == 3:
-                direction_change = -1
-            predecessors_.setdefault(wp_after.position, set()).add((wp.position, direction_change))
-
-    # cell -> List[tuple[tuple]] covering all paths between the two gates from left to right; predecessors are ordered clock-wise
-    predecessors: Dict[tuple, List[tuple]] = {tup: [t[0] for t in sorted(set(predecessors), key=lambda t: t[1])] for tup, predecessors in predecessors_.items()}
-    print(f"predecessors {predecessors}")
-    for k, v in predecessors.items():
-        print(k, v)
-        print(predecessors_[k])
-        res = []
-        for i in v:
-            if i not in res:
-                res.append(i)
-        predecessors[k] = res
-        assert len(res) <= 2, res
+    successors = _build_adjacency(all_paths, forward=True, label="successors")
+    predecessors = _build_adjacency(all_paths, forward=False, label="predecessors")
     return predecessors, successors
 
 
