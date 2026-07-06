@@ -68,6 +68,7 @@ def _build_transitions_content(env) -> list:
 
 
 def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
+    print(stations_links)
     station_edges: Dict[str, Any] = {}
     station_stopping_points: Dict[str, List[dict]] = {}
     station_gates: Dict[str, Dict[str, dict]] = {}
@@ -278,8 +279,6 @@ async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
     if not link.fibres:
         raise HTTPException(status_code=422, detail=f"Link {link_id} has no fibres.")
     fibre = link.fibres[0]
-    print("fibre")
-    print(fibre)
     content = extract_link_map(env.stations_links, link, fibre, env.rail)
     return CustomEncodedJSONResponse(content=content)
 
