@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -91,8 +92,7 @@ def _stretch_straight_transitions_at_same_level(pos: IntVector2D, level: int, le
 
 
 def _branch_successors_to_next_level(pos: IntVector2D, level: int, levels: Dict[IntVector2D, int], successors: Dict[IntVector2D, List[IntVector2D]],
-                                     open_cells: Set[IntVector2D],
-                                     mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D], zwl_grid: ndarray,
+                                     open_cells: Set[IntVector2D], mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D],
                                      zwl_grid_map: GridTransitionMap) -> None:
     """Map each still-open successor of a degree-2 `pos` to the ZWL row above/below and write the curve/straight transitions connecting them."""
     for num_succ, succ in enumerate(successors[pos]):
@@ -105,7 +105,7 @@ def _branch_successors_to_next_level(pos: IntVector2D, level: int, levels: Dict[
         # one row above or below, same column:
         new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
         if succ not in mapping_only_pins_from_stations:
-            assert zwl_grid[*new_zwl_pos] == 0
+            assert zwl_grid_map.grid[*new_zwl_pos] == 0
             mapping_only_pins_from_stations[succ] = new_zwl_pos
         else:
             # happens if pred is a pin
@@ -133,13 +133,12 @@ def _branch_successors_to_next_level(pos: IntVector2D, level: int, levels: Dict[
             zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_south.value
 
         for c in range(mapping_only_pins_from_stations[succ][1] + 1, new_zwl_pos[1]):
-            assert zwl_grid[new_zwl_pos[0]][c] == 0
-            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+            assert zwl_grid_map.grid[new_zwl_pos[0]][c] == 0
+            zwl_grid_map.grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
 
 def _branch_predecessors_to_next_level(pos: IntVector2D, level: int, levels: Dict[IntVector2D, int], predecessors: Dict[IntVector2D, List[IntVector2D]],
-                                       open_cells: Set[IntVector2D],
-                                       mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D], zwl_grid: ndarray,
+                                       open_cells: Set[IntVector2D], mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D],
                                        zwl_grid_map: GridTransitionMap) -> None:
     """Map each still-open predecessor of a degree-2 `pos` to the ZWL row above/below and write the curve/straight transitions connecting them."""
     for num_pred, pred in enumerate(predecessors[pos]):
@@ -148,18 +147,20 @@ def _branch_predecessors_to_next_level(pos: IntVector2D, level: int, levels: Dic
         open_cells.discard(pred)
 
         level_up_or_down = levels[pred] - level
+        trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
 
         # one row above or below, same column:
         new_zwl_pos = (mapping_only_pins_from_stations[pos][0] + level_up_or_down, mapping_only_pins_from_stations[pos][1])
         if pred not in mapping_only_pins_from_stations:
-            # TODO why?
+            # TODO happens e.g. linearization of single slips along slip (Link 45.1) -> make inventory of all elements
             # assert zwl_grid[*new_zwl_pos] == 0
+            if zwl_grid_map.grid[*new_zwl_pos] != 0:
+                warnings.warn(f"Collision for {pos} [{mapping_only_pins_from_stations[pos]}] with pred {pred} [{new_zwl_pos}]: has already content {trans}")
             mapping_only_pins_from_stations[pred] = new_zwl_pos
         else:
             # happens if pred is a pin
             pass
 
-        trans = zwl_grid_map.grid[*mapping_only_pins_from_stations[pos]]
         # on pos, add transition: if +1, add N-E trans, if -1 add S-E trans
         if level_up_or_down == 1:
             # from up to right:
@@ -186,8 +187,7 @@ def _branch_predecessors_to_next_level(pos: IntVector2D, level: int, levels: Dic
 
 def _map_levels_to_link_map(levels: Dict[IntVector2D, int], mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D], open_cells: Set[IntVector2D],
                             predecessors: Dict[IntVector2D, List[IntVector2D]], reverse_levels: Dict[int, Set[IntVector2D]],
-                            successors: Dict[IntVector2D, List[IntVector2D]],
-                            zwl_grid: ndarray, zwl_grid_map: GridTransitionMap) -> None:
+                            successors: Dict[IntVector2D, List[IntVector2D]], zwl_grid_map: GridTransitionMap) -> None:
     """Walk the level-assigned graph level by level, writing the corresponding curve/straight transitions into `zwl_grid`/`zwl_grid_map` and extending `mapping_only_pins_from_stations` with the newly placed cells."""
     # Based on levels, map to link map
     # TODO fix -2/2 etc.why does it fail?
@@ -203,9 +203,9 @@ def _map_levels_to_link_map(levels: Dict[IntVector2D, int], mapping_only_pins_fr
         # treat degree 2 to the next level
         for pos in reverse_levels[level]:
             if pos in successors and len(successors[pos]) == 2:
-                _branch_successors_to_next_level(pos, level, levels, successors, open_cells, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map)
+                _branch_successors_to_next_level(pos, level, levels, successors, open_cells, mapping_only_pins_from_stations, zwl_grid_map)
             if pos in predecessors and len(predecessors[pos]) == 2:
-                _branch_predecessors_to_next_level(pos, level, levels, predecessors, open_cells, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map)
+                _branch_predecessors_to_next_level(pos, level, levels, predecessors, open_cells, mapping_only_pins_from_stations, zwl_grid_map)
 
 
 def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dict[IntVector2D, List[IntVector2D]], rail: GridTransitionMap,
@@ -590,7 +590,8 @@ def _fix_zwl_cell_from_grid_neighbour_pairs(cell: IntVector2D, mapping: Dict[Int
         zwl_grid_map.grid[*mapping[*cell]] = trans
 
 
-def _get_succ_at_same_level(level: int, levels: Dict[IntVector2D, int], pos: IntVector2D, successors: Dict[IntVector2D, List[IntVector2D]]) -> Optional[IntVector2D]:
+def _get_succ_at_same_level(level: int, levels: Dict[IntVector2D, int], pos: IntVector2D, successors: Dict[IntVector2D, List[IntVector2D]]) -> Optional[
+    IntVector2D]:
     """Return whichever successor of `pos` is already assigned to `level` (the baseline branch), or `None` if none is."""
     baseline_succ = None
     for succ in successors[pos]:
@@ -733,7 +734,7 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
 
     _assign_levels_for_context(levels, predecessors, rail, reverse_levels, successors)
 
-    _map_levels_to_link_map(levels, mapping_only_pins_from_stations, open_cells, predecessors, reverse_levels, successors, zwl_grid, zwl_grid_map)
+    _map_levels_to_link_map(levels, mapping_only_pins_from_stations, open_cells, predecessors, reverse_levels, successors, zwl_grid_map)
 
     # Find missing transitions going out/coming into the graph
     incomplete_cells: Dict[IntVector2D, str] = {}
