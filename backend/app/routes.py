@@ -76,6 +76,7 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
     station_edges: Dict[str, Any] = {}
     station_stopping_points: Dict[str, List[dict]] = {}
     station_gates: Dict[str, Dict[str, dict]] = {}
+    gate_name_to_station: Dict[str, str] = {}
 
     station_name: str
     station: Station
@@ -92,6 +93,7 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
         gate: Gate
         station_gates[station_name] = {}
         for gate_key, gate in station.gates.items():
+            gate_name_to_station[gate.name] = station_name
             pin_key: int
             p: Pin
             station_gates[station_name][gate_key] = {
@@ -103,10 +105,14 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
     link: Link
     fibre: Fibre
     for link in stations_links.links:
+        from_station = gate_name_to_station[link.from_gate]
+        to_station = gate_name_to_station[link.to_gate]
         if USE_PIN_TO_PIN_LINK_LABELS:
             # one payload entry per pin-pin pair (fibre), matching the pre-gate-grouping link granularity
             for fibre in link.fibres:
                 links_payload.append({
+                    "fromStation": from_station,
+                    "toStation": to_station,
                     "fromGate": link.from_gate,
                     "toGate": link.to_gate,
                     "fromPin": fibre.from_pin,
@@ -117,6 +123,8 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
             # one payload entry per gate-gate link, using the first fibre's pins as the representative pin pair
             first_fibre: Fibre = link.fibres[0]
             links_payload.append({
+                "fromStation": from_station,
+                "toStation": to_station,
                 "fromGate": link.from_gate,
                 "toGate": link.to_gate,
                 "fromPin": first_fibre.from_pin,
@@ -317,26 +325,18 @@ async def get_trajectory_agents(trajectory_id: str):
 
 
 def _enrich_link(link: dict, link_id: int) -> dict:
+    from_station = link["fromStation"]
+    to_station = link["toStation"]
     if USE_PIN_TO_PIN_LINK_LABELS:
-        from_station, from_dir, _ = link["fromPin"].split(".")
-        to_station, to_dir, _ = link["toPin"].split(".")
-        return {
-            "cityFrom": from_station,
-            "cityTo": to_station,
-            "fromGate": f"{from_station}.{from_dir}",
-            "toGate": f"{to_station}.{to_dir}",
-            "label": f"Link {link_id} ({link['fromPin']} → {link['toPin']})",
-            "startStationName": f"Station {from_station}",
-            "endStationName": f"Station {to_station}",
-        }
-    from_station, _ = link["fromGate"].split(".")
-    to_station, _ = link["toGate"].split(".")
+        label = f"Link {link_id} ({link['fromPin']} → {link['toPin']})"
+    else:
+        label = f"Link {link_id} ({link['fromGate']} → {link['toGate']})"
     return {
         "cityFrom": from_station,
         "cityTo": to_station,
         "fromGate": link["fromGate"],
         "toGate": link["toGate"],
-        "label": f"Link {link_id} ({link['fromGate']} → {link['toGate']})",
+        "label": label,
         "startStationName": f"Station {from_station}",
         "endStationName": f"Station {to_station}",
     }

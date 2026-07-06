@@ -601,10 +601,29 @@ def _get_succ_at_same_level(level: int, levels: Dict[IntVector2D, int], pos: Int
     return baseline_succ
 
 
+def _resolve_gate(stations_links: StationsLinks, gate_name: str) -> Tuple[str, str, Gate]:
+    """Find the station name, direction char, and `Gate` for a fully-qualified gate name by walking the stations -> gates hierarchy."""
+    for station_name, station in stations_links.stations.items():
+        for dir_char, gate in station.gates.items():
+            if gate.name == gate_name:
+                return station_name, dir_char, gate
+    raise ValueError(f"Gate {gate_name} not found in stations_links.")
+
+
+def _resolve_pin(stations_links: StationsLinks, pin_name: str) -> Tuple[str, str, Gate, int]:
+    """Find the station name, gate direction char, `Gate`, and pin index key for a fully-qualified pin name by walking the stations -> gates -> pins hierarchy."""
+    for station_name, station in stations_links.stations.items():
+        for dir_char, gate in station.gates.items():
+            for pin_key, pin in gate.pins.items():
+                if pin.name == pin_name:
+                    return station_name, dir_char, gate, pin_key
+    raise ValueError(f"Pin {pin_name} not found in stations_links.")
+
+
 def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, rail: GridTransitionMap) -> List[List[Waypoint]]:
     """Find up to 10 shortest paths between every pin of the link's from-gate and every pin of its to-gate, searching the rail grid with all station cells (except pins) masked out."""
-    from_station, from_dir_char = link.from_gate.split(".")
-    to_station, to_dir_char = link.to_gate.split(".")
+    _, from_dir_char, from_gate = _resolve_gate(stations_links, link.from_gate)
+    _, to_dir_char, to_gate = _resolve_gate(stations_links, link.to_gate)
     from_facing_int: int = _DIRECTION_CHARS[from_dir_char]
     to_facing_int: int = _DIRECTION_CHARS[to_dir_char]
 
@@ -618,8 +637,8 @@ def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, 
     grid_map_without_stations = GridTransitionMap(height=grid_without_stations.shape[0], width=grid_without_stations.shape[1], transitions=RailEnvTransitions(),
                                                   grid=grid_without_stations)
 
-    from_pins: List[Tuple[IntVector2D, int]] = [(p.node, from_facing_int) for p in stations_links.stations[from_station].gates[from_dir_char].pins.values()]
-    to_pins: List[Tuple[IntVector2D, int]] = [(p.node, to_facing_int) for p in stations_links.stations[to_station].gates[to_dir_char].pins.values()]
+    from_pins: List[Tuple[IntVector2D, int]] = [(p.node, from_facing_int) for p in from_gate.pins.values()]
+    to_pins: List[Tuple[IntVector2D, int]] = [(p.node, to_facing_int) for p in to_gate.pins.values()]
 
     all_paths: List[List[Waypoint]] = []
     for (source_position, source_direction) in from_pins:
@@ -706,21 +725,8 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     """
     from_pin: str = fibre.from_pin
     to_pin: str = fibre.to_pin
-    from_station: str
-    from_dir_char: str
-    from_track_str: str
-    from_station, from_dir_char, from_track_str = from_pin.split(".")
-    to_station: str
-    to_dir_char: str
-    to_track_str: str
-    to_station, to_dir_char, to_track_str = to_pin.split(".")
-    from_gate: Optional[Gate] = stations_links.stations[from_station].gates.get(from_dir_char)
-    to_gate: Optional[Gate] = stations_links.stations[to_station].gates.get(to_dir_char)
-    if from_gate is None or to_gate is None:
-        raise ValueError(f"Could not resolve gate for link {from_pin} -> {to_pin}: from_gate={from_gate}, to_gate={to_gate}")
-
-    from_pin_index: int = int(from_track_str)
-    to_pin_index: int = int(to_track_str)
+    from_station, from_dir_char, from_gate, from_pin_index = _resolve_pin(stations_links, from_pin)
+    to_station, to_dir_char, to_gate, to_pin_index = _resolve_pin(stations_links, to_pin)
 
     mapping_from_to_station, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map = _init_zwl_grid_from_fibre(link, fibre, rail, stations_links,
                                                                                                                  from_dir_char, from_gate,
