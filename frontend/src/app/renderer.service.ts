@@ -1,9 +1,15 @@
-import { Injectable } from '@angular/core'
-import { Agent, Transitions } from './data.service'
+import {Injectable} from '@angular/core'
+import {Agent, StationsResponse, Transitions} from './data.service'
 
 export interface MapCell {
   ground: string
-  objects?: string
+  transition: number
+  stationBuilding?: string
+  station?: boolean
+  pin?: boolean
+  pinLabel?: string
+  trackName?: string
+  incompleteReason?: string
 }
 
 const BACKGROUND_CLASSES_WEIGHT = {
@@ -92,11 +98,20 @@ function getBackgroundClasses() {
       return ['bkgnd', `bkgnd_${key}`]
     }
   }
-  return ''
+  return []
 }
 
-function getLocationKey(i: number, j: number) {
-  return `${i},${j}`
+class CoordMap<V> {
+  private rows = new Map<number, Map<number, V>>()
+
+  set([r, c]: [number, number], value: V): void {
+    if (!this.rows.has(r)) this.rows.set(r, new Map())
+    this.rows.get(r)!.set(c, value)
+  }
+
+  get([r, c]: [number, number]): V | undefined {
+    return this.rows.get(r)?.get(c)
+  }
 }
 
 @Injectable({
@@ -106,9 +121,8 @@ export class RendererService {
   constructor() {}
 
   public getMapClasses(transition: number): string {
-    return (TRANSITION_CLASSES_MAP[transition] || getBackgroundClasses()).join(
-      ' ',
-    )
+    if (transition === 0) return getBackgroundClasses().join(' ')
+    return (TRANSITION_CLASSES_MAP[transition] ?? ['track', 'transition_invalid']).join(' ')
   }
 
   public getTargetClasses(transition: number): string {
@@ -119,32 +133,67 @@ export class RendererService {
     return agent ? `handle_${agent.handle} direction_${agent.direction} ${agent.malfunction > 0 ? 'malfunction' : ''}` : ''
   }
 
-  public renderMap(transitions: Transitions, agents: Array<Agent>) {
-    const targetsMap = new Map<string, boolean>()
-    for (const agent of agents) {
-      targetsMap.set(getLocationKey(agent.target[0], agent.target[1]), true)
+  public renderMap(transitions: Transitions, agents: Array<Agent>, stations: StationsResponse = {
+    stationEdges: {},
+    stationGates: {},
+    stationStoppingPoints: {}
+  }, showBackground = true, incompleteCells: Array<[[number, number], string]> = []) {
+
+    const incompleteCellCoords = new CoordMap<string>()
+    for (const [[r, c], reason] of incompleteCells) {
+      incompleteCellCoords.set([r, c], reason)
     }
-    console.log('targetsMap', targetsMap)
+
+    const stoppingPointCoords = new CoordMap<{ rotationClass: string; trackName: string }>()
+    for (const stoppingPoints of Object.values(stations.stationStoppingPoints)) {
+      stoppingPoints.forEach(stp => {
+        stoppingPointCoords.set(stp.node, {rotationClass: 'rotation_270', trackName: stp.trackName})
+      })
+    }
+
+    const stationEdgeCoords = new Map<number, Set<number>>()
+    for (const [r, c] of Object.values(stations.stationEdges).flat()) {
+      if (!stationEdgeCoords.has(r)) stationEdgeCoords.set(r, new Set())
+      stationEdgeCoords.get(r)!.add(c)
+    }
+
+    const pinLabelCoords = new CoordMap<string>()
+    for (const gates of Object.values(stations.stationGates)) {
+      for (const gate of Object.values(gates)) {
+        for (const p of Object.values(gate.pins)) {
+          pinLabelCoords.set(p.node, p.name)
+        }
+      }
+    }
+
     const mapClasses: Array<Array<MapCell>> = []
     for (let i = 0; i < transitions.length; i++) {
       const row = transitions[i]
       const mapRow: Array<MapCell> = []
       for (let j = 0; j < row.length; j++) {
         const cell = row[j]
-        const ground = this.getMapClasses(cell)
-        const objects = targetsMap.has(getLocationKey(i, j))
-          ? this.getTargetClasses(cell)
-          : undefined
-        mapRow.push({ ground, objects })
+        const incompleteReason = incompleteCellCoords.get([i, j])
+        let ground = (showBackground || cell !== 0) ? this.getMapClasses(cell) : ''
+        if (incompleteReason !== undefined) {
+          ground = `${ground} transition_invalid`.trim()
+        }
+        const stoppingPoint = stoppingPointCoords.get([i, j])
+
+        // Bahnhof.svg
+        const stationBuilding = stoppingPoint?.rotationClass
+        const trackName = stoppingPoint?.trackName
+
+        const pinLabel = pinLabelCoords.get([i, j])
+        const pin = pinLabel ? true : undefined
+        let station = stationEdgeCoords.get(i)?.has(j) ? true : undefined
+        if (pin) {
+          station = undefined
+        }
+
+        mapRow.push({ground, transition: cell, stationBuilding, station, pin, pinLabel, trackName, incompleteReason})
       }
       mapClasses.push(mapRow)
     }
-    console.log(
-      'mapClasses',
-      mapClasses
-        .map((row) => row.filter((cell) => cell.objects))
-        .filter((row) => row.length > 0),
-    )
     return mapClasses
   }
 }

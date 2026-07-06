@@ -1,5 +1,5 @@
 import {Component, effect, inject, OnInit} from '@angular/core'
-import {Router, RouterOutlet} from '@angular/router'
+import {Router} from '@angular/router'
 import {
   FooterNavLink,
   HeaderNavLink,
@@ -13,10 +13,11 @@ import {AuthService} from './features/auth/auth.service'
 import {ErrorMessage, ErrorMessageService} from './features/error-message/error-message.service'
 import {MareyComponent} from './marey/marey.component';
 import {MapComponent} from './map/map.component';
+import {LinkMapComponent} from './link-map/link-map.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, LayoutComponent, ModalComponent, OAuthModule, MareyComponent, MapComponent], //, BreadcrumbsComponent],
+  imports: [LayoutComponent, OAuthModule, MareyComponent, MapComponent, LinkMapComponent, ModalComponent,], //, BreadcrumbsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -39,7 +40,7 @@ export class AppComponent implements OnInit {
     // listened to..?
     effect(() => {
       this.errorMessage = this.errorMessageService.errorMessage()
-      this.showErrorMessage = true
+      this.showErrorMessage = this.errorMessage !== undefined
     })
   }
 

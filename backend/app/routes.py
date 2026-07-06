@@ -3,8 +3,10 @@ import json
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
+import numpy as np
+from attr import asdict
 from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -13,8 +15,11 @@ from pydantic import BaseModel
 
 from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
+from app.link_map import extract_link_map
 from app.trajectory_context import TrajectoryContext
 from flatland.envs.rail_env_action import RailEnvActions
+from flatland.envs.rail_trainrun_data_structures import Waypoint
+from flatland.envs.stations_links import Gate, Link, Fibre, Pin, Station, StationsLinks, StoppingPoint
 from flatland.envs.step_utils.speed_counter import SpeedCounter
 
 
@@ -26,6 +31,14 @@ class CustomEncoder(JSONEncoder):
             return {'__fraction__': True, 'as_str': str((obj.numerator, obj.denominator))}
         if isinstance(obj, SpeedCounter):
             return {'__speed_counter__': True, 'as_str': obj.__repr__()}
+        if isinstance(obj, Waypoint):
+            return asdict(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
         return super().default(obj)
 
 
@@ -37,6 +50,10 @@ class CustomEncodedJSONResponse(JSONResponse):
 router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
+
+# Feature flag: if True, the /links endpoints label/identify links by their representative
+# pin-to-pin pair (e.g. "A.N.0 -> B.S.1") instead of the default gate-to-gate pair (e.g. "A.N -> B.S").
+USE_PIN_TO_PIN_LINK_LABELS = False
 
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
@@ -52,6 +69,75 @@ def health_check_ready():
 
 def _build_transitions_content(env) -> list:
     return env.rail.grid.tolist()
+
+
+def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
+    print(stations_links)
+    station_edges: Dict[str, Any] = {}
+    station_stopping_points: Dict[str, List[dict]] = {}
+    station_gates: Dict[str, Dict[str, dict]] = {}
+    gate_name_to_station: Dict[str, str] = {}
+
+    station_name: str
+    station: Station
+    for station_name, station in stations_links.stations.items():
+        station_edges[station_name] = station.edges
+
+        stp: StoppingPoint
+        station_stopping_points[station_name] = [
+            {"node": stp.node, "trackName": stp.name}
+            for stp in station.stopping_points
+        ]
+
+        gate_key: str
+        gate: Gate
+        station_gates[station_name] = {}
+        for gate_key, gate in station.gates.items():
+            gate_name_to_station[gate.name] = station_name
+            pin_key: int
+            p: Pin
+            station_gates[station_name][gate_key] = {
+                "name": gate.name,
+                "pins": {pin_key: {"name": p.name, "node": p.node} for pin_key, p in gate.pins.items()},
+            }
+
+    links_payload: List[dict] = []
+    link: Link
+    fibre: Fibre
+    for link in stations_links.links:
+        from_station = gate_name_to_station[link.from_gate]
+        to_station = gate_name_to_station[link.to_gate]
+        if USE_PIN_TO_PIN_LINK_LABELS:
+            # one payload entry per pin-pin pair (fibre), matching the pre-gate-grouping link granularity
+            for fibre in link.fibres:
+                links_payload.append({
+                    "fromStation": from_station,
+                    "toStation": to_station,
+                    "fromGate": link.from_gate,
+                    "toGate": link.to_gate,
+                    "fromPin": fibre.from_pin,
+                    "toPin": fibre.to_pin,
+                    "fibres": [{"cells": fibre.edges}],
+                })
+        else:
+            # one payload entry per gate-gate link, using the first fibre's pins as the representative pin pair
+            first_fibre: Fibre = link.fibres[0]
+            links_payload.append({
+                "fromStation": from_station,
+                "toStation": to_station,
+                "fromGate": link.from_gate,
+                "toGate": link.to_gate,
+                "fromPin": first_fibre.from_pin,
+                "toPin": first_fibre.to_pin,
+                "fibres": [{"cells": fibre.edges} for fibre in link.fibres],
+            })
+
+    return {
+        "stationEdges": station_edges,
+        "stationStoppingPoints": station_stopping_points,
+        "stationGates": station_gates,
+        "links": links_payload,
+    }
 
 
 def _build_agents_content(env) -> list:
@@ -131,6 +217,10 @@ async def get_envs():
 
 
 @router.post("/reset")
+@deprecated({
+    'replacement': 'POST /trajectories',
+    'reason': 'Moving to ID-based API.'
+})
 async def reset_env(request: Request):
     env_id = request.query_params.get("environment")
     policy_id = request.query_params.get("policy")
@@ -169,7 +259,6 @@ async def create_trajectory(body: TrajectoryCreate):
 @router.get("/trajectories/{trajectory_id}")
 async def get_trajectory(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
-
     return CustomEncodedJSONResponse(content=ctx.to_dict())
 
 
@@ -205,8 +294,71 @@ async def get_trajectory_transitions(trajectory_id: str):
     return _build_transitions_content(env)
 
 
+@router.get("/trajectories/{trajectory_id}/link/{link_id}/map")
+async def get_trajectory_agent_transitions(trajectory_id: str, link_id: int):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    links = env.stations_links.links
+    if link_id < 0 or link_id >= len(links):
+        raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
+
+    link = links[link_id]
+    if not link.fibres:
+        raise HTTPException(status_code=422, detail=f"Link {link_id} has no fibres.")
+    fibre = link.fibres[0]
+    content = extract_link_map(env.stations_links, link, fibre, env.rail)
+    return CustomEncodedJSONResponse(content=content)
+
+
+@router.get("/trajectories/{trajectory_id}/stations")
+async def get_trajectory_stations(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    return CustomEncodedJSONResponse(content=build_stations_and_links_payload(env.stations_links))
+
+
 @router.get("/trajectories/{trajectory_id}/agents")
 async def get_trajectory_agents(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
+
+
+def _enrich_link(link: dict, link_id: int) -> dict:
+    from_station = link["fromStation"]
+    to_station = link["toStation"]
+    if USE_PIN_TO_PIN_LINK_LABELS:
+        label = f"Link {link_id} ({link['fromPin']} → {link['toPin']})"
+    else:
+        label = f"Link {link_id} ({link['fromGate']} → {link['toGate']})"
+    return {
+        "cityFrom": from_station,
+        "cityTo": to_station,
+        "fromGate": link["fromGate"],
+        "toGate": link["toGate"],
+        "label": label,
+        "startStationName": f"Station {from_station}",
+        "endStationName": f"Station {to_station}",
+    }
+
+
+@router.get("/trajectories/{trajectory_id}/links")
+async def get_trajectory_links(trajectory_id: str):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    stations_links = build_stations_and_links_payload(env.stations_links)
+    links = stations_links["links"]
+    return CustomEncodedJSONResponse(content=[
+        _enrich_link(link, i) for i, link in enumerate(links)
+    ])
+
+
+@router.get("/trajectories/{trajectory_id}/links/{link_id}")
+async def get_trajectory_lines(trajectory_id: str, link_id: int):
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    stations_links = build_stations_and_links_payload(env.stations_links)
+    links = stations_links["links"]
+    if link_id < 0 or link_id >= len(links):
+        raise HTTPException(status_code=404, detail=f"Link {link_id} not found.")
+    return CustomEncodedJSONResponse(content=_enrich_link(links[link_id], link_id))

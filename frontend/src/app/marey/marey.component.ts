@@ -1,13 +1,15 @@
-import { DecimalPipe } from '@angular/common'
-import { Component, Input } from '@angular/core'
-import { StateService } from '../state.service'
-import { Agent } from '../data.service'
-import { ControllerService, State } from '../controller.service'
+import {DecimalPipe} from '@angular/common'
+import {Component, Input} from '@angular/core'
+import {StateService} from '../state.service'
+import {Agent} from '../data.service'
+import {combineLatest} from 'rxjs'
 
 export interface TrainCoordinate {
   x: number
   y: number
+  t: number
 }
+
 
 export interface TrainRun {
   name?: string
@@ -44,7 +46,7 @@ export class MareyComponent {
     let max = 0
     this.trainRuns.forEach((train) => {
       train.coordinates.forEach((coord) => {
-        max = Math.max(max, coord.y)
+        max = Math.max(max, coord.t)
       })
     })
     return max + PLAN_CUTTOFF
@@ -59,16 +61,40 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
+  public mapping: Map<number, Map<number, [number, number]>> = new Map()
+  public fromGate = ''
+  public toGate = ''
+  public selectedLinkLabel = ''
+  public selectedLink: number = 0
+
   constructor(
     public stateService: StateService,
-    public controllerService: ControllerService,
-  ) {}
+  ) {
+  }
 
   ngOnInit() {
+    combineLatest([
+      this.stateService.getLinks(),
+      this.stateService.getLinkMap(),
+      this.stateService.getSelectedLink(),
+    ]).subscribe(([links, data, selectedLink]) => {
+      this.selectedLink = parseInt(selectedLink)
+      const link = links[this.selectedLink]
+      if (link) {
+        this.fromGate = link.fromGate
+        this.toGate = link.toGate
+        this.selectedLinkLabel = link.label
+      }
+      this.mapping = new Map()
+      for (const [[r, c], [mr, mc]] of data.mapping) {
+        if (!this.mapping.has(r)) this.mapping.set(r, new Map())
+        this.mapping.get(r)!.set(c, [mr, mc])
+      }
+      this.maxDistance = data.grid[0].length
+    })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
     })
-    this.stateService.getTransitions().subscribe((transitions) => (this.maxDistance = transitions[0].length - 1))
     this.stateService.getHistory().subscribe((history) => {
       this.timestep = history.length
       const agentHistories = history.reduce((agentHistory: Record<string, Agent[]>, timestep) => {
@@ -82,11 +108,12 @@ export class MareyComponent {
         return {
           name,
           coordinates: coordinates
-            .map(({ position }, index) => ({
-              x: position?.[1] ?? undefined,
-              y: index,
+            .map(({position}, index) => ({
+              x: position?.[0] ?? undefined,
+              y: position?.[1] ?? undefined,
+              t: index,
             }))
-            .filter((coord): coord is { x: number; y: number } => coord.x !== undefined),
+            .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
         }
       })
     })
@@ -105,31 +132,61 @@ export class MareyComponent {
           return {
             name,
             coordinates: coordinates
-              .map(({ position }, index) => ({
-                x: position?.[1] ?? undefined,
-                y: this.timestep + index,
+              .map(({position}, index) => ({
+                x: position?.[0] ?? undefined,
+                y: position?.[1] ?? undefined,
+                t: index,
               }))
-              .filter(
-                (coord, index): coord is { x: number; y: number } => coord.x !== undefined && index < PLAN_CUTTOFF,
-              ),
+              .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
           }
         })
       })
     })
-    this.controllerService.observeReset().subscribe(() => {
+    this.stateService.getTransitions().subscribe(() => {
       this.trainRuns = []
       this.plannedRuns = []
       this.timestep = 0
     })
   }
 
-  getPolylinePoints(coordinates: TrainCoordinate[]): string {
-    return coordinates
-      .map((coord) => {
-        const x = this.marginLeft + (coord.x / this.maxDistance) * this.chartWidth
-        const y = this.marginTop + (coord.y / this.maxTime) * this.chartHeight
-        return `${x},${y}`
-      })
-      .join(' ')
+  public getZwlPosition(coord: TrainCoordinate): [number, number] | null {
+    return this.mapping.get(coord.x)?.get(coord.y) ?? null
+  }
+
+
+  getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
+    const points: { x: number; y: number }[] = []
+    let last: { x: number; y: number } | null = null
+    for (const coord of coordinates) {
+      const zwlPos = this.getZwlPosition(coord)
+      if (zwlPos !== null) {
+        last = {
+          x: this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth,
+          y: this.marginTop + (coord.t / this.maxTime) * this.chartHeight,
+        }
+      } else if (last !== null) {
+        points.push(last)
+        last = null
+      }
+    }
+    if (last !== null) points.push(last)
+    return points
+  }
+
+  getPolylinePath(coordinates: TrainCoordinate[]): string {
+    const parts: string[] = []
+    let penDown = false
+    for (const coord of coordinates) {
+      const zwlPos = this.getZwlPosition(coord)
+      if (zwlPos === null) {
+        penDown = false
+        continue
+      }
+      const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
+      const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
+      parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
+      penDown = true
+    }
+    return parts.join(' ')
   }
 }

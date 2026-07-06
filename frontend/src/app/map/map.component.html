@@ -1,16 +1,89 @@
 
 <div class="map">
   <div class="environment">
-    @for (row of mapClasses; track $index) {
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
-        @for (col of row; track $index) {
-          <div class="cell" [class]="col.ground">
-            @if (col.objects) {
-              <div class="target" [class]="col.objects"></div>
+        @for (col of row; let colIndex = $index; track $index) {
+        <div class="cell" [class]="col.ground" [attr.data-row]="rowIndex" [attr.data-col]="colIndex" [attr.data-transition]="col.transition">
+            @if (col.pin) {
+            <!-- red -->
+            <div class="pin"></div>
+            }
+            @else if (col.station) {
+            <!-- orange -->
+              <div class="station"></div>
             }
           </div>
         }
       </div>
+    }
+  </div>
+  <div class="stationarea">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    <div class="stationarea-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="stationarea-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @if (col.stationBuilding) {
+        <div class="station-building" [class]="col.stationBuilding"></div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="station-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+      <div class="station-row">
+        @for (col of row; let colIndex = $index; track $index) {
+          <div class="station-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+            @if (col.trackName) {
+            <div class="station-label">{{ col.trackName }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="pin-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    <div class="pin-row">
+        @for (col of row; let colIndex = $index; track $index) {
+      <div class="pin-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @if (col.pinLabel) {
+        <div class="pin-label">{{ col.pinLabel }}</div>
+            }
+      </div>
+      }
+    </div>
+    }
+  </div>
+  <div class="row-col-numbers">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    @let isLastRow = $last;
+    <div class="rc-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="rc-cell">
+        @if (colIndex === 0) {<span class="row-number">{{ rowIndex }}</span>}
+        @if ($last) {<span class="row-number-right">{{ rowIndex }}</span>}
+        @if (rowIndex === 0) {<span class="col-number">{{ colIndex }}</span>}
+        @if (isLastRow) {<span class="col-number-bottom">{{ colIndex }}</span>}
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="level-labels">
+    @for (row of mapClasses; let rowIndex = $index; track $index) {
+    <div class="level-row">
+      @for (col of row; let colIndex = $index; track $index) {
+      <div class="level-cell" [attr.data-row]="rowIndex" [attr.data-col]="colIndex">
+        @let level = getLevel(rowIndex, colIndex);
+        @if (level !== undefined) {
+        <div class="level-label">{{ level }}</div>
+        }
+      </div>
+      }
+    </div>
     }
   </div>
   <div class="agents">
@@ -22,6 +95,8 @@
           [style.left]="agent.position[1] * 20 + 'px'"
           [style.top]="agent.position[0] * 20 + 'px'"
           [style.filter]="'hue-rotate(' + i / agents.length * 360 + 'deg)'"
+          [attr.data-row]="agent.position[0]"
+          [attr.data-col]="agent.position[1]"
         >{{ agent.handle }}</div>
       }
     }
@@ -29,28 +104,37 @@
 </div>
 
 <div class="controller">
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.next()">Step</button>
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.reset(currentEnv, currentPolicy)">Reset</button>
-  @if (stateService.playing) {
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.stop()">Stop</button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.next()">Step
+  </button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.reset(currentEnv, currentPolicy)">Reset
+  </button>
+  @if (controllerService.playing) {
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.stop()">Stop
+  </button>
   } @else {
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button" (click)="stateService.play(currentPolicy)">Play</button>
+  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+          (click)="controllerService.play()">Play
+  </button>
   }
   @if (state) {
     <div>{{ state.steps }}</div>
   }
 
-  <select [(ngModel)]="currentPolicy" (ngModelChange)="stateService.reset(currentEnv, $event)">
+  <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
     @for (policyOption of policyOptions; track $index) {
       <option [value]="policyOption.value">{{ policyOption.label }}</option>
     }
   </select>
 
-  <select [(ngModel)]="currentEnv" (ngModelChange)="stateService.reset($event, currentPolicy)">
+  <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
     @for (envOption of envOptions; track $index) {
       <option [value]="envOption.value">{{ envOption.label }}</option>
     }
   </select>
+
 
 </div>
 

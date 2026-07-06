@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core'
 import { StateService } from '../state.service'
 import { MapCell, RendererService } from '../renderer.service'
-import { firstValueFrom } from 'rxjs'
-import { State } from '../controller.service'
-import { Agent, DataService, PolicyOption } from '../data.service'
+import {combineLatest} from 'rxjs'
+import {Agent, State} from '../data.service'
+import {ControllerService} from '../controller.service'
 import {FormsModule} from '@angular/forms';
 
 interface SelectOption {
@@ -20,6 +20,7 @@ interface SelectOption {
 export class MapComponent implements OnInit {
   public mapClasses: Array<Array<MapCell>> = []
   public agents: Array<Agent> = []
+  public levelCoords = new Map<number, Map<number, number>>()
   public state: State = {
     steps: 0,
     done: {
@@ -33,28 +34,41 @@ export class MapComponent implements OnInit {
   public envOptions: SelectOption[] = []
   public currentEnv = ''
 
+
   constructor(
     public stateService: StateService,
+    public controllerService: ControllerService,
     public rendererService: RendererService,
-    private dataService: DataService,
   ) {}
 
   ngOnInit() {
-    this.dataService.getEnvs().then(envs => {
+    this.stateService.getEnvs().subscribe(envs => {
       this.envOptions = envs.map(e => ({ value: e.id, label: e.description }))
       this.currentEnv = this.envOptions[0]?.value ?? ''
     })
-    this.dataService.getPolicies().then(policies => {
+    this.stateService.getPolicies().subscribe(policies => {
       this.policyOptions = policies.map(p => ({ value: p.id, label: p.description }))
       this.currentPolicy = this.policyOptions[0]?.value ?? ''
     })
     this.stateService.getState().subscribe((state) => (this.state = state))
-    this.stateService.getTransitions().subscribe((transitions) =>
-      firstValueFrom(this.stateService.getAgents()).then((agents) => {
-        this.mapClasses = this.rendererService.renderMap(transitions, agents)
-      }),
-    )
+    combineLatest([
+      this.stateService.getTransitions(),
+      this.stateService.getStations(),
+    ]).subscribe(([transitions, stations]) => {
+      this.mapClasses = this.rendererService.renderMap(transitions, [], stations)
+    })
     this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
+    this.stateService.getLinkMap().subscribe(data => {
+      this.levelCoords = new Map()
+      for (const [[r, c], level] of data.levels ?? []) {
+        if (!this.levelCoords.has(r)) this.levelCoords.set(r, new Map())
+        this.levelCoords.get(r)!.set(c, level)
+      }
+    })
+  }
+
+  public getLevel(row: number, col: number): number | undefined {
+    return this.levelCoords.get(row)?.get(col)
   }
 
   public getSteps() {

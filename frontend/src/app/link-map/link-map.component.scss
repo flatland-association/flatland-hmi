@@ -2,10 +2,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 20px;
   padding: 20px;
-  height: 100vh;
 }
 
 .controller {
@@ -59,7 +57,7 @@
         }
 
         &.track {
-          background-color: whitesmoke; // rgb(236, 234, 229);
+          background-color: whitesmoke;
           &.rotation_90 {
             transform: rotate(90deg);
           }
@@ -147,20 +145,41 @@
           }
 
           &.transition_invalid {
-            background-color: lightgrey;
+            box-shadow: inset 0 0 0 2px red;
           }
         }
 
         .station {
           width: 100%;
           height: 100%;
+          // orange
           background-color: rgba(255, 165, 0, 0.4);
         }
 
         .pin {
           width: 100%;
           height: 100%;
+          // red
           background-color: rgba(255, 0, 0, 0.4);
+        }
+
+        .target {
+          width: 100%;
+          height: 100%;
+          background-image: url('/svg/Bahnhof.svg');
+          background-size: cover;
+          background-repeat: no-repeat;
+          background-position: center;
+
+          &.rotation_90 {
+            transform: rotate(-90deg);
+          }
+          &.rotation_180 {
+            transform: rotate(-180deg);
+          }
+          &.rotation_270 {
+            transform: rotate(-270deg);
+          }
         }
       }
     }
@@ -173,10 +192,7 @@
     z-index: 6;
     pointer-events: none;
 
-    .stationarea-row {
-      display: flex;
-      flex-direction: row;
-    }
+    .stationarea-row { display: flex; flex-direction: row; }
 
     .stationarea-cell {
       flex-shrink: 0;
@@ -202,10 +218,7 @@
     z-index: 8;
     pointer-events: none;
 
-    .station-row {
-      display: flex;
-      flex-direction: row;
-    }
+    .station-row { display: flex; flex-direction: row; }
 
     .station-cell {
       flex-shrink: 0;
@@ -232,10 +245,7 @@
     z-index: 8;
     pointer-events: none;
 
-    .pin-row {
-      display: flex;
-      flex-direction: row;
-    }
+    .pin-row { display: flex; flex-direction: row; }
 
     .pin-cell {
       flex-shrink: 0;
@@ -323,10 +333,7 @@
     z-index: 9;
     pointer-events: none;
 
-    .level-row {
-      display: flex;
-      flex-direction: row;
-    }
+    .level-row { display: flex; flex-direction: row; }
 
     .level-cell {
       flex-shrink: 0;

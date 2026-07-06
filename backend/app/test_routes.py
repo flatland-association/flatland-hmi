@@ -45,7 +45,7 @@ def test_get_envs():
     body = response.json()
     assert isinstance(body, list)
     ids = {e["id"] for e in body}
-    assert ids == {"generated-0", "generated-1"}
+    assert ids == {"generated-0", "generated-1", 'generated-seed-44', 'generated-seed-45', }
     assert all("description" in e for e in body)
 
 
@@ -212,6 +212,31 @@ def test_get_trajectory_agents_runner_not_in_map():
     assert all(required_keys <= set(agent.keys()) for agent in body)
 
 
+def test_get_trajectory_agent_transitions():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/link/0/map")
+    assert response.status_code == 200
+    body = response.json()
+    required_keys = {"grid", "mapping"}
+    assert required_keys <= set(body.keys())
+
+
+def test_get_trajectory_agent_transitions_invalid_agent():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/link/9999/map")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agent_transitions_not_found():
+    response = client.get("/trajectories/nonexistent-id/link/0/map")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agent_transitions_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/link/0/map")
+    assert response.status_code in (400, 404)
+
+
 def test_get_trajectory_transitions_not_found():
     response = client.get("/trajectories/nonexistent-id/transitions")
     assert response.status_code == 404
@@ -229,4 +254,59 @@ def test_get_trajectory_transitions_path_traversal():
 
 def test_get_trajectory_agents_path_traversal():
     response = client.get("/trajectories/../../etc/passwd/agents")
+    assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_links():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/links")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert {"cityFrom",
+            "cityTo",
+            "label",
+            "startStationName",
+            "endStationName", } <= body[0].keys()
+
+
+def test_get_trajectory_lines_invalid_agent():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/links/9999")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_lines_not_found():
+    response = client.get("/trajectories/nonexistent-id/links/0")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_lines_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/links/0")
+    assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_stations():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/stations")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, dict)
+    assert {"stationEdges", "stationGates", "links"} <= body.keys()
+    station_edges = body["stationEdges"]
+    assert isinstance(station_edges, dict)
+    assert len(station_edges) > 0
+    assert all(
+        isinstance(cells, list) and all(isinstance(c, list) and len(c) == 2 for c in cells)
+        for cells in station_edges.values()
+    )
+
+
+def test_get_trajectory_stations_not_found():
+    response = client.get("/trajectories/nonexistent-id/stations")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_stations_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/stations")
     assert response.status_code in (400, 404)
