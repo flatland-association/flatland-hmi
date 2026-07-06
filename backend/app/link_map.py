@@ -18,7 +18,7 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-def _assign_level(cell: IntVector2D, level: int, levels: Dict[IntVector2D, int], reverse_levels: Dict[int, Set]) -> None:
+def _assign_level(cell: IntVector2D, level: int, levels: Dict[IntVector2D, int], reverse_levels: Dict[int, Set[IntVector2D]]) -> None:
     """Record `cell`'s ZWL level in both `levels` and `reverse_levels`, unless it has already been assigned one."""
     if cell in levels:
         assert levels[cell] == level, (cell, levels[cell], level)
@@ -49,7 +49,7 @@ def _get_next_level(level: int, num_succ: int, succ: IntVector2D, baseline_succ:
 
 
 def _stretch_straight_transitions_at_same_level(pos: IntVector2D, level: int, levels: Dict[IntVector2D, int], successors: Dict[IntVector2D, List[IntVector2D]],
-                                                mapping_only_pins_from_stations: GridTransitionMap, zwl_grid_map: Dict) -> None:
+                                                mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D], zwl_grid_map: GridTransitionMap) -> None:
     """For a degree-1 successor chain from `pos` that stays at `level` and is already mapped at both ends, fill in straight transitions and interpolated cell mappings along the row between them."""
     #  within the station-station graph, everything is forward reachable, so no need to do same backwards
     if not (pos in successors and len(successors[pos]) == 1 and pos in mapping_only_pins_from_stations):
@@ -208,8 +208,9 @@ def _map_levels_to_link_map(levels: Dict[IntVector2D, int], mapping_only_pins_fr
                 _branch_predecessors_to_next_level(pos, level, levels, predecessors, open_cells, mapping_only_pins_from_stations, zwl_grid, zwl_grid_map)
 
 
-def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dict[IntVector2D, List[IntVector2D]], rail: GridTransitionMap, reverse_levels: Set[IntVector2D],
-                               successors: Dict[IntVector2D, List[IntVector2D]]):
+def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dict[IntVector2D, List[IntVector2D]], rail: GridTransitionMap,
+                               reverse_levels: Dict[int, Set[IntVector2D]],
+                               successors: Dict[IntVector2D, List[IntVector2D]]) -> None:
     """Extend level assignment to the neighbor cells just outside the gate-to-gate path graph (e.g. switches/crossings bordering the fibre), inferring their direction and level from the already-known predecessors/successors of each cell."""
     # assign levels for context (outside of gate-gate paths)
     for cell in successors.keys():
@@ -283,9 +284,10 @@ def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dic
 
 
 def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate, from_pin_index: int,
-                                               mapping_only_pins_from_stations: GridTransitionMap, predecessors: Dict[IntVector2D, List[IntVector2D]],
+                                               mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D],
+                                               predecessors: Dict[IntVector2D, List[IntVector2D]],
                                                successors: Dict[IntVector2D, List[IntVector2D]], to_gate: Gate, to_pin_index: int) -> Tuple[
-    Dict[IntVector2D, int], Dict[int, Set[IntVector2D]], Set[IntVector2D]]:
+    Dict[IntVector2D, int], Set[IntVector2D], Dict[int, Set[IntVector2D]]]:
     """Assign a ZWL level to every cell in the station-to-station path graph, starting from the fibre (level 0) and its gate pins, then iteratively propagate levels along degree-2 branches; returns the level map, the still-unmapped cells, and the per-level cell index."""
     # cells in the graph without a mapping assigned yet:
     open_cells = set(successors.keys())
@@ -351,7 +353,7 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate, fr
 def _init_zwl_grid_from_fibre(link: Link, fibre: Fibre, rail: GridTransitionMap, stations_links: StationsLinks, from_dir_char: str, from_gate: Gate | None,
                               from_station: str,
                               to_dir_char: str, to_gate: Gate | None, to_station: str) -> Tuple[
-    Dict, GridTransitionMap, ndarray, Dict]:
+    Dict[IntVector2D, IntVector2D], Dict[IntVector2D, IntVector2D], ndarray, GridTransitionMap]:
     """Build the initial ZWL grid by placing the rotated bounding boxes of the two stations side by side and connecting their pins along the fibre; returns the full station-cell mapping, the pin-only mapping, the raw grid, and its `GridTransitionMap` wrapper."""
 
     start = tuple(fibre.edges[0])
@@ -462,7 +464,8 @@ def _extract_station_to_station_graph(link: Link, rail: GridTransitionMap, stati
     return predecessors, successors
 
 
-def _map_one_new_neighbor(cell: IntVector2D, new_neighbors: Set, level: int, level_to_neighbor: Dict, levels: Dict[IntVector2D, int], mapping: Dict[IntVector2D, IntVector2D],
+def _map_one_new_neighbor(cell: IntVector2D, new_neighbors: Set[IntVector2D], level: int, level_to_neighbor: Dict[Optional[int], Set[IntVector2D]],
+                          levels: Dict[IntVector2D, int], mapping: Dict[IntVector2D, IntVector2D],
                           zwl_grid_map: GridTransitionMap) -> None:
     """Map the single unmapped neighbor of `cell`: continue at the same level if one is missing, split to the row below for a slip, or otherwise take the first free row above/below."""
     me = mapping[cell]
@@ -503,7 +506,8 @@ def _map_one_new_neighbor(cell: IntVector2D, new_neighbors: Set, level: int, lev
         mapping[n] = chosen
 
 
-def _map_two_new_neighbors_at_known_levels(cell: IntVector2D, level: int, level_to_neighbor: Dict, mapping: Dict[IntVector2D, IntVector2D]) -> None:
+def _map_two_new_neighbors_at_known_levels(cell: IntVector2D, level: int, level_to_neighbor: Dict[Optional[int], Set[IntVector2D]],
+                                           mapping: Dict[IntVector2D, IntVector2D]) -> None:
     """Map both unmapped neighbors of `cell` directly to the row above/below, using the already-known levels of the other neighbors at level±1."""
     me = mapping[cell]
     me_below = (me[0] + 1, me[1])
@@ -514,7 +518,8 @@ def _map_two_new_neighbors_at_known_levels(cell: IntVector2D, level: int, level_
     mapping[neighbour_above_to_add] = me_above
 
 
-def _map_two_new_neighbors_at_level_zero(cell: IntVector2D, new_neighbors: Set, mapping: Dict[IntVector2D, IntVector2D], zwl_grid_map: GridTransitionMap) -> None:
+def _map_two_new_neighbors_at_level_zero(cell: IntVector2D, new_neighbors: Set[IntVector2D], mapping: Dict[IntVector2D, IntVector2D],
+                                         zwl_grid_map: GridTransitionMap) -> None:
     """Map both unmapped neighbors of a level-0 `cell` to the row above and the row below."""
     me = mapping[cell]
     above = (me[0] - 1, me[1])
@@ -561,8 +566,8 @@ def _handle_beyond_one_one(cell: IntVector2D, rail: GridTransitionMap, mapping: 
     _fix_zwl_cell_from_grid_neighbour_pairs(cell, mapping, pairs, trans, zwl_grid_map, incomplete_cells)
 
 
-def _fix_zwl_cell_from_grid_neighbour_pairs(cell: IntVector2D, mapping: Dict, pairs: Set[Tuple[IntVector2D, IntVector2D]],
-                                            trans: ndarray, zwl_grid_map: GridTransitionMap, incomplete_cells: Dict[IntVector2D, str]):
+def _fix_zwl_cell_from_grid_neighbour_pairs(cell: IntVector2D, mapping: Dict[IntVector2D, IntVector2D], pairs: Set[Tuple[IntVector2D, IntVector2D]],
+                                            trans: int, zwl_grid_map: GridTransitionMap, incomplete_cells: Dict[IntVector2D, str]) -> None:
     """Derive and set the ZWL transition bits for `cell` from the direction pairs of its already-mapped grid neighbors, applying the result only if the resulting transition bitmask is valid; neighbor pairs that cannot be mapped are recorded in `incomplete_cells` with a root-cause message instead."""
     for from_cell, to_cell in pairs:
         if not (is_neighbor_cell(mapping[from_cell], mapping[cell]) and is_neighbor_cell(mapping[cell], mapping[to_cell])):
