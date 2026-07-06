@@ -26,7 +26,7 @@ flowchart LR
 
 ## Links
 
-* [Documentation Stations and Links](https://github.com/flatland-association/flatland-book/pull/33)
+* [Documentation Stations and Links](https://flatland-association.github.io/flatland-book/environment/environment/stations_links.html)
 * [SparseRailGenerator](https://github.com/flatland-association/flatland-rl/pull/441)
 * [link_map.py](https://github.com/flatland-association/flatland-hmi/pull/26)
 
