@@ -51,6 +51,10 @@ router = APIRouter()
 
 global_interactive_env_lock = asyncio.Lock()
 
+# Feature flag: if True, the /links endpoints label/identify links by their representative
+# pin-to-pin pair (e.g. "A.N.0 -> B.S.1") instead of the default gate-to-gate pair (e.g. "A.N -> B.S").
+USE_PIN_TO_PIN_LINK_LABELS = False
+
 
 # https://download.eclipse.org/microprofile/microprofile-health-2.1/microprofile-health-spec.html#_constructing_healthcheckresponse_s
 @router.get("/health/live")
@@ -97,13 +101,28 @@ def build_stations_and_links_payload(stations_links: StationsLinks) -> dict:
 
     links_payload: List[dict] = []
     link: Link
+    fibre: Fibre
     for link in stations_links.links:
-        fibre: Fibre
-        links_payload.append({
-            "fromPin": link.from_pin,
-            "toPin": link.to_pin,
-            "fibres": [{"cells": fibre.edges} for fibre in link.fibres],
-        })
+        if USE_PIN_TO_PIN_LINK_LABELS:
+            # one payload entry per pin-pin pair (fibre), matching the pre-gate-grouping link granularity
+            for fibre in link.fibres:
+                links_payload.append({
+                    "fromGate": link.from_gate,
+                    "toGate": link.to_gate,
+                    "fromPin": fibre.from_pin,
+                    "toPin": fibre.to_pin,
+                    "fibres": [{"cells": fibre.edges}],
+                })
+        else:
+            # one payload entry per gate-gate link, using the first fibre's pins as the representative pin pair
+            first_fibre: Fibre = link.fibres[0]
+            links_payload.append({
+                "fromGate": link.from_gate,
+                "toGate": link.to_gate,
+                "fromPin": first_fibre.from_pin,
+                "toPin": first_fibre.to_pin,
+                "fibres": [{"cells": fibre.edges} for fibre in link.fibres],
+            })
 
     return {
         "stationEdges": station_edges,
@@ -298,14 +317,26 @@ async def get_trajectory_agents(trajectory_id: str):
 
 
 def _enrich_link(link: dict, link_id: int) -> dict:
-    from_station, from_dir, _ = link["fromPin"].split(".")
-    to_station, to_dir, _ = link["toPin"].split(".")
+    if USE_PIN_TO_PIN_LINK_LABELS:
+        from_station, from_dir, _ = link["fromPin"].split(".")
+        to_station, to_dir, _ = link["toPin"].split(".")
+        return {
+            "cityFrom": from_station,
+            "cityTo": to_station,
+            "fromGate": f"{from_station}.{from_dir}",
+            "toGate": f"{to_station}.{to_dir}",
+            "label": f"Link {link_id} ({link['fromPin']} → {link['toPin']})",
+            "startStationName": f"Station {from_station}",
+            "endStationName": f"Station {to_station}",
+        }
+    from_station, _ = link["fromGate"].split(".")
+    to_station, _ = link["toGate"].split(".")
     return {
         "cityFrom": from_station,
         "cityTo": to_station,
-        "fromGate": f"{from_station}.{from_dir}",
-        "toGate": f"{to_station}.{to_dir}",
-        "label": f"Link {link_id} ({link['fromPin']} → {link['toPin']})",
+        "fromGate": link["fromGate"],
+        "toGate": link["toGate"],
+        "label": f"Link {link_id} ({link['fromGate']} → {link['toGate']})",
         "startStationName": f"Station {from_station}",
         "endStationName": f"Station {to_station}",
     }

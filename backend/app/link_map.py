@@ -603,8 +603,8 @@ def _get_succ_at_same_level(level: int, levels: Dict[IntVector2D, int], pos: Int
 
 def _find_all_paths_between_stations(link: Link, stations_links: StationsLinks, rail: GridTransitionMap) -> List[List[Waypoint]]:
     """Find up to 10 shortest paths between every pin of the link's from-gate and every pin of its to-gate, searching the rail grid with all station cells (except pins) masked out."""
-    from_station, from_dir_char, _ = link.from_pin.split(".")
-    to_station, to_dir_char, _ = link.to_pin.split(".")
+    from_station, from_dir_char = link.from_gate.split(".")
+    to_station, to_dir_char = link.to_gate.split(".")
     from_facing_int: int = _DIRECTION_CHARS[from_dir_char]
     to_facing_int: int = _DIRECTION_CHARS[to_dir_char]
 
@@ -704,8 +704,8 @@ def extract_link_map(stations_links: StationsLinks, link: Link, fibre: Fibre, ra
     -------
 
     """
-    from_pin: str = link.from_pin
-    to_pin: str = link.to_pin
+    from_pin: str = fibre.from_pin
+    to_pin: str = fibre.to_pin
     from_station: str
     from_dir_char: str
     from_track_str: str
