@@ -181,8 +181,8 @@ def _branch_predecessors_to_next_level(pos: IntVector2D, level: int, levels: Dic
             zwl_grid_map.grid[*new_zwl_pos] = RailEnvTransitionsEnum.right_turn_from_west.value
 
         for c in range(mapping_only_pins_from_stations[pred][1] + 1, new_zwl_pos[1]):
-            assert zwl_grid[new_zwl_pos[0]][c] == 0
-            zwl_grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
+            assert zwl_grid_map.grid[new_zwl_pos[0]][c] == 0
+            zwl_grid_map.grid[new_zwl_pos[0]][c] = RailEnvTransitionsEnum.horizontal_straight.value
 
 
 def _map_levels_to_link_map(levels: Dict[IntVector2D, int], mapping_only_pins_from_stations: Dict[IntVector2D, IntVector2D], open_cells: Set[IntVector2D],
