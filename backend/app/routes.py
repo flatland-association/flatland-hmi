@@ -151,7 +151,7 @@ def _build_agents_content(env) -> list:
             "moving": agent.moving,
             "speed_counter": agent.speed_counter,
             "target": (
-                None if agent.target is None else tuple(int(c) for c in agent.target)
+                None if not agent.targets else tuple(int(c) for c in next(iter(agent.targets))[0])
             ),
             "malfunction": agent.malfunction_handler.malfunction_down_counter,
         }
