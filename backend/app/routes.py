@@ -145,9 +145,12 @@ def _build_agents_content(env) -> list:
         {
             "handle": agent.handle,
             "position": (
-                None if agent.position is None else tuple(int(c) for c in agent.position)
+                None if agent.current_configuration is None
+                else tuple(int(c) for c in agent.current_configuration[0])
             ),
-            "direction": agent.direction,
+            "direction": (
+                None if agent.current_configuration is None else agent.current_configuration[1]
+            ),
             "moving": agent.moving,
             "speed_counter": agent.speed_counter,
             "target": (

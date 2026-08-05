@@ -11,8 +11,8 @@ COPY requirements.txt ./requirements.txt
 COPY ./app ./app
 COPY main.py ./main.py
 # DEPENDENCY SWITCH
-# TODO flatland-baselines goes with flatland-rl==4.2.6
-RUN python -m pip install -U -r requirements.txt && python -m pip install -U git+https://github.com/flatland-association/flatland-rl.git@main
+# TODO revert to @main once feature/deprecate-agent-position merges into flatland-rl main
+RUN python -m pip install -U -r requirements.txt && python -m pip install -U git+https://github.com/flatland-association/flatland-rl.git@feature/deprecate-agent-position
 RUN python --version && python -m pip list
 
 EXPOSE 8000
