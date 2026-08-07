@@ -137,6 +137,29 @@
         fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ toGate }}
   </text>
 
+  <!-- NOW line (current time step) -->
+  @if (timestep > 0) {
+    <g>
+      <line
+        [attr.x1]="marginLeft"
+        [attr.y1]="nowY"
+        [attr.x2]="marginLeft + chartWidth"
+        [attr.y2]="nowY"
+        stroke="red"
+        stroke-width="1.5"
+      />
+      <text
+        [attr.x]="marginLeft + chartWidth + 4"
+        [attr.y]="nowY + 4"
+        fill="red"
+        font-family="Arial, sans-serif"
+        font-size="11"
+        text-anchor="start"
+      >NOW
+      </text>
+    </g>
+  }
+
   <!-- Planned trajectories -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {

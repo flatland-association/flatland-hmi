@@ -61,6 +61,10 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
+  get nowY(): number {
+    return this.marginTop + (this.timestep / this.maxTime) * this.chartHeight
+  }
+
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public fromGate = ''
   public toGate = ''
