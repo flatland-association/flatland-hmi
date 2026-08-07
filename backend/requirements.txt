@@ -8,5 +8,4 @@ starlette
 requests
 # DEPENDENCY SWITCH
 # TODO use released/agged version
-# TODO revert to @main once feature/deprecate-agent-position (fixes FullEnvObservation.reset(env) signature) merges
-git+https://github.com/flatland-association/flatland-baselines.git@feature/deprecate-agent-position
+git+https://github.com/flatland-association/flatland-baselines.git@main
