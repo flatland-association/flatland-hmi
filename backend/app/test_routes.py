@@ -64,7 +64,7 @@ def test_post_step():
 
 
 def test_post_get_trajectory():
-    response = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"})
+    response = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"})
     assert response.status_code == 200
     ep_id = response.json()
     assert isinstance(ep_id, str)
@@ -76,13 +76,13 @@ def test_post_get_trajectory():
 
 
 def test_get_trajectory_existing():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}")
     assert response.status_code == 200
     body = response.json()
     assert body["ep_id"] == ep_id
     assert body["policy_id"] == "policy-0"
-    assert body["env_id"] == "generated-0"
+    assert body["env_id"] == "generated-seed-44"
 
 
 def test_get_trajectory_path_traversal():
@@ -104,13 +104,13 @@ def test_get_trajectory_not_found():
 
 
 def test_post_trajectory_step():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.post(f"/trajectories/{ep_id}/step")
     assert response.status_code == 200
     body = response.json()
     assert body["ep_id"] == ep_id
     assert body["policy_id"] == "policy-0"
-    assert body["env_id"] == "generated-0"
+    assert body["env_id"] == "generated-seed-44"
     elapsed_steps_ = body["elapsed_steps"]
     assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
     response = client.post(f"/trajectories/{ep_id}/step")
@@ -118,14 +118,14 @@ def test_post_trajectory_step():
 
 
 def test_post_trajectory_step_policy_runner_not_in_map():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.post(f"/trajectories/{ep_id}/step")
     assert response.status_code == 200
     body = response.json()
     assert body["ep_id"] == ep_id
     assert body["policy_id"] == "policy-0"
-    assert body["env_id"] == "generated-0"
+    assert body["env_id"] == "generated-seed-44"
     elapsed_steps_ = body["elapsed_steps"]
     assert isinstance(elapsed_steps_, int) and elapsed_steps_ >= 1
     response = client.post(f"/trajectories/{ep_id}/step")
@@ -133,7 +133,7 @@ def test_post_trajectory_step_policy_runner_not_in_map():
 
 
 def test_post_trajectory_step_with_policy():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "policy-1"})
     assert response.status_code == 200
@@ -144,7 +144,7 @@ def test_post_trajectory_step_with_policy():
 
 
 def test_post_trajectory_step_invalid_policy():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.post(f"/trajectories/{ep_id}/step", json={"policy_id": "nonexistent"})
     assert response.status_code == 400
 
@@ -155,7 +155,7 @@ def test_post_trajectory_step_not_found():
 
 
 def test_post_trajectory_fork():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     client.post(f"/trajectories/{ep_id}/step")
     response = client.post(f"/trajectories/{ep_id}/fork")
     assert response.status_code == 200
@@ -164,7 +164,7 @@ def test_post_trajectory_fork():
     assert fork_id != ep_id
     UUID(fork_id)
     assert body["policy_id"] == "policy-0"
-    assert body["env_id"] == "generated-0"
+    assert body["env_id"] == "generated-seed-44"
     assert isinstance(body["elapsed_steps"], int)
     assert fork_id in client.get("/trajectories").json()
 
@@ -180,7 +180,7 @@ def test_post_trajectory_fork_path_traversal():
 
 
 def test_get_trajectory_transitions():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/transitions")
     assert response.status_code == 200
     body = response.json()
@@ -189,7 +189,7 @@ def test_get_trajectory_transitions():
 
 
 def test_get_trajectory_agents():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/agents")
     assert response.status_code == 200
     body = response.json()
@@ -200,7 +200,7 @@ def test_get_trajectory_agents():
 
 
 def test_get_trajectory_agents_runner_not_in_map():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     client.post(f"/trajectories/{ep_id}/step")
     trajectory_context.trajectory_context_map.pop(ep_id)
     response = client.get(f"/trajectories/{ep_id}/agents")
@@ -213,7 +213,7 @@ def test_get_trajectory_agents_runner_not_in_map():
 
 
 def test_get_trajectory_agent_transitions():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/link/0/map")
     assert response.status_code == 200
     body = response.json()
@@ -222,7 +222,7 @@ def test_get_trajectory_agent_transitions():
 
 
 def test_get_trajectory_agent_transitions_invalid_agent():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/link/9999/map")
     assert response.status_code == 404
 
@@ -248,7 +248,7 @@ def test_get_trajectory_agents_not_found():
 
 
 def test_get_trajectory_agent_plans():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/agent_plans")
     assert response.status_code == 200
     body = response.json()
@@ -265,7 +265,7 @@ def test_get_trajectory_agent_plans():
 
 
 def test_get_trajectory_agent_plans_after_step():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     step_body = client.post(f"/trajectories/{ep_id}/step").json()
     now = step_body["elapsed_steps"]
     response = client.get(f"/trajectories/{ep_id}/agent_plans")
@@ -301,7 +301,7 @@ def test_get_trajectory_agents_path_traversal():
 
 
 def test_get_trajectory_links():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/links")
     assert response.status_code == 200
     body = response.json()
@@ -314,7 +314,7 @@ def test_get_trajectory_links():
 
 
 def test_get_trajectory_lines_invalid_agent():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/links/9999")
     assert response.status_code == 404
 
@@ -330,7 +330,7 @@ def test_get_trajectory_lines_path_traversal():
 
 
 def test_get_trajectory_stations():
-    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
     response = client.get(f"/trajectories/{ep_id}/stations")
     assert response.status_code == 200
     body = response.json()

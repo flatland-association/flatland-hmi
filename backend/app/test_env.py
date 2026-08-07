@@ -11,7 +11,13 @@ from app.env import InteractiveEnv, env_map, policy_map
      for n in range(10)]
 )
 def test_loop(env_id, policy_id, n):
-    interactive_env = InteractiveEnv(env_map[env_id]["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"]()), policy_map[policy_id]["factory"]())
+    # generated-0/generated-1 draw their seed from OS entropy when unseeded, so pin it here:
+    # otherwise generation is non-deterministic and can occasionally produce a disconnected
+    # layout that fails DeadLockAvoidancePolicy's path-finding, flaky only in full-suite runs.
+    interactive_env = InteractiveEnv(
+        env_map[env_id]["factory"](obs_builder_object=policy_map[policy_id]["obs_builder_factory"](), seed=n),
+        policy_map[policy_id]["factory"](),
+    )
     interactive_env.reset()
     while not interactive_env.done.get("__all__", False):
         interactive_env.step()
