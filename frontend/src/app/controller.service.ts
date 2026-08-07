@@ -91,8 +91,13 @@ export class ControllerService {
     this.isProcessingQueue = true
     this.dataService.stepTrajectory(trajectoryId)
       .then(trajectoryStep =>
-        this.dataService.getTrajectoryAgents(trajectoryId)
-          .then(agents => this.stateService.applyStep(trajectoryStep, agents))
+        Promise.all([
+          this.dataService.getTrajectoryAgents(trajectoryId),
+          this.dataService.getTrajectoryAgentPlans(trajectoryId),
+        ]).then(([agents, plans]) => {
+          this.stateService.setPlans(plans)
+          return this.stateService.applyStep(trajectoryStep, agents)
+        })
       )
       .then(state => {
         this.isProcessingQueue = false

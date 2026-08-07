@@ -247,6 +247,31 @@ def test_get_trajectory_agents_not_found():
     assert response.status_code == 404
 
 
+def test_get_trajectory_agent_plans():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    response = client.get(f"/trajectories/{ep_id}/agent_plans")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_trajectory_agent_plans_after_step():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
+    client.post(f"/trajectories/{ep_id}/step")
+    response = client.get(f"/trajectories/{ep_id}/agent_plans")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_trajectory_agent_plans_not_found():
+    response = client.get("/trajectories/nonexistent-id/agent_plans")
+    assert response.status_code == 404
+
+
+def test_get_trajectory_agent_plans_path_traversal():
+    response = client.get("/trajectories/../../etc/passwd/agent_plans")
+    assert response.status_code in (400, 404)
+
+
 def test_get_trajectory_transitions_path_traversal():
     response = client.get("/trajectories/../../etc/passwd/transitions")
     assert response.status_code in (400, 404)

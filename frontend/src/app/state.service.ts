@@ -65,6 +65,7 @@ export class StateService {
   public clearHistory(): void {
     this.historyBuffer = []
     this.history.next([])
+    this.plans.next([])
     this.replayTime.next(null)
   }
 
@@ -121,6 +122,10 @@ export class StateService {
 
   public getPlans(): Observable<Array<Array<Record<string, Agent>>>> {
     return this.plans.asObservable()
+  }
+
+  public setPlans(plans: Array<Array<Record<string, Agent>>>): void {
+    this.plans.next(plans)
   }
 
   public getPlan(): Observable<number | undefined> {

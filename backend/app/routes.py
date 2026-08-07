@@ -327,6 +327,16 @@ async def get_trajectory_agents(trajectory_id: str):
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
 
 
+@router.get("/trajectories/{trajectory_id}/agent_plans")
+async def get_trajectory_agent_plans(trajectory_id: str):
+    """Predicted future agent trajectories, one list of per-step agent snapshots per candidate plan.
+
+    Not yet implemented: no planner runs, so this always returns no plans.
+    """
+    TrajectoryContext.resolve(trajectory_id)
+    return CustomEncodedJSONResponse(content=[])
+
+
 def _enrich_link(link: dict, link_id: int) -> dict:
     from_station = link["fromStation"]
     to_station = link["toStation"]
