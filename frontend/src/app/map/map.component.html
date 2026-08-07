@@ -1,5 +1,6 @@
 
 <div class="map">
+  <app-replay-badge></app-replay-badge>
   <div class="environment">
     @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
@@ -105,6 +106,26 @@
 
 <div class="controller">
   <fieldset class="simulation-group">
+    <legend>Time Machine</legend>
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="!inReplayMode" (click)="timeMachinePrev()">&lt;
+    </button>
+    @if (inReplayMode) {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="leaveTimeMachine()">LEAVE
+    </button>
+    } @else {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="nowTime === 0" (click)="enterTimeMachine()">ENTER
+    </button>
+    }
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="!inReplayMode" (click)="timeMachineNext()">&gt;
+    </button>
+    <input class="time-machine-field" type="text" [attr.value]="inReplayMode ? displayedTime : ''" readonly [disabled]="!inReplayMode">
+  </fieldset>
+
+  <fieldset class="simulation-group">
     <legend>Simulation Time</legend>
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
             (click)="controllerService.next()">Step
@@ -119,7 +140,7 @@
     </button>
     }
     @if (state) {
-      <div class="timestep">{{ state.steps }}</div>
+      <input class="time-machine-field" type="text" [attr.value]="state.steps" readonly>
     }
   </fieldset>
 
@@ -129,17 +150,23 @@
             (click)="controllerService.reset(currentEnv, currentPolicy)">Reset
     </button>
 
-    <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
-      @for (policyOption of policyOptions; track $index) {
-        <option [value]="policyOption.value">{{ policyOption.label }}</option>
-      }
-    </select>
+    <div class="dropdown-group">
+      <div class="dropdown-frame">
+        <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
+          @for (policyOption of policyOptions; track $index) {
+            <option [value]="policyOption.value">{{ policyOption.label }}</option>
+          }
+        </select>
+      </div>
 
-    <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
-      @for (envOption of envOptions; track $index) {
-        <option [value]="envOption.value">{{ envOption.label }}</option>
-      }
-    </select>
+      <div class="dropdown-frame">
+        <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
+          @for (envOption of envOptions; track $index) {
+            <option [value]="envOption.value">{{ envOption.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
   </fieldset>
 </div>
 
