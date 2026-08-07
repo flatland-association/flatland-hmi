@@ -251,15 +251,33 @@ def test_get_trajectory_agent_plans():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
     response = client.get(f"/trajectories/{ep_id}/agent_plans")
     assert response.status_code == 200
-    assert response.json() == []
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) == 1
+    plan = body[0]
+    assert isinstance(plan, list)
+    assert len(plan) > 0
+    # No steps taken yet, so the first (and every subsequent) waypoint is a real prediction.
+    snapshot = plan[0]
+    assert len(snapshot) > 0
+    required_keys = {"handle", "position", "direction", "moving", "target", "malfunction"}
+    assert all(required_keys <= set(agent.keys()) for agent in snapshot.values())
 
 
 def test_get_trajectory_agent_plans_after_step():
     ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-0"}).json()
-    client.post(f"/trajectories/{ep_id}/step")
+    step_body = client.post(f"/trajectories/{ep_id}/step").json()
+    now = step_body["elapsed_steps"]
     response = client.get(f"/trajectories/{ep_id}/agent_plans")
     assert response.status_code == 200
-    assert response.json() == []
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) == 1
+    plan = body[0]
+    # Padded so plan indices align with the trajectory's own elapsed-step numbering.
+    assert plan[:now] == [{}] * now
+    assert len(plan) > now
+    assert len(plan[now]) > 0
 
 
 def test_get_trajectory_agent_plans_not_found():
