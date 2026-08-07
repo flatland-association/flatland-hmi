@@ -61,8 +61,10 @@ export class ControllerService {
         this.dataService.getTrajectoryTransitions(trajectoryId),
         this.dataService.getTrajectoryAgents(trajectoryId),
         this.dataService.getTrajectoryStations(trajectoryId),
-      ]).then(([transitions, agents, stations]) => {
+        this.dataService.getTrajectoryAgentPlans(trajectoryId),
+      ]).then(([transitions, agents, stations, plans]) => {
         this.stateService.loadTrajectory(transitions, agents, stations)
+        this.stateService.setPlans(plans)
       })
     })
   }
@@ -95,8 +97,11 @@ export class ControllerService {
           this.dataService.getTrajectoryAgents(trajectoryId),
           this.dataService.getTrajectoryAgentPlans(trajectoryId),
         ]).then(([agents, plans]) => {
+          // Apply the step (and its history/timestep update) before publishing plans, so Marey's
+          // plans subscriber sees the up-to-date timestep and aligns plans to the new "now".
+          const state = this.stateService.applyStep(trajectoryStep, agents)
           this.stateService.setPlans(plans)
-          return this.stateService.applyStep(trajectoryStep, agents)
+          return state
         })
       )
       .then(state => {

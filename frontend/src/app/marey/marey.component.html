@@ -187,15 +187,23 @@
   <!-- Planned trajectories -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
-      <g>
-        <path
-          [attr.d]="getPolylinePath(train.coordinates)"
-          [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
-          fill="none"
-          stroke-width="3"
-          opacity="0.8"
-        />
-      </g>
+      <path
+        [attr.d]="getPolylinePath(train.coordinates)"
+        [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
+        fill="none"
+        stroke-width="3"
+        opacity="0.8"
+      />
+    }
+    @for (label of getPlanLabels(plan); track $index) {
+    <text
+      [attr.x]="label.x + 3"
+      [attr.y]="label.y + 4"
+      font-family="Arial, sans-serif"
+      font-size="9"
+      fill="#888"
+    >{{ label.label }}
+    </text>
     }
   }
 

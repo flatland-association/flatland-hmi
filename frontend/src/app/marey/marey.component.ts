@@ -132,13 +132,16 @@ export class MareyComponent {
       })
     })
     this.stateService.getPlans().subscribe((plans) => {
+      // Plans are always rebuilt from scratch on every emission (backend recomputes fresh each
+      // step; old plans are never merged with new ones), so this can just discard prior state.
       this.plannedRuns = plans.map((plan) => {
         const agentHistories = plan
-          .filter((_, index) => index >= this.timestep)
-          .reduce((agentHistory: Record<string, Agent[]>, timestep) => {
+          .map((timestep, t) => ({timestep, t}))
+          .filter(({t}) => t >= this.timestep)
+          .reduce((agentHistory: Record<string, Array<{ agent: Agent; t: number }>>, {timestep, t}) => {
             for (const agent in timestep) {
               agentHistory[agent] ??= []
-              agentHistory[agent].push(timestep[agent])
+              agentHistory[agent].push({agent: timestep[agent], t})
             }
             return agentHistory
           }, {})
@@ -146,10 +149,10 @@ export class MareyComponent {
           return {
             name,
             coordinates: coordinates
-              .map(({position}, index) => ({
+              .map(({agent: {position}, t}) => ({
                 x: position?.[0] ?? undefined,
                 y: position?.[1] ?? undefined,
-                t: index,
+                t,
               }))
               .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
           }
@@ -185,6 +188,24 @@ export class MareyComponent {
     }
     if (last !== null) points.push(last)
     return points
+  }
+
+  /** Labels for one plan's agents, merging agents whose route ends at the same place and time
+   * (e.g. identical source and target) into a single "id/id/id" label instead of stacking them. */
+  getPlanLabels(plan: TrainRun[]): Array<{ x: number; y: number; label: string }> {
+    const grouped = new Map<string, { x: number; y: number; names: string[] }>()
+    for (const train of plan) {
+      for (const endPoint of this.getPolylineSegmentEndPoints(train.coordinates)) {
+        const key = `${endPoint.x.toFixed(2)},${endPoint.y.toFixed(2)}`
+        const group = grouped.get(key)
+        if (group) {
+          group.names.push(train.name ?? '')
+        } else {
+          grouped.set(key, {x: endPoint.x, y: endPoint.y, names: [train.name ?? '']})
+        }
+      }
+    }
+    return Array.from(grouped.values()).map(({x, y, names}) => ({x, y, label: names.join('/')}))
   }
 
   getPolylinePath(coordinates: TrainCoordinate[]): string {
