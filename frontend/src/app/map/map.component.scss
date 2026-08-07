@@ -10,7 +10,29 @@
 
 .controller {
   display: flex;
+  align-items: center;
   gap: 8px;
+
+  .simulation-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 4px 12px;
+
+    legend {
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #666;
+    }
+
+    .timestep {
+      min-width: 2ch;
+      text-align: center;
+    }
+  }
 }
 
 .map {
