@@ -106,4 +106,10 @@ export class MapComponent implements OnInit {
     if (this.replayTime === null) return
     this.stateService.setReplayTime(Math.min(this.nowTime, this.replayTime + 1))
   }
+
+  public timeMachineJump(value: string): void {
+    const step = parseInt(value, 10)
+    if (isNaN(step)) return
+    this.stateService.setReplayTime(Math.min(this.nowTime, Math.max(1, step)))
+  }
 }
