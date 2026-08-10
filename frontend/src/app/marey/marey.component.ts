@@ -3,6 +3,7 @@ import {Component, Input} from '@angular/core'
 import {StateService} from '../state.service'
 import {Agent} from '../data.service'
 import {combineLatest} from 'rxjs'
+import {ReplayBadgeComponent} from '../replay-badge/replay-badge.component'
 
 export interface TrainCoordinate {
   x: number
@@ -20,7 +21,7 @@ const PLAN_CUTTOFF = 20
 
 @Component({
   selector: 'app-marey',
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, ReplayBadgeComponent],
   templateUrl: './marey.component.html',
   styleUrl: './marey.component.scss',
 })
@@ -61,6 +62,16 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
+  get nowY(): number {
+    return this.marginTop + (this.timestep / this.maxTime) * this.chartHeight
+  }
+
+  public replayTime: number | null = null
+
+  get replayY(): number {
+    return this.marginTop + ((this.replayTime ?? 0) / this.maxTime) * this.chartHeight
+  }
+
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
   public fromGate = ''
   public toGate = ''
@@ -94,6 +105,9 @@ export class MareyComponent {
     })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
+    })
+    this.stateService.getReplayTime().subscribe((replayTime) => {
+      this.replayTime = replayTime
     })
     this.stateService.getHistory().subscribe((history) => {
       this.timestep = history.length

@@ -1,5 +1,6 @@
 
 <div class="map">
+  <app-replay-badge></app-replay-badge>
   <div class="environment">
     @for (row of mapClasses; let rowIndex = $index; track $index) {
       <div class="row">
@@ -104,37 +105,69 @@
 </div>
 
 <div class="controller">
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-          (click)="controllerService.next()">Step
-  </button>
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-          (click)="controllerService.reset(currentEnv, currentPolicy)">Reset
-  </button>
-  @if (controllerService.playing) {
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-          (click)="controllerService.stop()">Stop
-  </button>
-  } @else {
-  <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-          (click)="controllerService.play()">Play
-  </button>
-  }
-  @if (state) {
-    <div>{{ state.steps }}</div>
-  }
-
-  <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
-    @for (policyOption of policyOptions; track $index) {
-      <option [value]="policyOption.value">{{ policyOption.label }}</option>
+  <fieldset class="simulation-group">
+    <legend>Time Machine</legend>
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="!inReplayMode || replayTime === 1" (click)="timeMachinePrev()">&lt;
+    </button>
+    @if (inReplayMode) {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="leaveTimeMachine()">LEAVE
+    </button>
+    } @else {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="nowTime === 0" (click)="enterTimeMachine()">ENTER
+    </button>
     }
-  </select>
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button" [disabled]="!inReplayMode" (click)="timeMachineNext()">&gt;
+    </button>
+    <input class="time-machine-field" type="number" [value]="replayTime ?? ''" [disabled]="!inReplayMode"
+           min="1" [attr.max]="nowTime" (change)="timeMachineJump($any($event.target).value)">
+  </fieldset>
 
-  <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
-    @for (envOption of envOptions; track $index) {
-      <option [value]="envOption.value">{{ envOption.label }}</option>
+  <fieldset class="simulation-group">
+    <legend>Simulation Time</legend>
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="controllerService.step()">Step
+    </button>
+    @if (controllerService.playing) {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="controllerService.stop()">Stop
+    </button>
+    } @else {
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="controllerService.play()">Play
+    </button>
     }
-  </select>
+    @if (state) {
+      <span class="step-display">{{ state.steps }}</span>
+    }
+  </fieldset>
 
+  <fieldset class="simulation-group">
+    <legend>Environment</legend>
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
+            (click)="controllerService.reset(currentEnv, currentPolicy)">Reset
+    </button>
 
+    <div class="dropdown-group">
+      <div class="dropdown-frame">
+        <select [(ngModel)]="currentPolicy" (ngModelChange)="controllerService.reset(currentEnv, $event)">
+          @for (policyOption of policyOptions; track $index) {
+            <option [value]="policyOption.value">{{ policyOption.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="dropdown-frame">
+        <select [(ngModel)]="currentEnv" (ngModelChange)="controllerService.reset($event, currentPolicy)">
+          @for (envOption of envOptions; track $index) {
+            <option [value]="envOption.value">{{ envOption.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </fieldset>
 </div>
 

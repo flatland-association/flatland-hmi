@@ -10,7 +10,77 @@
 
 .controller {
   display: flex;
+  align-items: center;
   gap: 8px;
+
+  .simulation-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 4px 12px;
+
+    legend {
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #666;
+    }
+
+    .time-machine-field {
+      width: 4ch;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px;
+      background-color: #f4f4f4;
+      color: #333;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      // hide number-input spinners
+      appearance: textfield;
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+
+    .step-display {
+      width: 4ch;
+      text-align: center;
+      padding: 4px;
+      font: inherit;
+      color: #333;
+    }
+
+    .dropdown-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .dropdown-frame {
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      padding: 2px 8px;
+
+      select {
+        border: none;
+        outline: none;
+        background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right center / 10px 7px;
+        appearance: none;
+        padding-right: 18px;
+        color: inherit;
+        font: inherit;
+      }
+    }
+  }
 }
 
 .map {

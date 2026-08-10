@@ -57,7 +57,7 @@ export class LinkMapComponent implements OnInit {
         this.levelCoords.get(r)!.set(c, level)
       }
     })
-    this.stateService.getAgents().subscribe(agents => {
+    this.stateService.getDisplayedAgents().subscribe(agents => {
       this.agents = agents
     })
   }

@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core'
 import {Agent, Env, Link, PolicyOption, State, StationsResponse, TrajectoryStep, Transitions, LinkMap} from './data.service'
-import {Observable, ReplaySubject} from 'rxjs'
+import {combineLatest, map, Observable, ReplaySubject} from 'rxjs'
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +22,8 @@ export class StateService {
   private linkMap = new ReplaySubject<LinkMap>(1)
   private envs = new ReplaySubject<Array<Env>>(1)
   private policies = new ReplaySubject<Array<PolicyOption>>(1)
+  /** Time-machine replay position: number of elapsed steps to replay up to, matching `state.steps`; null means live/NOW. */
+  private replayTime = new ReplaySubject<number | null>(1)
   private historyBuffer: Array<Record<string, Agent>> = []
 
   constructor() {
@@ -33,6 +35,7 @@ export class StateService {
       stationStoppingPoints: {},
     })
     this.selectedLink.next('0')
+    this.replayTime.next(null)
   }
 
   public setEnvs(envs: Array<Env>): void {
@@ -62,6 +65,7 @@ export class StateService {
   public clearHistory(): void {
     this.historyBuffer = []
     this.history.next([])
+    this.replayTime.next(null)
   }
 
   public applyStep(trajectoryStep: TrajectoryStep, agents: Array<Agent>): State {
@@ -86,6 +90,25 @@ export class StateService {
 
   public getAgents() {
     return this.agents.asObservable()
+  }
+
+  /** Live agents when not replaying; otherwise the historical snapshot at the replay time. */
+  public getDisplayedAgents(): Observable<Array<Agent>> {
+    return combineLatest([this.agents, this.history, this.replayTime]).pipe(
+      map(([liveAgents, history, replayTime]) => {
+        if (replayTime === null) return liveAgents
+        const snapshot = history[replayTime - 1]
+        return snapshot ? Object.values(snapshot) : liveAgents
+      }),
+    )
+  }
+
+  public getReplayTime(): Observable<number | null> {
+    return this.replayTime.asObservable()
+  }
+
+  public setReplayTime(t: number | null): void {
+    this.replayTime.next(t)
   }
 
   public getState() {

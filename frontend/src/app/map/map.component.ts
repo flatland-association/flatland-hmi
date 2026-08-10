@@ -5,6 +5,7 @@ import {combineLatest} from 'rxjs'
 import {Agent, State} from '../data.service'
 import {ControllerService} from '../controller.service'
 import {FormsModule} from '@angular/forms';
+import {ReplayBadgeComponent} from '../replay-badge/replay-badge.component'
 
 interface SelectOption {
   value: string
@@ -13,7 +14,7 @@ interface SelectOption {
 
 @Component({
   selector: 'app-map',
-  imports: [FormsModule],
+  imports: [FormsModule, ReplayBadgeComponent],
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss',
 })
@@ -33,6 +34,17 @@ export class MapComponent implements OnInit {
 
   public envOptions: SelectOption[] = []
   public currentEnv = ''
+
+  public nowTime = 0
+  public replayTime: number | null = null
+
+  public get inReplayMode(): boolean {
+    return this.replayTime !== null
+  }
+
+  public get displayedTime(): number {
+    return this.replayTime ?? this.nowTime
+  }
 
 
   constructor(
@@ -57,7 +69,7 @@ export class MapComponent implements OnInit {
     ]).subscribe(([transitions, stations]) => {
       this.mapClasses = this.rendererService.renderMap(transitions, [], stations)
     })
-    this.stateService.getAgents().subscribe((agents) => (this.agents = agents))
+    this.stateService.getDisplayedAgents().subscribe((agents) => (this.agents = agents))
     this.stateService.getLinkMap().subscribe(data => {
       this.levelCoords = new Map()
       for (const [[r, c], level] of data.levels ?? []) {
@@ -65,6 +77,8 @@ export class MapComponent implements OnInit {
         this.levelCoords.get(r)!.set(c, level)
       }
     })
+    this.stateService.getHistory().subscribe((history) => (this.nowTime = history.length))
+    this.stateService.getReplayTime().subscribe((replayTime) => (this.replayTime = replayTime))
   }
 
   public getLevel(row: number, col: number): number | undefined {
@@ -75,5 +89,27 @@ export class MapComponent implements OnInit {
     return this.state?.steps ?? 0
   }
 
+  public enterTimeMachine(): void {
+    this.stateService.setReplayTime(this.nowTime)
+  }
 
+  public leaveTimeMachine(): void {
+    this.stateService.setReplayTime(null)
+  }
+
+  public timeMachinePrev(): void {
+    if (this.replayTime === null) return
+    this.stateService.setReplayTime(Math.max(1, this.replayTime - 1))
+  }
+
+  public timeMachineNext(): void {
+    if (this.replayTime === null) return
+    this.stateService.setReplayTime(Math.min(this.nowTime, this.replayTime + 1))
+  }
+
+  public timeMachineJump(value: string): void {
+    const step = parseInt(value, 10)
+    if (isNaN(step)) return
+    this.stateService.setReplayTime(Math.min(this.nowTime, Math.max(1, step)))
+  }
 }

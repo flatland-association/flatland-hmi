@@ -74,6 +74,11 @@ export class ControllerService {
       .then(t => this.stateService.setLinkMap(t))
   }
 
+  public step(): void {
+    this.stop()
+    this.next()
+  }
+
   public next(): void {
     if (!this.currentTrajectoryId || this.stepQueue.length >= 5) return
     this.stepQueue.push(this.currentTrajectoryId)

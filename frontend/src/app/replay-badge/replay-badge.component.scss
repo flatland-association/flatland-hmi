@@ -1,0 +1,25 @@
+:host {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.replay-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  color: white;
+
+  &.live {
+    background-color: #2e9e44;
+  }
+
+  &.replay {
+    background-color: #c0392b;
+  }
+}
