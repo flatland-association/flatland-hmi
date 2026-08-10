@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: README
+    url: https://github.com/flatland-association/flatland-hmi/blob/main/README.md
+    about: Read README
+  - name: Help & Support
+    url: https://github.com/flatland-association/flatland-hmi/issues
+    about: You will find answers in our GitHub issues
