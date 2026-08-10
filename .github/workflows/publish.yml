@@ -4,10 +4,14 @@ on:
   push:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   actionlint:
     name: Lint Workflow Files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Download actionlint
@@ -20,7 +24,7 @@ jobs:
 
   release-please:
     name: Release Please
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
@@ -35,7 +39,7 @@ jobs:
     name: Test Before Release Publish
     if: ${{ needs.release-please.outputs.release_created }}
     needs: [ release-please ]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -68,7 +72,7 @@ jobs:
   docker-publish-frontend:
     name: Publish Flatland HMI Frontend Image
     needs: [ release-please, test ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: write
       contents: read
@@ -98,7 +102,7 @@ jobs:
   docker-publish-backend:
     name: Publish Flatland HMI Backend Image
     needs: [ release-please, test ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: write
       contents: read
