@@ -19,9 +19,19 @@ _DIRECTION_NAMES = {0: "N", 1: "E", 2: "S", 3: "W"}
 _DIRECTION_CHARS = {v: k for k, v in _DIRECTION_NAMES.items()}
 
 
-def _assign_level(cell: IntVector2D, level: int, levels: Dict[IntVector2D, int], reverse_levels: Dict[int, Set[IntVector2D]]) -> None:
-    """Record `cell`'s ZWL level in both `levels` and `reverse_levels`, unless it has already been assigned one."""
+def _assign_level(cell: IntVector2D, level: int, levels: Dict[IntVector2D, int], reverse_levels: Dict[int, Set[IntVector2D]], strict: bool = True) -> None:
+    """Record `cell`'s ZWL level in both `levels` and `reverse_levels`, unless it has already been assigned one.
+
+    If `cell` already has a *different* level and `strict` is False, warn and keep the existing level instead of
+    raising. Used by the iterative degree-2 propagation in `_assign_levels_in_station_to_station_graph` and by the
+    best-effort context inference in `_assign_levels_for_context`, where an isolated loop in the rail graph can
+    make two already-leveled cells legitimately disagree about a shared neighbor's level (see the loop caveat on
+    `_get_next_level`).
+    """
     if cell in levels:
+        if not strict and levels[cell] != level:
+            warnings.warn(f"Conflicting ZWL level for {cell}: already {levels[cell]}, ignoring inferred {level}.")
+            return
         assert levels[cell] == level, (cell, levels[cell], level)
         return
     levels[cell] = level
@@ -262,9 +272,9 @@ def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dic
         if level != 0:
             for n in new_neighbors:
                 if level > 0:
-                    _assign_level(n, level + 1, levels, reverse_levels)
+                    _assign_level(n, level + 1, levels, reverse_levels, strict=False)
                 elif level < 0:
-                    _assign_level(n, level - 1, levels, reverse_levels)
+                    _assign_level(n, level - 1, levels, reverse_levels, strict=False)
 
         # cover case one new neighbor first
         else:
@@ -273,14 +283,14 @@ def _assign_levels_for_context(levels: Dict[IntVector2D, int], predecessors: Dic
                     continue
                 level_up_or_down = _get_next_level(level, num_succ, succ, _get_succ_at_same_level(level, levels, cell, {cell: cell_successors}))
 
-                _assign_level(succ, level + level_up_or_down, levels, reverse_levels)
+                _assign_level(succ, level + level_up_or_down, levels, reverse_levels, strict=False)
 
             for num_pred, pred in enumerate(cell_predecessors):
                 if pred not in new_neighbors:
                     continue
                 level_up_or_down = - _get_next_level(level, num_pred, pred, _get_succ_at_same_level(level, levels, cell, {cell: cell_predecessors}))
 
-                _assign_level(pred, level + level_up_or_down, levels, reverse_levels)
+                _assign_level(pred, level + level_up_or_down, levels, reverse_levels, strict=False)
 
 
 def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate, from_pin_index: int,
@@ -325,7 +335,7 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate, fr
                     if succ not in open_cells:
                         continue
 
-                    _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open)
+                    _assign_level(succ, levels[pos] + level_up_or_down, levels, reverse_levels_open, strict=False)
 
             if pos in predecessors and len(predecessors[pos]) == 2:
                 for num_pred, pred in enumerate(predecessors[pos]):
@@ -333,7 +343,7 @@ def _assign_levels_in_station_to_station_graph(fibre: Fibre, from_gate: Gate, fr
 
                     if pred not in open_cells:
                         continue
-                    _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open)
+                    _assign_level(pred, levels[pos] + level_up_or_down, levels, reverse_levels_open, strict=False)
         for k, v in reverse_levels_open.items():
             reverse_levels[k].update(v)
         # treat degree 1 within level
