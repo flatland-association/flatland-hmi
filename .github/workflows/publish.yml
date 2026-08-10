@@ -94,7 +94,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/flatland-association/flatland-hmi-frontend:${{ needs.release-please.outputs.tag_name }}
-            ghcr.io/flatland-association/flatland-hmi-frontend:latest
 
   docker-publish-backend:
     name: Publish Flatland HMI Backend Image
@@ -125,4 +124,3 @@ jobs:
           push: true
           tags: |
             ghcr.io/flatland-association/flatland-hmi-backend:${{ needs.release-please.outputs.tag_name }}
-            ghcr.io/flatland-association/flatland-hmi-backend:latest

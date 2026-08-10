@@ -63,7 +63,7 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 1. Every commit to `main` should follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, ...) — release-please uses these to determine the next version and to generate the changelog.
 2. release-please keeps an up-to-date "release PR" open, accumulating changelog entries as commits land on `main`.
 3. Merging that PR creates a GitHub Release and a `v*` tag.
-4. That tag triggers `docker-publish-frontend`/`docker-publish-backend`, which build and push `ghcr.io/flatland-association/flatland-hmi-frontend` and `ghcr.io/flatland-association/flatland-hmi-backend`, tagged with both the release version and `latest`.
+4. That tag triggers `docker-publish-frontend`/`docker-publish-backend`, which build and push `ghcr.io/flatland-association/flatland-hmi-frontend` and `ghcr.io/flatland-association/flatland-hmi-backend`, tagged with the release version (e.g. `v1.2.3`). `latest` is owned separately by `.github/workflows/build.yml`, which tracks the tip of `main` on every push.
 
 ## Features
 
