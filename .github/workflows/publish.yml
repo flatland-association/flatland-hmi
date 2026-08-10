@@ -5,6 +5,19 @@ on:
     branches: [ "main" ]
 
 jobs:
+  actionlint:
+    name: Lint Workflow Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download actionlint
+        id: get_actionlint
+        run: bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+        shell: bash
+      - name: Run actionlint
+        run: ${{ steps.get_actionlint.outputs.executable }} -color
+        shell: bash
+
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
