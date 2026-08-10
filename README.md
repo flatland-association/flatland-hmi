@@ -56,6 +56,15 @@ docker run -p 8000:8000 ghcr.io/flatland-association/flatland-hmi-backend:latest
 docker run -p 80:80 ghcr.io/flatland-association/flatland-hmi-frontend:latest 
 ```
 
+## Releases
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please) (`.github/workflows/publish.yml`):
+
+1. Every commit to `main` should follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, ...) — release-please uses these to determine the next version and to generate the changelog.
+2. release-please keeps an up-to-date "release PR" open, accumulating changelog entries as commits land on `main`.
+3. Merging that PR creates a GitHub Release and a `v*` tag.
+4. That tag triggers `docker-publish-frontend`/`docker-publish-backend`, which build and push `ghcr.io/flatland-association/flatland-hmi-frontend` and `ghcr.io/flatland-association/flatland-hmi-backend`, tagged with both the release version and `latest`.
+
 ## Features
 
 - Real-time visualization of railway environments
