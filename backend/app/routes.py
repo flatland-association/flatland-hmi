@@ -341,7 +341,7 @@ def _build_agent_plans_content(env) -> List[List[Dict[str, dict]]]:
         source_position, source_direction = source_configuration
         target_position = next(iter(agent.targets))[0]
         paths = get_k_shortest_paths(
-            None,
+            env=None,
             rail=env.rail,
             source_position=source_position,
             source_direction=source_direction,

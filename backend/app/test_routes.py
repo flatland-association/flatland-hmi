@@ -353,3 +353,15 @@ def test_get_trajectory_stations_not_found():
 def test_get_trajectory_stations_path_traversal():
     response = client.get("/trajectories/../../etc/passwd/stations")
     assert response.status_code in (400, 404)
+
+
+def test_get_trajectory_agent_plans_all_done():
+    ep_id = client.post("/trajectories", json={"policy_id": "policy-0", "env_id": "generated-seed-44"}).json()
+    # Run until done
+    while True:
+        step = client.post(f"/trajectories/{ep_id}/step").json()
+        if step["done"]:
+            break
+    response = client.get(f"/trajectories/{ep_id}/agent_plans")
+    assert response.status_code == 200
+    assert response.json() == []   # all agents DONE → empty plan list
