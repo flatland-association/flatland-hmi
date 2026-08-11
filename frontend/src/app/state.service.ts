@@ -65,7 +65,6 @@ export class StateService {
   public clearHistory(): void {
     this.historyBuffer = []
     this.history.next([])
-    this.plans.next([])
     this.replayTime.next(null)
   }
 

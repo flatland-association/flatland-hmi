@@ -41,6 +41,22 @@
         opacity: 0.4;
         cursor: not-allowed;
       }
+
+      // hide number-input spinners
+      appearance: textfield;
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+
+    .step-display {
+      width: 4ch;
+      text-align: center;
+      padding: 4px;
+      font: inherit;
+      color: #333;
     }
 
     .dropdown-group {
