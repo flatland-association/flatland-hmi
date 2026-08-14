@@ -3,7 +3,7 @@ import json
 from fractions import Fraction
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from attr import asdict
@@ -17,10 +17,13 @@ from app import trajectory_context
 from app.env import reset_global_interactive_env, get_global_interactive_env, policy_map, env_map
 from app.link_map import extract_link_map
 from app.trajectory_context import TrajectoryContext
+from flatland.core.grid.grid_utils import IntVector2D
 from flatland.envs.rail_env_action import RailEnvActions
+from flatland.envs.rail_env_shortest_paths import get_k_shortest_paths
 from flatland.envs.rail_trainrun_data_structures import Waypoint
 from flatland.envs.stations_links import Gate, Link, Fibre, Pin, Station, StationsLinks, StoppingPoint
 from flatland.envs.step_utils.speed_counter import SpeedCounter
+from flatland.envs.step_utils.states import TrainState
 
 
 # https://www.getorchestra.io/guides/fastapi-custom-json-encoders-a-guide-to-converting-models-to-json
@@ -325,6 +328,64 @@ async def get_trajectory_agents(trajectory_id: str):
     ctx = TrajectoryContext.resolve(trajectory_id)
     env = ctx.get_env()
     return CustomEncodedJSONResponse(content=_build_agents_content(env))
+
+
+def _build_agent_plans_content(env) -> List[List[Dict[str, dict]]]:
+    now = env._elapsed_steps
+    agent_paths: Dict[int, Tuple[Tuple[Waypoint, ...], IntVector2D]] = {}
+    max_path_len = 0
+    for agent in env.agents:
+        if agent.state == TrainState.DONE:
+            continue
+        source_configuration = agent.current_configuration if agent.current_configuration is not None else agent.initial_configuration
+        source_position, source_direction = source_configuration
+        target_position = next(iter(agent.targets))[0]
+        paths = get_k_shortest_paths(
+            env=None,
+            rail=env.rail,
+            source_position=source_position,
+            source_direction=source_direction,
+            target_position=target_position,
+            k=1,
+        )
+        if not paths:
+            continue
+        path = paths[0]
+        agent_paths[agent.handle] = (path, target_position)
+        max_path_len = max(max_path_len, len(path))
+
+    if not agent_paths:
+        return []
+
+    plan: List[Dict[str, dict]] = [{} for _ in range(now)]
+    for step_index in range(max_path_len):
+        snapshot: Dict[str, dict] = {}
+        for handle, (path, target_position) in agent_paths.items():
+            if step_index >= len(path):
+                continue
+            waypoint = path[step_index]
+            snapshot[str(handle)] = {
+                "handle": handle,
+                "position": [int(waypoint.position[0]), int(waypoint.position[1])],
+                "direction": int(waypoint.direction),
+                "moving": True,
+                "target": [int(target_position[0]), int(target_position[1])],
+                "malfunction": 0,
+            }
+        plan.append(snapshot)
+    return [plan]
+
+
+@router.get("/trajectories/{trajectory_id}/agent_plans")
+async def get_trajectory_agent_plans(trajectory_id: str):
+    """Predicted future agent trajectories: for each agent still en route, the shortest path from its
+    current position (or initial position, if it hasn't departed yet) to its target. Agents that
+    already reached their target contribute nothing. Returns at most one plan, combining every agent's
+    path into per-step snapshots aligned with the trajectory's elapsed-step numbering.
+    """
+    ctx = TrajectoryContext.resolve(trajectory_id)
+    env = ctx.get_env()
+    return CustomEncodedJSONResponse(content=_build_agent_plans_content(env))
 
 
 def _enrich_link(link: dict, link_id: int) -> dict:

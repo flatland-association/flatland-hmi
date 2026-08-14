@@ -123,6 +123,10 @@ export class StateService {
     return this.plans.asObservable()
   }
 
+  public setPlans(plans: Array<Array<Record<string, Agent>>>): void {
+    this.plans.next(plans)
+  }
+
   public getPlan(): Observable<number | undefined> {
     return this.plan.asObservable()
   }

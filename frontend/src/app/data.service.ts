@@ -120,6 +120,12 @@ export class DataService {
     )
   }
 
+  public getTrajectoryAgentPlans(trajectoryId: string) {
+    return this.fetch(
+      this.http.get<Array<Array<Record<string, Agent>>>>(`${BACKEND_URL}/trajectories/${trajectoryId}/agent_plans`),
+    )
+  }
+
   public getEnvs() {
     return this.fetch(this.http.get<Array<Env>>(`${BACKEND_URL}/envs`))
   }
