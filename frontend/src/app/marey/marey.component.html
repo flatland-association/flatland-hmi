@@ -156,6 +156,26 @@
     />
   }
 
+  <!-- Station pins (red overlay, matching the link map's pin cells; drawn over the orange station area).
+       The white rect first cancels out any orange band underneath so the red tint is the same everywhere,
+       regardless of whether the pin's column also happens to fall inside a station area. -->
+  @for (pin of pinBands; track pin.name) {
+    <rect
+      [attr.x]="distanceToX(pin.distance)"
+      [attr.y]="marginTop"
+      [attr.width]="cellWidth"
+      [attr.height]="chartHeight"
+      fill="white"
+    />
+    <rect
+      [attr.x]="distanceToX(pin.distance)"
+      [attr.y]="marginTop"
+      [attr.width]="cellWidth"
+      [attr.height]="chartHeight"
+      fill="rgba(255, 0, 0, 0.25)"
+    />
+  }
+
   <!-- Stopping points (red vertical line) -->
   @for (stop of stoppingPoints; track $index) {
     <line

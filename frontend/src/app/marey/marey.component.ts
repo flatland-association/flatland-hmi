@@ -154,6 +154,8 @@ export class MareyComponent {
 
   /** Station areas (orange overlay), as distance-axis column ranges within the currently mapped link. */
   public stationBands: Array<{ name: string; fromDistance: number; toDistance: number }> = []
+  /** Station pins (red overlay, matching the link map's pin cells), as a distance-axis column. */
+  public pinBands: Array<{ name: string; distance: number }> = []
   /** Stopping points (red vertical line), as a distance-axis column within the currently mapped link. */
   public stoppingPoints: Array<{ name: string; distance: number }> = []
 
@@ -260,8 +262,14 @@ export class MareyComponent {
     return this.marginLeft + (distance / Math.max(this.maxDistance, 1)) * this.chartWidth
   }
 
-  /** Station areas and stopping points along the currently selected link, transformed from env into ZWL/distance
-   * coordinates the same way LinkMapComponent does, so they line up with the trajectories plotted below. */
+  /** Pixel width of one distance unit (one link-map cell). */
+  get cellWidth(): number {
+    return this.distanceToX(1) - this.distanceToX(0)
+  }
+
+  /** Station areas, pins, and stopping points along the currently selected link, transformed from env into
+   * ZWL/distance coordinates the same way LinkMapComponent does, so they line up with the trajectories plotted
+   * below. Pins are colored like the link map's pin cells (red), taking priority over the station's orange area. */
   private computeStationOverlays(stations: StationsResponse): void {
     const mapDistance = ([r, c]: [number, number]): number | undefined => this.mapping.get(r)?.get(c)?.[1]
 
@@ -272,6 +280,12 @@ export class MareyComponent {
         return {name, fromDistance: Math.min(...distances), toDistance: Math.max(...distances)}
       })
       .filter((band): band is { name: string; fromDistance: number; toDistance: number } => band !== null)
+
+    this.pinBands = Object.values(stations.stationGates)
+      .flatMap((gates) => Object.values(gates))
+      .flatMap((gate) => Object.values(gate.pins))
+      .map((pin) => ({name: pin.name, distance: mapDistance(pin.node)}))
+      .filter((pin): pin is { name: string; distance: number } => pin.distance !== undefined)
 
     this.stoppingPoints = Object.entries(stations.stationStoppingPoints)
       .flatMap(([name, points]) =>
