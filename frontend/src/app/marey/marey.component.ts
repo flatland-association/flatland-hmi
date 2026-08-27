@@ -146,7 +146,6 @@ export class MareyComponent {
   public timestep: number = 0
 
   public plannedRuns: Array<Array<TrainRun>> = []
-  public selectedPlan?: number
 
   /** Index of the given agent name within `trainRuns`, so a planned/predicted route can be drawn in the same
    * hue-rotated color as that agent's actual trajectory. Falls back to 0 (the base "red") if the agent has no
@@ -203,9 +202,6 @@ export class MareyComponent {
       }
       this.maxDistance = data.grid[0].length
       this.computeStationOverlays(stations)
-    })
-    this.stateService.getPlan().subscribe((planIndex) => {
-      this.selectedPlan = planIndex
     })
     this.stateService.getReplayTime().subscribe((replayTime) => {
       this.replayTime = replayTime
@@ -442,9 +438,9 @@ export class MareyComponent {
     return this.collectSegmentPoints(coordinates)[0] ?? null
   }
 
-  /** The train run for `name` within the currently selected plan (or the first plan if none is selected). */
+  /** The train run for `name` within the loaded plan (`/agent_plans` returns at most one). */
   private getSelectedPlanTrain(name: string | undefined): TrainRun | undefined {
-    const plan = this.plannedRuns[this.selectedPlan ?? 0]
+    const plan = this.plannedRuns[0]
     return plan?.find((train) => train.name === name)
   }
 

@@ -15,7 +15,6 @@ export class StateService {
   private state = new ReplaySubject<State>(1)
   private history = new ReplaySubject<Array<Record<string, Agent>>>(1)
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
-  private plan = new ReplaySubject<number | undefined>(1)
   private selectedLink = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
   private links = new ReplaySubject<Array<Link>>(1)
@@ -93,10 +92,9 @@ export class StateService {
   }
 
   /** Live agents when not replaying; the historical snapshot at the replay time when replaying the past; or, for
-   * a replay time beyond the current history (browsing the FUTURE), the first loaded plan's snapshot at that
-   * step. Deliberately not combined with `this.plan` (the selected-plan index) — nothing in the app ever calls
-   * a `setPlan()`-equivalent to make that subject emit, so combining it here would make this observable never
-   * emit either, leaving agents permanently blank on Map/LinkMap. */
+   * a replay time beyond the current history (browsing the FUTURE), the loaded plan's snapshot at that step.
+   * `/agent_plans` returns at most one plan (see backend `_build_agent_plans_content`), so `plans[0]` is simply
+   * "the loaded plan", not a choice among several. */
   public getDisplayedAgents(): Observable<Array<Agent>> {
     return combineLatest([this.agents, this.history, this.replayTime, this.plans]).pipe(
       map(([liveAgents, history, replayTime, plans]) => {
@@ -139,10 +137,6 @@ export class StateService {
 
   public setPlans(plans: Array<Array<Record<string, Agent>>>): void {
     this.plans.next(plans)
-  }
-
-  public getPlan(): Observable<number | undefined> {
-    return this.plan.asObservable()
   }
 
   public getStations(): Observable<StationsResponse> {

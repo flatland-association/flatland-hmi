@@ -223,7 +223,7 @@
   }
 
   <!-- Planned trajectories: same hue-rotated color as the agent's actual trajectory (if any), dash-dotted to
-       read as "predicted" rather than "actual"; the selected plan is fully opaque, others faded. -->
+       read as "predicted" rather than "actual", faded relative to the actual-trajectory paths below. -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
       <path
@@ -232,12 +232,11 @@
         stroke="red"
         stroke-width="3"
         stroke-dasharray="6 2 1 2"
-        [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+        opacity="0.35"
         [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'"
       />
       @for (point of getInternalBreakPoints(train.coordinates); track $index) {
-        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red"
-                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red" opacity="0.35"
                  [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
       }
       <!-- Start marker: doubled if the agent has no actual trajectory yet (a real entering event), single if
@@ -245,25 +244,20 @@
            plan simply continues from the agent's last known actual position. -->
       @if (getPlannedStartMarker(train); as start) {
         @if (start.double) {
-          <polygon [attr.points]="trianglePoints(start.x, start.y - 3)" fill="red"
-                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+          <polygon [attr.points]="trianglePoints(start.x, start.y - 3)" fill="red" opacity="0.35"
                    [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
-          <polygon [attr.points]="trianglePoints(start.x, start.y + 3)" fill="red"
-                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+          <polygon [attr.points]="trianglePoints(start.x, start.y + 3)" fill="red" opacity="0.35"
                    [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
         } @else {
-          <polygon [attr.points]="trianglePoints(start.x, start.y)" fill="red"
-                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+          <polygon [attr.points]="trianglePoints(start.x, start.y)" fill="red" opacity="0.35"
                    [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
         }
       }
       <!-- Target marker: always doubled — a plan always runs its agent's shortest path all the way there. -->
       @if (getPlanTargetMarker(train.coordinates); as target) {
-        <polygon [attr.points]="trianglePoints(target.x, target.y - 3)" fill="red"
-                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+        <polygon [attr.points]="trianglePoints(target.x, target.y - 3)" fill="red" opacity="0.35"
                  [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
-        <polygon [attr.points]="trianglePoints(target.x, target.y + 3)" fill="red"
-                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+        <polygon [attr.points]="trianglePoints(target.x, target.y + 3)" fill="red" opacity="0.35"
                  [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
       }
     }
