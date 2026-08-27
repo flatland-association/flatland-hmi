@@ -176,19 +176,6 @@
     />
   }
 
-  <!-- Stopping points (red vertical line) -->
-  @for (stop of stoppingPoints; track $index) {
-    <line
-      [attr.x1]="distanceToX(stop.distance)"
-      [attr.y1]="marginTop"
-      [attr.x2]="distanceToX(stop.distance)"
-      [attr.y2]="svgHeight - marginBottom"
-      stroke="rgba(220, 0, 0, 0.5)"
-      stroke-width="1.5"
-      stroke-dasharray="4 2"
-    />
-  }
-
   <!-- NOW line (current time step) -->
   @if (timestep > 0) {
     <g>
@@ -284,6 +271,29 @@
       </text>
       }
     </g>
+  }
+
+  <!-- Stopping points (dashed red vertical line, labeled with track name); drawn last so the line and its
+       label stay visible on top of trajectories, the NOW/REPLAY lines, and agent labels while stepping/replaying. -->
+  @for (stop of stoppingPoints; track $index) {
+    <line
+      [attr.x1]="distanceToX(stop.distance)"
+      [attr.y1]="marginTop"
+      [attr.x2]="distanceToX(stop.distance)"
+      [attr.y2]="svgHeight - marginBottom"
+      stroke="rgba(220, 0, 0, 0.7)"
+      stroke-width="1.5"
+      stroke-dasharray="4 2"
+    />
+    <text
+      [attr.x]="distanceToX(stop.distance)"
+      [attr.y]="marginTop - 4"
+      fill="#c0392b"
+      font-family="Arial, sans-serif"
+      font-size="10"
+      font-weight="bold"
+      text-anchor="middle"
+    >{{ stop.name }}</text>
   }
 </svg>
 </div>

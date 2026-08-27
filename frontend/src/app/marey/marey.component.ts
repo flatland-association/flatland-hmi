@@ -288,12 +288,8 @@ export class MareyComponent {
       .filter((pin): pin is { name: string; distance: number } => pin.distance !== undefined)
 
     this.stoppingPoints = Object.entries(stations.stationStoppingPoints)
-      .flatMap(([name, points]) =>
-        points
-          .map((stp) => mapDistance(stp.node))
-          .filter((distance): distance is number => distance !== undefined)
-          .map((distance) => ({name, distance})),
-      )
+      .flatMap(([name, points]) => points.map((stp) => ({name, distance: mapDistance(stp.node)})))
+      .filter((stp): stp is { name: string; distance: number } => stp.distance !== undefined)
   }
 
   getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
