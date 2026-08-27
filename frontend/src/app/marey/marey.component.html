@@ -1,4 +1,25 @@
 <app-replay-badge></app-replay-badge>
+
+<div class="time-controls">
+  <button type="button" (click)="scrollUp()" [disabled]="scrollOffset <= 0" title="Scroll to earlier times">&#9650;</button>
+  <input
+    class="time-scrollbar"
+    type="range"
+    min="0"
+    [max]="maxScrollOffset"
+    [step]="timeGridStep"
+    [ngModel]="scrollOffset"
+    (ngModelChange)="onScrollInput($event)"
+  />
+  <button type="button" (click)="scrollDown()" [disabled]="scrollOffset >= maxScrollOffset" title="Scroll to later times">&#9660;</button>
+  <button type="button" class="live-button" (click)="jumpToNow()" [disabled]="autoFollow" title="Jump back to NOW">Live</button>
+  <label class="visible-steps">
+    Show
+    <input type="number" min="10" [step]="timeGridStep" [ngModel]="visibleTimeSteps" (ngModelChange)="setVisibleTimeSteps($event)" />
+    steps
+  </label>
+</div>
+
 <svg [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight">
   <!-- Grid lines -->
   <!-- Vertical grid lines (distance) -->
@@ -36,39 +57,16 @@
     />
   </g>
 
-  <!-- Horizontal grid lines (time) -->
+  <!-- Horizontal grid lines (time), fixed every timeGridStep timesteps within the visible window -->
   <g stroke="#e9ecef" stroke-width="0.5">
-    <line [attr.x1]="marginLeft" [attr.y1]="marginTop" [attr.x2]="marginLeft + chartWidth" [attr.y2]="marginTop" />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.2"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.2"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.4"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.4"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.6"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.6"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.8"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.8"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="svgHeight - marginBottom"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="svgHeight - marginBottom"
-    />
+    @for (tick of timeTicks; track tick) {
+      <line
+        [attr.x1]="marginLeft"
+        [attr.y1]="timeToY(tick)"
+        [attr.x2]="marginLeft + chartWidth"
+        [attr.y2]="timeToY(tick)"
+      />
+    }
   </g>
 
   <!-- Axes -->
@@ -92,22 +90,11 @@
   />
 
   <!-- Axis labels -->
-  <!-- Y-axis labels (Time) -->
+  <!-- Y-axis labels (Time), fixed every timeGridStep timesteps within the visible window -->
   <g fill="#495057" font-family="Arial, sans-serif" font-size="12" text-anchor="end">
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + 5">0</text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.2 + 5">
-      {{ maxTime * 0.2 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.4 + 5">
-      {{ maxTime * 0.4 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.6 + 5">
-      {{ maxTime * 0.6 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.8 + 5">
-      {{ maxTime * 0.8 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="svgHeight - marginBottom + 5">{{ maxTime }}</text>
+    @for (tick of timeTicks; track tick) {
+      <text [attr.x]="marginLeft - 10" [attr.y]="timeToY(tick) + 5">{{ tick }}</text>
+    }
   </g>
 
   <!-- X-axis labels (Distance) -->

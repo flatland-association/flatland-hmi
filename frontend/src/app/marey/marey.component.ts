@@ -1,5 +1,6 @@
 import {DecimalPipe} from '@angular/common'
 import {Component, Input} from '@angular/core'
+import {FormsModule} from '@angular/forms'
 import {StateService} from '../state.service'
 import {Agent} from '../data.service'
 import {combineLatest} from 'rxjs'
@@ -17,11 +18,9 @@ export interface TrainRun {
   coordinates: TrainCoordinate[]
 }
 
-const PLAN_CUTTOFF = 20
-
 @Component({
   selector: 'app-marey',
-  imports: [DecimalPipe, ReplayBadgeComponent],
+  imports: [DecimalPipe, FormsModule, ReplayBadgeComponent],
   templateUrl: './marey.component.html',
   styleUrl: './marey.component.scss',
 })
@@ -33,6 +32,11 @@ export class MareyComponent {
   @Input() marginRight: number = 50
   @Input() marginBottom: number = 50
 
+  /** Number of timesteps visible in the chart height at once ("zoom level" of the sliding window). */
+  @Input() visibleTimeSteps: number = 60
+  /** Fixed spacing (in timesteps) between y-axis gridlines/labels, independent of the window size. */
+  @Input() timeGridStep: number = 5
+
   get chartWidth(): number {
     return this.svgWidth - this.marginLeft - this.marginRight
   }
@@ -41,16 +45,79 @@ export class MareyComponent {
     return this.svgHeight - this.marginTop - this.marginBottom
   }
 
-  get maxTime(): number {
-    if (this.trainRuns.length === 0) return 50
+  /** First visible timestep (top of the sliding window). */
+  public scrollOffset: number = 0
+  /** While true, the window keeps scrolling to follow NOW (or the replay cursor); cleared on manual scroll. */
+  public autoFollow: boolean = true
 
-    let max = 0
-    this.trainRuns.forEach((train) => {
-      train.coordinates.forEach((coord) => {
-        max = Math.max(max, coord.t)
-      })
-    })
-    return max + PLAN_CUTTOFF
+  /** Highest timestep present in either the actual history or any loaded plan, used only to size the scrollbar. */
+  get contentMaxTime(): number {
+    let max = this.timestep
+    for (const train of this.trainRuns) {
+      for (const coord of train.coordinates) max = Math.max(max, coord.t)
+    }
+    for (const plan of this.plannedRuns) {
+      for (const train of plan) {
+        for (const coord of train.coordinates) max = Math.max(max, coord.t)
+      }
+    }
+    return max
+  }
+
+  get maxScrollOffset(): number {
+    return Math.max(0, this.contentMaxTime - this.visibleTimeSteps)
+  }
+
+  /** Gridline/label positions, fixed at every `timeGridStep` timesteps within the visible window. */
+  get timeTicks(): number[] {
+    const ticks: number[] = []
+    const first = Math.ceil(this.scrollOffset / this.timeGridStep) * this.timeGridStep
+    for (let t = first; t <= this.scrollOffset + this.visibleTimeSteps; t += this.timeGridStep) {
+      ticks.push(t)
+    }
+    return ticks
+  }
+
+  /** Fixed timestep-to-pixel mapping: unlike the old auto-fit scale, this does not change as history grows,
+   * so a given timestep always maps to the same chart position while it stays inside the visible window. */
+  timeToY(t: number): number {
+    return this.marginTop + ((t - this.scrollOffset) / this.visibleTimeSteps) * this.chartHeight
+  }
+
+  private clampScroll(value: number): number {
+    return Math.min(Math.max(0, value), this.maxScrollOffset)
+  }
+
+  private updateAutoScroll(): void {
+    if (!this.autoFollow) return
+    const target = this.replayTime ?? this.timestep
+    this.scrollOffset = this.clampScroll(target - this.visibleTimeSteps * 0.7)
+  }
+
+  public scrollUp(): void {
+    this.autoFollow = false
+    this.scrollOffset = this.clampScroll(this.scrollOffset - this.timeGridStep)
+  }
+
+  public scrollDown(): void {
+    this.autoFollow = false
+    this.scrollOffset = this.clampScroll(this.scrollOffset + this.timeGridStep)
+  }
+
+  public onScrollInput(value: number): void {
+    this.autoFollow = false
+    this.scrollOffset = this.clampScroll(value)
+  }
+
+  public jumpToNow(): void {
+    this.autoFollow = true
+    this.updateAutoScroll()
+  }
+
+  public setVisibleTimeSteps(value: number): void {
+    this.visibleTimeSteps = Math.max(this.timeGridStep, Math.round(value) || this.visibleTimeSteps)
+    this.scrollOffset = this.clampScroll(this.scrollOffset)
+    this.updateAutoScroll()
   }
 
   public maxDistance: number = 0
@@ -63,13 +130,13 @@ export class MareyComponent {
   public selectedPlan?: number
 
   get nowY(): number {
-    return this.marginTop + (this.timestep / this.maxTime) * this.chartHeight
+    return this.timeToY(this.timestep)
   }
 
   public replayTime: number | null = null
 
   get replayY(): number {
-    return this.marginTop + ((this.replayTime ?? 0) / this.maxTime) * this.chartHeight
+    return this.timeToY(this.replayTime ?? 0)
   }
 
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
@@ -108,6 +175,7 @@ export class MareyComponent {
     })
     this.stateService.getReplayTime().subscribe((replayTime) => {
       this.replayTime = replayTime
+      this.updateAutoScroll()
     })
     this.stateService.getHistory().subscribe((history) => {
       this.timestep = history.length
@@ -130,6 +198,7 @@ export class MareyComponent {
             .filter((coord): coord is { x: number; y: number; t: number } => coord.x !== undefined),
         }
       })
+      this.updateAutoScroll()
     })
     this.stateService.getPlans().subscribe((plans) => {
       // Plans are always rebuilt from scratch on every emission (backend recomputes fresh each
@@ -158,11 +227,14 @@ export class MareyComponent {
           }
         })
       })
+      this.updateAutoScroll()
     })
     this.stateService.getTransitions().subscribe(() => {
       this.trainRuns = []
       this.plannedRuns = []
       this.timestep = 0
+      this.scrollOffset = 0
+      this.autoFollow = true
     })
   }
 
@@ -179,7 +251,7 @@ export class MareyComponent {
       if (zwlPos !== null) {
         last = {
           x: this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth,
-          y: this.marginTop + (coord.t / this.maxTime) * this.chartHeight,
+          y: this.timeToY(coord.t),
         }
       } else if (last !== null) {
         points.push(last)
@@ -218,7 +290,7 @@ export class MareyComponent {
         continue
       }
       const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
-      const y = this.marginTop + (coord.t / this.maxTime) * this.chartHeight
+      const y = this.timeToY(coord.t)
       parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
       penDown = true
     }

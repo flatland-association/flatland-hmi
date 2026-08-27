@@ -2,3 +2,49 @@
   display: block;
   position: relative;
 }
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  color: #495057;
+
+  button {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f4f4f4;
+    padding: 2px 8px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  .live-button:not(:disabled) {
+    border-color: #2e9e44;
+    color: #2e9e44;
+  }
+
+  .time-scrollbar {
+    width: 140px;
+  }
+
+  .visible-steps {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+
+    input {
+      width: 5ch;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+  }
+}
