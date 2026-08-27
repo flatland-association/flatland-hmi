@@ -26,12 +26,36 @@
       color: #666;
     }
 
+    // Matches MareyComponent's time-window controls (marey.component.scss) so the two time-scrubbing UIs
+    // in the app look and feel the same.
+    .time-machine-triangle {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #f4f4f4;
+      padding: 2px 8px;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+
+    .time-machine-slider {
+      width: 140px;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+
     .time-machine-field {
-      width: 4ch;
+      width: 4.5em;
       text-align: center;
       border: 1px solid #ccc;
       border-radius: 4px;
-      padding: 4px;
+      padding: 2px 4px;
       background-color: #f4f4f4;
       color: #333;
 
@@ -40,12 +64,11 @@
         cursor: not-allowed;
       }
 
-      // hide number-input spinners
-      appearance: textfield;
-      &::-webkit-outer-spin-button,
-      &::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
+      // Chromium/WebKit hides the number spinner arrows until hover by default; force them always visible,
+      // matching MareyComponent's window-size input.
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        opacity: 1;
       }
     }
 
