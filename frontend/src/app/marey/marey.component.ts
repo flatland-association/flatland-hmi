@@ -18,6 +18,9 @@ export interface TrainRun {
   coordinates: TrainCoordinate[]
 }
 
+/** Pixels per distance unit, matching the fixed 20px cell size of the link map's grid so the two stay aligned. */
+const CELL_PX = 20
+
 @Component({
   selector: 'app-marey',
   imports: [DecimalPipe, FormsModule, ReplayBadgeComponent],
@@ -25,7 +28,6 @@ export interface TrainRun {
   styleUrl: './marey.component.scss',
 })
 export class MareyComponent {
-  @Input() svgWidth: number = 600
   @Input() svgHeight: number = 400
   @Input() marginLeft: number = 50
   @Input() marginTop: number = 50
@@ -37,8 +39,13 @@ export class MareyComponent {
   /** Fixed spacing (in timesteps) between y-axis gridlines/labels, independent of the window size. */
   @Input() timeGridStep: number = 5
 
+  /** Matches the link map's grid width exactly (maxDistance columns at CELL_PX each) so the two charts line up. */
   get chartWidth(): number {
-    return this.svgWidth - this.marginLeft - this.marginRight
+    return Math.max(this.maxDistance, 1) * CELL_PX
+  }
+
+  get svgWidth(): number {
+    return this.marginLeft + this.chartWidth + this.marginRight
   }
 
   get chartHeight(): number {
@@ -242,6 +249,9 @@ export class MareyComponent {
     return this.mapping.get(coord.x)?.get(coord.y) ?? null
   }
 
+  distanceToX(distance: number): number {
+    return this.marginLeft + (distance / Math.max(this.maxDistance, 1)) * this.chartWidth
+  }
 
   getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
     const points: { x: number; y: number }[] = []
@@ -250,7 +260,7 @@ export class MareyComponent {
       const zwlPos = this.getZwlPosition(coord)
       if (zwlPos !== null) {
         last = {
-          x: this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth,
+          x: this.distanceToX(zwlPos[1]),
           y: this.timeToY(coord.t),
         }
       } else if (last !== null) {
@@ -289,7 +299,7 @@ export class MareyComponent {
         penDown = false
         continue
       }
-      const x = this.marginLeft + (zwlPos[1] / this.maxDistance) * this.chartWidth
+      const x = this.distanceToX(zwlPos[1])
       const y = this.timeToY(coord.t)
       parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
       penDown = true

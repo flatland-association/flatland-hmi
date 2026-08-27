@@ -20,7 +20,21 @@
   </label>
 </div>
 
-<svg [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight">
+<!--
+  Wrapper is exactly chartWidth wide (same as the link map's grid) and left-aligned with it; the svg itself is
+  shifted left by marginLeft so its plot area (distance 0..chartWidth) lands inside the wrapper at the same
+  pixel offset as the link map's grid, keeping the two diagrams' distance axes lined up. The svg keeps its
+  default overflow:hidden so trajectory points outside the visible time window are clipped, not bled into
+  the page below.
+-->
+<div class="marey-align" [style.width.px]="chartWidth">
+<svg
+  [attr.width]="svgWidth"
+  [attr.height]="svgHeight"
+  [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight"
+  [style.margin-left.px]="-marginLeft"
+  style="display: block;"
+>
   <!-- Grid lines -->
   <!-- Vertical grid lines (distance) -->
   <g stroke="#e9ecef" stroke-width="0.5">
@@ -222,3 +236,4 @@
     </g>
   }
 </svg>
+</div>
