@@ -147,6 +147,13 @@ export class MareyComponent {
 
   public plannedRuns: Array<Array<TrainRun>> = []
 
+  /** Caches `collectSegmentPoints` per coordinates array, since template bindings call the marker-computation
+   * methods below several times per change-detection cycle. Safe to key on array identity: `trainRuns`/
+   * `plannedRuns` (and their `coordinates` arrays) are only ever replaced wholesale in the subscriptions in
+   * ngOnInit, never mutated in place, so a stale cache entry simply becomes unreachable and is garbage
+   * collected along with its array instead of ever being read again. */
+  private segmentPointsCache = new WeakMap<TrainCoordinate[], { x: number; y: number; t: number; distance: number }[]>()
+
   /** Index of the given agent name within `trainRuns`, so a planned/predicted route can be drawn in the same
    * hue-rotated color as that agent's actual trajectory. Falls back to 0 (the base "red") if the agent has no
    * actual trajectory yet (e.g. it hasn't spawned). */
@@ -383,6 +390,9 @@ export class MareyComponent {
    * getSpawnMarker/getInternalBreakPoints/getActualEndMarker/getPlannedStartMarker below). A single-point
    * segment appears twice (as both its own start and end). */
   private collectSegmentPoints(coordinates: TrainCoordinate[]): { x: number; y: number; t: number; distance: number }[] {
+    const cached = this.segmentPointsCache.get(coordinates)
+    if (cached) return cached
+
     const walk = this.walkSegments(coordinates)
     const points: { x: number; y: number; t: number; distance: number }[] = []
     walk.forEach((point, i) => {
@@ -390,7 +400,9 @@ export class MareyComponent {
       if (point.newSegment) points.push(point)
       if (isSegmentEnd) points.push(point)
     })
-    return points.map(({x, y, t, distance}) => ({x, y, t, distance}))
+    const result = points.map(({x, y, t, distance}) => ({x, y, t, distance}))
+    this.segmentPointsCache.set(coordinates, result)
+    return result
   }
 
   /** Break points strictly between the first and last point of the whole coordinate list — a data gap or a
