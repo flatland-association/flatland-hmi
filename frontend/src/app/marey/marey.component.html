@@ -17,7 +17,7 @@
     title="Drag to scroll the visible time range"
   />
   <button type="button" (click)="scrollDown()" [disabled]="scrollOffset >= maxScrollOffset" title="Scroll to later times">&#9660;</button>
-  <button type="button" class="live-button" (click)="jumpToNow()" [disabled]="autoFollow" title="Jump back to NOW">Live</button>
+  <button type="button" class="live-button" (click)="jumpToNow()" [disabled]="autoFollow" title="Jump back to NOW">Follow</button>
 
   <label class="visible-steps" title="How many timesteps are visible in the chart at once">
     <span class="control-label">Window size</span>
@@ -119,31 +119,31 @@
 
   <!-- X-axis labels (Distance) -->
   <g fill="#495057" font-family="Arial, sans-serif" font-size="12" text-anchor="middle">
-    <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 20">0</text>
-    <text [attr.x]="marginLeft + chartWidth * 0.2" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35">0</text>
+    <text [attr.x]="marginLeft + chartWidth * 0.2" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.2 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.4" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.4" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.4 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.6" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.6" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.6 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.8" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.8" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.8 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance | number: '1.0-1' }}
     </text>
   </g>
 
-  <!-- Station and line labels -->
-  <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="start">{{ fromGate }}
-  </text>
-  <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ toGate }}
-  </text>
+  <!-- Gate name labels: below the chart, one per gate that has pins on this link, placed above the distance
+       number row so they read as "the axis, then the numbers" from top to bottom. -->
+  <g fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="middle">
+    @for (gate of gateLabels; track gate.name) {
+      <text [attr.x]="distanceToX(gate.distance)" [attr.y]="svgHeight - marginBottom + 20">{{ gate.name }}</text>
+    }
+  </g>
 
   <!-- Station areas (orange overlay) -->
   @for (band of stationBands; track band.name) {
@@ -159,7 +159,7 @@
   <!-- Station pins (red overlay, matching the link map's pin cells; drawn over the orange station area).
        The white rect first cancels out any orange band underneath so the red tint is the same everywhere,
        regardless of whether the pin's column also happens to fall inside a station area. -->
-  @for (pin of pinBands; track pin.name) {
+  @for (pin of pinBands; track $index) {
     <rect
       [attr.x]="distanceToX(pin.distance)"
       [attr.y]="marginTop"
@@ -176,28 +176,27 @@
     />
   }
 
-  <!-- NOW line (current time step) -->
-  @if (timestep > 0) {
-    <g>
-      <line
-        [attr.x1]="marginLeft"
-        [attr.y1]="nowY"
-        [attr.x2]="marginLeft + chartWidth"
-        [attr.y2]="nowY"
-        stroke="#2e9e44"
-        stroke-width="1.5"
-      />
-      <text
-        [attr.x]="marginLeft + chartWidth + 4"
-        [attr.y]="nowY + 4"
-        fill="#2e9e44"
-        font-family="Arial, sans-serif"
-        font-size="11"
-        text-anchor="start"
-      >NOW
-      </text>
-    </g>
-  }
+  <!-- NOW line (current time step); always shown, including at step 0 — TOP_TIME_PADDING in timeToY keeps it
+       clear of the top edge instead of being drawn flush against it and disappearing. -->
+  <g>
+    <line
+      [attr.x1]="marginLeft"
+      [attr.y1]="nowY"
+      [attr.x2]="marginLeft + chartWidth"
+      [attr.y2]="nowY"
+      stroke="#2e9e44"
+      stroke-width="1.5"
+    />
+    <text
+      [attr.x]="marginLeft + chartWidth + 4"
+      [attr.y]="nowY + 4"
+      fill="#2e9e44"
+      font-family="Arial, sans-serif"
+      font-size="11"
+      text-anchor="start"
+    >NOW
+    </text>
+  </g>
 
   <!-- REPLAY/FUTURE line (time machine position); FUTURE once it's browsing past the actual history, same red
        styling as REPLAY, matching ReplayBadgeComponent's LIVE/REPLAY/FUTURE labeling. -->
@@ -223,23 +222,49 @@
     </g>
   }
 
-  <!-- Planned trajectories -->
+  <!-- Planned trajectories: same hue-rotated color as the agent's actual trajectory (if any), dash-dotted to
+       read as "predicted" rather than "actual"; the selected plan is fully opaque, others faded. -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
       <path
         [attr.d]="getPolylinePath(train.coordinates)"
-        [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
         fill="none"
+        stroke="red"
         stroke-width="3"
-        opacity="0.8"
+        stroke-dasharray="6 2 1 2"
+        [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+        [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'"
       />
-      @for (point of getPolylineBreakPoints(train.coordinates); track $index) {
-        <circle
-          [attr.cx]="point.x"
-          [attr.cy]="point.y"
-          r="3"
-          [attr.fill]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
-        />
+      @for (point of getInternalBreakPoints(train.coordinates); track $index) {
+        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red"
+                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+      }
+      <!-- Start marker: doubled if the agent has no actual trajectory yet (a real entering event), single if
+           its actual trajectory ends at a different distance (a real divergence from reality), omitted if the
+           plan simply continues from the agent's last known actual position. -->
+      @if (getPlannedStartMarker(train); as start) {
+        @if (start.double) {
+          <polygon [attr.points]="trianglePoints(start.x, start.y - 3)" fill="red"
+                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+          <polygon [attr.points]="trianglePoints(start.x, start.y + 3)" fill="red"
+                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        } @else {
+          <polygon [attr.points]="trianglePoints(start.x, start.y)" fill="red"
+                   [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        }
+      }
+      <!-- Target marker: always doubled — a plan always runs its agent's shortest path all the way there. -->
+      @if (getPlanTargetMarker(train.coordinates); as target) {
+        <polygon [attr.points]="trianglePoints(target.x, target.y - 3)" fill="red"
+                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        <polygon [attr.points]="trianglePoints(target.x, target.y + 3)" fill="red"
+                 [attr.opacity]="this.selectedPlan === i ? 0.85 : 0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
       }
     }
     @for (label of getPlanLabels(plan); track $index) {
@@ -268,31 +293,37 @@
         opacity="0.8"
         [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
       />
-      @for (point of getPolylineBreakPoints(train.coordinates); track $index) {
-        <circle
-          [attr.cx]="point.x"
-          [attr.cy]="point.y"
-          r="3"
-          fill="red"
-          [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
-        />
+      <!-- Spawn marker: always doubled — entering the plotted range is an unambiguous event. -->
+      @if (getSpawnMarker(train.coordinates); as spawn) {
+        <polygon [attr.points]="trianglePoints(spawn.x, spawn.y - 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <polygon [attr.points]="trianglePoints(spawn.x, spawn.y + 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="spawn.x + 5" [attr.y]="spawn.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
       }
-      @for (endPoint of getPolylineSegmentEndPoints(train.coordinates); track $index) {
-      <text
-        [attr.x]="endPoint.x + 3"
-        [attr.y]="endPoint.y + 4"
-        font-family="Arial, sans-serif"
-        font-size="9"
-        fill="#333"
-        [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
-      >{{ train.name }}
-      </text>
+      <!-- Internal breaks (a data gap or a jump bigger than maxJumpDistance partway through): single triangle. -->
+      @for (point of getInternalBreakPoints(train.coordinates); track $index) {
+        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="point.x + 5" [attr.y]="point.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
+      }
+      <!-- End marker: only drawn if there's something to flag — doubled if the agent has genuinely finished, or
+           if it's still going but its plan predicts a different position right at NOW; omitted if it's still
+           going and its plan (or the lack of one) gives no reason to flag anything at this seam. -->
+      @if (getActualEndMarker(train); as end) {
+        <polygon [attr.points]="trianglePoints(end.x, end.y - 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <polygon [attr.points]="trianglePoints(end.x, end.y + 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="end.x + 5" [attr.y]="end.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
       }
     </g>
   }
 
-  <!-- Stopping points (dashed red vertical line, labeled with track name); drawn last so the line and its
-       label stay visible on top of trajectories, the NOW/REPLAY lines, and agent labels while stepping/replaying. -->
+  <!-- Stopping points (dashed red vertical line), labeled with the owning station's name below the chart, at
+       the same height as the gate name labels; drawn last so the line stays visible on top of trajectories,
+       the NOW/REPLAY lines, and agent labels while stepping/replaying. -->
   @for (stop of stoppingPoints; track $index) {
     <line
       [attr.x1]="distanceToX(stop.distance)"
@@ -305,7 +336,7 @@
     />
     <text
       [attr.x]="distanceToX(stop.distance)"
-      [attr.y]="marginTop - 4"
+      [attr.y]="svgHeight - marginBottom + 20"
       fill="#c0392b"
       font-family="Arial, sans-serif"
       font-size="10"

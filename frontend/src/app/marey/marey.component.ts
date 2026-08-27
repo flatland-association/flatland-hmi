@@ -18,8 +18,13 @@ export interface TrainRun {
   coordinates: TrainCoordinate[]
 }
 
+
 /** Pixels per distance unit, matching the fixed 20px cell size of the link map's grid so the two stay aligned. */
 const CELL_PX = 20
+
+/** Pixels reserved at the top of the chart before the first visible timestep, so a NOW/REPLAY line or trajectory
+ * point at the very start of the window isn't drawn flush against the top edge (invisible at t=0 otherwise). */
+const TOP_TIME_PADDING = 6
 
 @Component({
   selector: 'app-marey',
@@ -91,7 +96,11 @@ export class MareyComponent {
   /** Fixed timestep-to-pixel mapping: unlike the old auto-fit scale, this does not change as history grows,
    * so a given timestep always maps to the same chart position while it stays inside the visible window. */
   timeToY(t: number): number {
-    return this.marginTop + ((t - this.scrollOffset) / this.visibleTimeSteps) * this.chartHeight
+    return (
+      this.marginTop +
+      TOP_TIME_PADDING +
+      ((t - this.scrollOffset) / this.visibleTimeSteps) * (this.chartHeight - TOP_TIME_PADDING)
+    )
   }
 
   private clampScroll(value: number): number {
@@ -139,6 +148,14 @@ export class MareyComponent {
   public plannedRuns: Array<Array<TrainRun>> = []
   public selectedPlan?: number
 
+  /** Index of the given agent name within `trainRuns`, so a planned/predicted route can be drawn in the same
+   * hue-rotated color as that agent's actual trajectory. Falls back to 0 (the base "red") if the agent has no
+   * actual trajectory yet (e.g. it hasn't spawned). */
+  getTrainHueIndex(name: string | undefined): number {
+    const index = this.trainRuns.findIndex((train) => train.name === name)
+    return index === -1 ? 0 : index
+  }
+
   get nowY(): number {
     return this.timeToY(this.timestep)
   }
@@ -150,8 +167,6 @@ export class MareyComponent {
   }
 
   public mapping: Map<number, Map<number, [number, number]>> = new Map()
-  public fromGate = ''
-  public toGate = ''
   public selectedLinkLabel = ''
   public selectedLink: number = 0
 
@@ -159,6 +174,8 @@ export class MareyComponent {
   public stationBands: Array<{ name: string; fromDistance: number; toDistance: number }> = []
   /** Station pins (red overlay, matching the link map's pin cells), as a distance-axis column. */
   public pinBands: Array<{ name: string; distance: number }> = []
+  /** One label per gate that has pins on this link (e.g. "A.N"), centered over that gate's pin span. */
+  public gateLabels: Array<{ name: string; distance: number }> = []
   /** Stopping points (red vertical line), as a distance-axis column within the currently mapped link. */
   public stoppingPoints: Array<{ name: string; distance: number }> = []
 
@@ -177,8 +194,6 @@ export class MareyComponent {
       this.selectedLink = parseInt(selectedLink)
       const link = links[this.selectedLink]
       if (link) {
-        this.fromGate = link.fromGate
-        this.toGate = link.toGate
         this.selectedLinkLabel = link.label
       }
       this.mapping = new Map()
@@ -270,9 +285,10 @@ export class MareyComponent {
     return this.distanceToX(1) - this.distanceToX(0)
   }
 
-  /** Station areas, pins, and stopping points along the currently selected link, transformed from env into
-   * ZWL/distance coordinates the same way LinkMapComponent does, so they line up with the trajectories plotted
-   * below. Pins are colored like the link map's pin cells (red), taking priority over the station's orange area. */
+  /** Station areas, pins, gate labels, and stopping points along the currently selected link, transformed from
+   * env into ZWL/distance coordinates the same way LinkMapComponent does, so they line up with the trajectories
+   * plotted below. Pins are colored like the link map's pin cells (red), taking priority over the station's
+   * orange area; gateLabels dedupes pinBands down to one label per gate, centered over that gate's pin span. */
   private computeStationOverlays(stations: StationsResponse): void {
     const mapDistance = ([r, c]: [number, number]): number | undefined => this.mapping.get(r)?.get(c)?.[1]
 
@@ -284,11 +300,24 @@ export class MareyComponent {
       })
       .filter((band): band is { name: string; fromDistance: number; toDistance: number } => band !== null)
 
-    this.pinBands = Object.values(stations.stationGates)
+    const gatePins = Object.values(stations.stationGates)
       .flatMap((gates) => Object.values(gates))
-      .flatMap((gate) => Object.values(gate.pins))
-      .map((pin) => ({name: pin.name, distance: mapDistance(pin.node)}))
-      .filter((pin): pin is { name: string; distance: number } => pin.distance !== undefined)
+      .flatMap((gate) => Object.values(gate.pins).map((pin) => ({gateName: gate.name, distance: mapDistance(pin.node)})))
+      .filter((pin): pin is { gateName: string; distance: number } => pin.distance !== undefined)
+
+    this.pinBands = gatePins.map(({gateName, distance}) => ({name: gateName, distance}))
+
+    const gateDistanceRange = new Map<string, { min: number; max: number }>()
+    for (const {gateName, distance} of gatePins) {
+      const range = gateDistanceRange.get(gateName)
+      if (range) {
+        range.min = Math.min(range.min, distance)
+        range.max = Math.max(range.max, distance)
+      } else {
+        gateDistanceRange.set(gateName, {min: distance, max: distance})
+      }
+    }
+    this.gateLabels = Array.from(gateDistanceRange, ([name, {min, max}]) => ({name, distance: (min + max) / 2}))
 
     this.stoppingPoints = Object.entries(stations.stationStoppingPoints)
       .flatMap(([name, points]) => points.map((stp) => ({name, distance: mapDistance(stp.node)})))
@@ -365,13 +394,14 @@ export class MareyComponent {
     return parts.join(' ')
   }
 
-  /** Points where the polyline's pen lifts or drops — i.e. both ends of every continuous segment produced by
-   * `getPolylinePath` (a missing position, or a jump bigger than `maxJumpDistance`, each start a new segment) —
-   * rendered as small "lollipop" markers so the viewer can tell a break in the line from a genuine gap in data. */
-  getPolylineBreakPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
-    const points: { x: number; y: number }[] = []
+  /** Every point where the polyline's pen lifts or drops — i.e. both ends of every continuous segment produced
+   * by `getPolylinePath` (a missing position, or a jump bigger than `maxJumpDistance`, each start a new segment)
+   * — carrying the underlying distance/timestep alongside the pixel position so callers can decide how each one
+   * should be marked (see getSpawnMarker/getInternalBreakPoints/getActualEndMarker/getPlannedStartMarker below). */
+  private collectSegmentPoints(coordinates: TrainCoordinate[]): { x: number; y: number; t: number; distance: number }[] {
+    const points: { x: number; y: number; t: number; distance: number }[] = []
     let penDown = false
-    let pendingPenUp: { x: number; y: number } | null = null
+    let pendingPenUp: { x: number; y: number; t: number; distance: number } | null = null
     let lastDistance: number | null = null
     for (const coord of coordinates) {
       const zwlPos = this.getZwlPosition(coord)
@@ -387,7 +417,7 @@ export class MareyComponent {
         pendingPenUp = null
         penDown = false
       }
-      const point = {x: this.distanceToX(zwlPos[1]), y: this.timeToY(coord.t)}
+      const point = {x: this.distanceToX(zwlPos[1]), y: this.timeToY(coord.t), t: coord.t, distance: zwlPos[1]}
       if (!penDown) points.push(point)
       pendingPenUp = point
       penDown = true
@@ -395,5 +425,68 @@ export class MareyComponent {
     }
     if (pendingPenUp !== null) points.push(pendingPenUp)
     return points
+  }
+
+  /** Break points strictly between the first and last point of the whole coordinate list — a data gap or a
+   * jump bigger than `maxJumpDistance` partway through — always drawn as a single downward triangle. The very
+   * first/last points are handled separately (see below) since whether they deserve a marker at all, and
+   * whether it should be doubled, depends on context this method has no visibility into. */
+  getInternalBreakPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
+    const points = this.collectSegmentPoints(coordinates)
+    return points.slice(1, -1).map(({x, y}) => ({x, y}))
+  }
+
+  /** The point where an agent's actual trajectory first appears — always a double triangle, since entering the
+   * plotted range is an unambiguous event. Null if the agent has no mapped position at all. */
+  getSpawnMarker(coordinates: TrainCoordinate[]): { x: number; y: number } | null {
+    return this.collectSegmentPoints(coordinates)[0] ?? null
+  }
+
+  /** The train run for `name` within the currently selected plan (or the first plan if none is selected). */
+  private getSelectedPlanTrain(name: string | undefined): TrainRun | undefined {
+    const plan = this.plannedRuns[this.selectedPlan ?? 0]
+    return plan?.find((train) => train.name === name)
+  }
+
+  /** Marker at an actual trajectory's very last point. Null (no marker) unless there's something to flag: a
+   * double triangle if the agent has genuinely finished (a real gap before now, not just "haven't stepped
+   * further yet"), or if it's still going but its selected plan's first position is a different distance from
+   * where it actually is right now — a real divergence between reality and prediction, flagged right at NOW. */
+  getActualEndMarker(train: TrainRun): { x: number; y: number } | null {
+    const points = this.collectSegmentPoints(train.coordinates)
+    if (points.length === 0) return null
+    const last = points[points.length - 1]
+    if (last.t < this.timestep - 1) return {x: last.x, y: last.y}
+    const planned = this.getSelectedPlanTrain(train.name)
+    const plannedStart = planned && this.collectSegmentPoints(planned.coordinates)[0]
+    if (plannedStart && plannedStart.distance !== last.distance) return {x: last.x, y: last.y}
+    return null
+  }
+
+  /** Marker at a plan's very first point. A double triangle if the agent has no actual trajectory yet (a
+   * genuine entering event, since this is then the agent's only known position); a single triangle if the
+   * agent's actual trajectory ends at a different distance (a real divergence between reality and prediction,
+   * flagged one step into the future); null (no marker) if it simply continues from the agent's last known
+   * actual position — nothing to flag when reality and prediction agree. */
+  getPlannedStartMarker(train: TrainRun): { x: number; y: number; double: boolean } | null {
+    const points = this.collectSegmentPoints(train.coordinates)
+    if (points.length === 0) return null
+    const first = points[0]
+    const actual = this.trainRuns.find((t) => t.name === train.name)
+    const actualEnd = actual && this.collectSegmentPoints(actual.coordinates).at(-1)
+    if (!actualEnd) return {x: first.x, y: first.y, double: true}
+    if (actualEnd.distance === first.distance) return null
+    return {x: first.x, y: first.y, double: false}
+  }
+
+  /** The point where a plan's trajectory ends — always a double triangle, since a plan always runs its agent's
+   * shortest path all the way to its target. Null if the plan has no mapped position at all. */
+  getPlanTargetMarker(coordinates: TrainCoordinate[]): { x: number; y: number } | null {
+    return this.collectSegmentPoints(coordinates).at(-1) ?? null
+  }
+
+  /** SVG <polygon> points for a small downward-pointing triangle centered at (x, y). */
+  trianglePoints(x: number, y: number): string {
+    return `${x - 4},${y - 4} ${x + 4},${y - 4} ${x},${y + 3}`
   }
 }
