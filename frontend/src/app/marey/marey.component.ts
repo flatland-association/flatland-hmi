@@ -328,25 +328,9 @@ export class MareyComponent {
   }
 
   getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
-    const points: { x: number; y: number }[] = []
-    let last: { x: number; y: number } | null = null
-    let lastDistance: number | null = null
-    for (const coord of coordinates) {
-      const zwlPos = this.getZwlPosition(coord)
-      if (zwlPos !== null && !this.isBigJump(lastDistance, zwlPos[1])) {
-        last = {
-          x: this.distanceToX(zwlPos[1]),
-          y: this.timeToY(coord.t),
-        }
-        lastDistance = zwlPos[1]
-      } else {
-        if (last !== null) points.push(last)
-        last = null
-        lastDistance = zwlPos !== null ? zwlPos[1] : null
-      }
-    }
-    if (last !== null) points.push(last)
-    return points
+    return this.collectSegmentPoints(coordinates)
+      .filter((_, i) => i % 2 === 1)
+      .map(({x, y}) => ({x, y}))
   }
 
   /** Labels for one plan's agents, merging agents whose route ends at the same place and time
@@ -368,59 +352,45 @@ export class MareyComponent {
   }
 
   getPolylinePath(coordinates: TrainCoordinate[]): string {
-    const parts: string[] = []
-    let penDown = false
-    let lastDistance: number | null = null
-    for (const coord of coordinates) {
-      const zwlPos = this.getZwlPosition(coord)
-      if (zwlPos === null) {
-        penDown = false
-        lastDistance = null
-        continue
-      }
-      if (this.isBigJump(lastDistance, zwlPos[1])) {
-        penDown = false
-      }
-      const x = this.distanceToX(zwlPos[1])
-      const y = this.timeToY(coord.t)
-      parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
-      penDown = true
-      lastDistance = zwlPos[1]
-    }
-    return parts.join(' ')
+    return this.walkSegments(coordinates)
+      .map(({x, y, newSegment}) => `${newSegment ? 'M' : 'L'} ${x},${y}`)
+      .join(' ')
   }
 
-  /** Every point where the polyline's pen lifts or drops — i.e. both ends of every continuous segment produced
-   * by `getPolylinePath` (a missing position, or a jump bigger than `maxJumpDistance`, each start a new segment)
-   * — carrying the underlying distance/timestep alongside the pixel position so callers can decide how each one
-   * should be marked (see getSpawnMarker/getInternalBreakPoints/getActualEndMarker/getPlannedStartMarker below). */
-  private collectSegmentPoints(coordinates: TrainCoordinate[]): { x: number; y: number; t: number; distance: number }[] {
-    const points: { x: number; y: number; t: number; distance: number }[] = []
-    let penDown = false
-    let pendingPenUp: { x: number; y: number; t: number; distance: number } | null = null
+  /** Every mapped coordinate, in order, tagged with whether the polyline's pen lifts before it — i.e. it's the
+   * first point of a new segment because the previous coordinate was unmapped or the jump from it exceeded
+   * `maxJumpDistance`. The single walk shared by `getPolylinePath` and `collectSegmentPoints` below. */
+  private walkSegments(
+    coordinates: TrainCoordinate[],
+  ): { x: number; y: number; t: number; distance: number; newSegment: boolean }[] {
+    const points: { x: number; y: number; t: number; distance: number; newSegment: boolean }[] = []
     let lastDistance: number | null = null
     for (const coord of coordinates) {
       const zwlPos = this.getZwlPosition(coord)
       if (zwlPos === null) {
-        if (pendingPenUp !== null) points.push(pendingPenUp)
-        pendingPenUp = null
-        penDown = false
         lastDistance = null
         continue
       }
-      if (this.isBigJump(lastDistance, zwlPos[1])) {
-        if (pendingPenUp !== null) points.push(pendingPenUp)
-        pendingPenUp = null
-        penDown = false
-      }
-      const point = {x: this.distanceToX(zwlPos[1]), y: this.timeToY(coord.t), t: coord.t, distance: zwlPos[1]}
-      if (!penDown) points.push(point)
-      pendingPenUp = point
-      penDown = true
+      const newSegment = lastDistance === null || this.isBigJump(lastDistance, zwlPos[1])
+      points.push({x: this.distanceToX(zwlPos[1]), y: this.timeToY(coord.t), t: coord.t, distance: zwlPos[1], newSegment})
       lastDistance = zwlPos[1]
     }
-    if (pendingPenUp !== null) points.push(pendingPenUp)
     return points
+  }
+
+  /** Both ends of every continuous segment in `walkSegments` — carrying the underlying distance/timestep
+   * alongside the pixel position so callers can decide how each one should be marked (see
+   * getSpawnMarker/getInternalBreakPoints/getActualEndMarker/getPlannedStartMarker below). A single-point
+   * segment appears twice (as both its own start and end). */
+  private collectSegmentPoints(coordinates: TrainCoordinate[]): { x: number; y: number; t: number; distance: number }[] {
+    const walk = this.walkSegments(coordinates)
+    const points: { x: number; y: number; t: number; distance: number }[] = []
+    walk.forEach((point, i) => {
+      const isSegmentEnd = i === walk.length - 1 || walk[i + 1].newSegment
+      if (point.newSegment) points.push(point)
+      if (isSegmentEnd) points.push(point)
+    })
+    return points.map(({x, y, t, distance}) => ({x, y, t, distance}))
   }
 
   /** Break points strictly between the first and last point of the whole coordinate list — a data gap or a
