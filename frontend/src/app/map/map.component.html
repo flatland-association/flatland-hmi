@@ -116,14 +116,14 @@
     </button>
     } @else {
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
-            type="button" [disabled]="nowTime === 0" (click)="enterTimeMachine()">ENTER
+            type="button" [disabled]="maxReplayTime === 0" (click)="enterTimeMachine()">ENTER
     </button>
     }
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
-            type="button" [disabled]="!inReplayMode" (click)="timeMachineNext()">&gt;
+            type="button" [disabled]="!inReplayMode || replayTime === maxReplayTime" (click)="timeMachineNext()">&gt;
     </button>
     <input class="time-machine-field" type="number" [value]="replayTime ?? ''" [disabled]="!inReplayMode"
-           min="1" [attr.max]="nowTime" (change)="timeMachineJump($any($event.target).value)">
+           min="1" [attr.max]="maxReplayTime" (change)="timeMachineJump($any($event.target).value)">
   </fieldset>
 
   <fieldset class="simulation-group">

@@ -199,7 +199,8 @@
     </g>
   }
 
-  <!-- REPLAY line (time machine position) -->
+  <!-- REPLAY/FUTURE line (time machine position); FUTURE once it's browsing past the actual history, same red
+       styling as REPLAY, matching ReplayBadgeComponent's LIVE/REPLAY/FUTURE labeling. -->
   @if (replayTime !== null) {
     <g>
       <line
@@ -217,7 +218,7 @@
         font-family="Arial, sans-serif"
         font-size="11"
         text-anchor="start"
-      >REPLAY
+      >{{ replayTime > timestep ? 'FUTURE' : 'REPLAY' }}
       </text>
     </g>
   }

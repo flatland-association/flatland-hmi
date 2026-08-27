@@ -92,14 +92,28 @@ export class StateService {
     return this.agents.asObservable()
   }
 
-  /** Live agents when not replaying; otherwise the historical snapshot at the replay time. */
+  /** Live agents when not replaying; the historical snapshot at the replay time when replaying the past; or, for
+   * a replay time beyond the current history (browsing the FUTURE), the first loaded plan's snapshot at that
+   * step. Deliberately not combined with `this.plan` (the selected-plan index) — nothing in the app ever calls
+   * a `setPlan()`-equivalent to make that subject emit, so combining it here would make this observable never
+   * emit either, leaving agents permanently blank on Map/LinkMap. */
   public getDisplayedAgents(): Observable<Array<Agent>> {
-    return combineLatest([this.agents, this.history, this.replayTime]).pipe(
-      map(([liveAgents, history, replayTime]) => {
+    return combineLatest([this.agents, this.history, this.replayTime, this.plans]).pipe(
+      map(([liveAgents, history, replayTime, plans]) => {
         if (replayTime === null) return liveAgents
         const snapshot = history[replayTime - 1]
-        return snapshot ? Object.values(snapshot) : liveAgents
+        if (snapshot) return Object.values(snapshot)
+        const futureSnapshot = plans[0]?.[replayTime - 1]
+        return futureSnapshot ? Object.values(futureSnapshot) : liveAgents
       }),
+    )
+  }
+
+  /** Furthest step reachable by the time machine: the latest actual history step, or — if further — the last
+   * step of the longest loaded plan, so the time machine can browse into the predicted FUTURE past NOW. */
+  public getMaxReplayTime(): Observable<number> {
+    return combineLatest([this.history, this.plans]).pipe(
+      map(([history, plans]) => Math.max(history.length, 0, ...plans.map((plan) => plan.length))),
     )
   }
 
