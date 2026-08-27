@@ -139,6 +139,30 @@
         fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ toGate }}
   </text>
 
+  <!-- Station areas (orange overlay) -->
+  @for (band of stationBands; track band.name) {
+    <rect
+      [attr.x]="distanceToX(band.fromDistance)"
+      [attr.y]="marginTop"
+      [attr.width]="distanceToX(band.toDistance) - distanceToX(band.fromDistance) + 1"
+      [attr.height]="chartHeight"
+      fill="rgba(255, 165, 0, 0.15)"
+    />
+  }
+
+  <!-- Stopping points (red vertical line) -->
+  @for (stop of stoppingPoints; track $index) {
+    <line
+      [attr.x1]="distanceToX(stop.distance)"
+      [attr.y1]="marginTop"
+      [attr.x2]="distanceToX(stop.distance)"
+      [attr.y2]="svgHeight - marginBottom"
+      stroke="rgba(220, 0, 0, 0.5)"
+      stroke-width="1.5"
+      stroke-dasharray="4 2"
+    />
+  }
+
   <!-- NOW line (current time step) -->
   @if (timestep > 0) {
     <g>

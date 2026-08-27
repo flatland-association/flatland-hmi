@@ -2,7 +2,7 @@ import {DecimalPipe} from '@angular/common'
 import {Component, Input} from '@angular/core'
 import {FormsModule} from '@angular/forms'
 import {StateService} from '../state.service'
-import {Agent} from '../data.service'
+import {Agent, StationsResponse} from '../data.service'
 import {combineLatest} from 'rxjs'
 import {ReplayBadgeComponent} from '../replay-badge/replay-badge.component'
 
@@ -152,6 +152,11 @@ export class MareyComponent {
   public selectedLinkLabel = ''
   public selectedLink: number = 0
 
+  /** Station areas (orange overlay), as distance-axis column ranges within the currently mapped link. */
+  public stationBands: Array<{ name: string; fromDistance: number; toDistance: number }> = []
+  /** Stopping points (red vertical line), as a distance-axis column within the currently mapped link. */
+  public stoppingPoints: Array<{ name: string; distance: number }> = []
+
   constructor(
     public stateService: StateService,
   ) {
@@ -162,7 +167,8 @@ export class MareyComponent {
       this.stateService.getLinks(),
       this.stateService.getLinkMap(),
       this.stateService.getSelectedLink(),
-    ]).subscribe(([links, data, selectedLink]) => {
+      this.stateService.getStations(),
+    ]).subscribe(([links, data, selectedLink, stations]) => {
       this.selectedLink = parseInt(selectedLink)
       const link = links[this.selectedLink]
       if (link) {
@@ -176,6 +182,7 @@ export class MareyComponent {
         this.mapping.get(r)!.set(c, [mr, mc])
       }
       this.maxDistance = data.grid[0].length
+      this.computeStationOverlays(stations)
     })
     this.stateService.getPlan().subscribe((planIndex) => {
       this.selectedPlan = planIndex
@@ -251,6 +258,28 @@ export class MareyComponent {
 
   distanceToX(distance: number): number {
     return this.marginLeft + (distance / Math.max(this.maxDistance, 1)) * this.chartWidth
+  }
+
+  /** Station areas and stopping points along the currently selected link, transformed from env into ZWL/distance
+   * coordinates the same way LinkMapComponent does, so they line up with the trajectories plotted below. */
+  private computeStationOverlays(stations: StationsResponse): void {
+    const mapDistance = ([r, c]: [number, number]): number | undefined => this.mapping.get(r)?.get(c)?.[1]
+
+    this.stationBands = Object.entries(stations.stationEdges)
+      .map(([name, cells]) => {
+        const distances = cells.map(mapDistance).filter((d): d is number => d !== undefined)
+        if (distances.length === 0) return null
+        return {name, fromDistance: Math.min(...distances), toDistance: Math.max(...distances)}
+      })
+      .filter((band): band is { name: string; fromDistance: number; toDistance: number } => band !== null)
+
+    this.stoppingPoints = Object.entries(stations.stationStoppingPoints)
+      .flatMap(([name, points]) =>
+        points
+          .map((stp) => mapDistance(stp.node))
+          .filter((distance): distance is number => distance !== undefined)
+          .map((distance) => ({name, distance})),
+      )
   }
 
   getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
