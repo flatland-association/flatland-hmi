@@ -18,6 +18,21 @@
   font-family: Arial, sans-serif;
   font-size: 12px;
   color: #495057;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 4px 12px;
+
+  legend {
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+  }
+
+  .control-label {
+    color: #666;
+    white-space: nowrap;
+  }
 
   button {
     border: 1px solid #ccc;
@@ -39,6 +54,11 @@
 
   .time-scrollbar {
     width: 140px;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   }
 
   .visible-steps {
@@ -48,10 +68,16 @@
     margin-left: 8px;
 
     input {
-      width: 5ch;
+      width: 4.5em;
       border: 1px solid #ccc;
       border-radius: 4px;
       padding: 2px 4px;
+
+      // Chromium/WebKit hides the number spinner arrows until hover by default; force them always visible.
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        opacity: 1;
+      }
     }
   }
 }

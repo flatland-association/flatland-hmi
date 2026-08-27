@@ -1,6 +1,9 @@
 <app-replay-badge></app-replay-badge>
 
-<div class="time-controls">
+<fieldset class="time-controls">
+  <legend>Marey Time Window</legend>
+
+  <span class="control-label" title="Position of the visible time range">Position</span>
   <button type="button" (click)="scrollUp()" [disabled]="scrollOffset <= 0" title="Scroll to earlier times">&#9650;</button>
   <input
     class="time-scrollbar"
@@ -10,15 +13,18 @@
     [step]="timeGridStep"
     [ngModel]="scrollOffset"
     (ngModelChange)="onScrollInput($event)"
+    [disabled]="maxScrollOffset <= 0"
+    title="Drag to scroll the visible time range"
   />
   <button type="button" (click)="scrollDown()" [disabled]="scrollOffset >= maxScrollOffset" title="Scroll to later times">&#9660;</button>
   <button type="button" class="live-button" (click)="jumpToNow()" [disabled]="autoFollow" title="Jump back to NOW">Live</button>
-  <label class="visible-steps">
-    Show
+
+  <label class="visible-steps" title="How many timesteps are visible in the chart at once">
+    <span class="control-label">Window size</span>
     <input type="number" min="10" [step]="timeGridStep" [ngModel]="visibleTimeSteps" (ngModelChange)="setVisibleTimeSteps($event)" />
     steps
   </label>
-</div>
+</fieldset>
 
 <!--
   Wrapper is exactly chartWidth wide (same as the link map's grid) and left-aligned with it; the svg itself is
