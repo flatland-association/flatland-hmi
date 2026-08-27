@@ -93,7 +93,7 @@ export class MapComponent implements OnInit {
   }
 
   public enterTimeMachine(): void {
-    this.stateService.setReplayTime(this.nowTime)
+    this.stateService.setReplayTime(Math.max(1, this.nowTime))
   }
 
   public leaveTimeMachine(): void {
