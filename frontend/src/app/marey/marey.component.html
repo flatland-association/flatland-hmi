@@ -232,6 +232,14 @@
         stroke-width="3"
         opacity="0.8"
       />
+      @for (point of getPolylineBreakPoints(train.coordinates); track $index) {
+        <circle
+          [attr.cx]="point.x"
+          [attr.cy]="point.y"
+          r="3"
+          [attr.fill]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
+        />
+      }
     }
     @for (label of getPlanLabels(plan); track $index) {
     <text
@@ -259,6 +267,15 @@
         opacity="0.8"
         [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
       />
+      @for (point of getPolylineBreakPoints(train.coordinates); track $index) {
+        <circle
+          [attr.cx]="point.x"
+          [attr.cy]="point.y"
+          r="3"
+          fill="red"
+          [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
+        />
+      }
       @for (endPoint of getPolylineSegmentEndPoints(train.coordinates); track $index) {
       <text
         [attr.x]="endPoint.x + 3"

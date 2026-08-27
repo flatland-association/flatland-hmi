@@ -38,6 +38,9 @@ export class MareyComponent {
   @Input() visibleTimeSteps: number = 60
   /** Fixed spacing (in timesteps) between y-axis gridlines/labels, independent of the window size. */
   @Input() timeGridStep: number = 5
+  /** A horizontal jump larger than this many distance-axis cells between consecutive timesteps lifts the pen
+   * (breaks the polyline) instead of drawing a diagonal line across the gap. */
+  @Input() maxJumpDistance: number = 5
 
   /** Matches the link map's grid width exactly (maxDistance columns at CELL_PX each) so the two charts line up. */
   get chartWidth(): number {
@@ -292,19 +295,29 @@ export class MareyComponent {
       .filter((stp): stp is { name: string; distance: number } => stp.distance !== undefined)
   }
 
+  /** True if consecutive timesteps jump more than `maxJumpDistance` cells along the distance axis — e.g. a
+   * fresh agent respawning at a different position — in which case the polyline should lift its pen there
+   * rather than draw a diagonal line across the gap. */
+  private isBigJump(lastDistance: number | null, distance: number): boolean {
+    return lastDistance !== null && Math.abs(distance - lastDistance) > this.maxJumpDistance
+  }
+
   getPolylineSegmentEndPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
     const points: { x: number; y: number }[] = []
     let last: { x: number; y: number } | null = null
+    let lastDistance: number | null = null
     for (const coord of coordinates) {
       const zwlPos = this.getZwlPosition(coord)
-      if (zwlPos !== null) {
+      if (zwlPos !== null && !this.isBigJump(lastDistance, zwlPos[1])) {
         last = {
           x: this.distanceToX(zwlPos[1]),
           y: this.timeToY(coord.t),
         }
-      } else if (last !== null) {
-        points.push(last)
+        lastDistance = zwlPos[1]
+      } else {
+        if (last !== null) points.push(last)
         last = null
+        lastDistance = zwlPos !== null ? zwlPos[1] : null
       }
     }
     if (last !== null) points.push(last)
@@ -332,17 +345,55 @@ export class MareyComponent {
   getPolylinePath(coordinates: TrainCoordinate[]): string {
     const parts: string[] = []
     let penDown = false
+    let lastDistance: number | null = null
     for (const coord of coordinates) {
       const zwlPos = this.getZwlPosition(coord)
       if (zwlPos === null) {
         penDown = false
+        lastDistance = null
         continue
+      }
+      if (this.isBigJump(lastDistance, zwlPos[1])) {
+        penDown = false
       }
       const x = this.distanceToX(zwlPos[1])
       const y = this.timeToY(coord.t)
       parts.push(penDown ? `L ${x},${y}` : `M ${x},${y}`)
       penDown = true
+      lastDistance = zwlPos[1]
     }
     return parts.join(' ')
+  }
+
+  /** Points where the polyline's pen lifts or drops — i.e. both ends of every continuous segment produced by
+   * `getPolylinePath` (a missing position, or a jump bigger than `maxJumpDistance`, each start a new segment) —
+   * rendered as small "lollipop" markers so the viewer can tell a break in the line from a genuine gap in data. */
+  getPolylineBreakPoints(coordinates: TrainCoordinate[]): { x: number; y: number }[] {
+    const points: { x: number; y: number }[] = []
+    let penDown = false
+    let pendingPenUp: { x: number; y: number } | null = null
+    let lastDistance: number | null = null
+    for (const coord of coordinates) {
+      const zwlPos = this.getZwlPosition(coord)
+      if (zwlPos === null) {
+        if (pendingPenUp !== null) points.push(pendingPenUp)
+        pendingPenUp = null
+        penDown = false
+        lastDistance = null
+        continue
+      }
+      if (this.isBigJump(lastDistance, zwlPos[1])) {
+        if (pendingPenUp !== null) points.push(pendingPenUp)
+        pendingPenUp = null
+        penDown = false
+      }
+      const point = {x: this.distanceToX(zwlPos[1]), y: this.timeToY(coord.t)}
+      if (!penDown) points.push(point)
+      pendingPenUp = point
+      penDown = true
+      lastDistance = zwlPos[1]
+    }
+    if (pendingPenUp !== null) points.push(pendingPenUp)
+    return points
   }
 }
