@@ -117,12 +117,12 @@
     </button>
     }
     <button type="button" class="time-machine-triangle" [disabled]="!inReplayMode || replayTime === 1"
-            (click)="timeMachinePrev()" title="Step back one timestep">&#9650;
+            (click)="timeMachinePrev()" title="Step back one timestep">&#9664;&#xFE0E;
     </button>
     <input class="time-machine-slider" type="range" min="1" [attr.max]="maxReplayTime" [value]="replayTime ?? 1"
            [disabled]="!inReplayMode" (input)="timeMachineJump($any($event.target).value)" title="Drag to scrub the replay position">
     <button type="button" class="time-machine-triangle" [disabled]="!inReplayMode || replayTime === maxReplayTime"
-            (click)="timeMachineNext()" title="Step forward one timestep">&#9660;
+            (click)="timeMachineNext()" title="Step forward one timestep">&#9654;&#xFE0E;
     </button>
     <input class="time-machine-field" type="number" [value]="replayTime ?? ''" [disabled]="!inReplayMode"
            min="1" [attr.max]="maxReplayTime" (change)="timeMachineJump($any($event.target).value)">

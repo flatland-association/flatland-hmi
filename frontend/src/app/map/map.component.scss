@@ -37,9 +37,12 @@
     }
 
     .time-machine-triangle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border: 1px solid #ccc;
       border-radius: 4px;
-      background: #f4f4f4;
+      background: white;
       padding: 2px 8px;
       cursor: pointer;
     }
@@ -49,18 +52,19 @@
     }
 
     .time-machine-field {
-      width: 4.5em;
+      width: calc(4ch + 10px);
       text-align: center;
       border: 1px solid #ccc;
       border-radius: 4px;
       padding: 2px 4px;
-      background-color: #f4f4f4;
+      background-color: white;
       color: #333;
 
-      // Force the number-input spinner visible (Chromium/WebKit hides it until hover by default).
+      appearance: textfield;
       &::-webkit-inner-spin-button,
       &::-webkit-outer-spin-button {
-        opacity: 1;
+        -webkit-appearance: none;
+        margin: 0;
       }
     }
 
