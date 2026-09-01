@@ -107,37 +107,39 @@
 <div class="controller">
   <fieldset class="simulation-group">
     <legend>Time Machine</legend>
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
-            type="button" [disabled]="!inReplayMode || replayTime === 1" (click)="timeMachinePrev()">&lt;
-    </button>
     @if (inReplayMode) {
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
             (click)="leaveTimeMachine()">LEAVE
     </button>
     } @else {
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
-            type="button" [disabled]="nowTime === 0" (click)="enterTimeMachine()">ENTER
+            type="button" [disabled]="maxReplayTime === 0" (click)="enterTimeMachine()">ENTER
     </button>
     }
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed"
-            type="button" [disabled]="!inReplayMode" (click)="timeMachineNext()">&gt;
+    <button type="button" class="time-machine-triangle" [disabled]="!inReplayMode || replayTime === 1"
+            (click)="timeMachinePrev()" title="Step back one timestep">&#9664;&#xFE0E;
+    </button>
+    <input class="time-machine-slider" type="range" min="1" [attr.max]="maxReplayTime" [value]="replayTime ?? 1"
+           [disabled]="!inReplayMode" (input)="timeMachineJump($any($event.target).value)" title="Drag to scrub the replay position">
+    <button type="button" class="time-machine-triangle" [disabled]="!inReplayMode || replayTime === maxReplayTime"
+            (click)="timeMachineNext()" title="Step forward one timestep">&#9654;&#xFE0E;
     </button>
     <input class="time-machine-field" type="number" [value]="replayTime ?? ''" [disabled]="!inReplayMode"
-           min="1" [attr.max]="nowTime" (change)="timeMachineJump($any($event.target).value)">
+           min="1" [attr.max]="maxReplayTime" (change)="timeMachineJump($any($event.target).value)">
   </fieldset>
 
   <fieldset class="simulation-group">
     <legend>Simulation Time</legend>
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-            (click)="controllerService.step()">Step
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed" type="button"
+            [disabled]="state.done.__all__" (click)="controllerService.step()">Step
     </button>
     @if (controllerService.playing) {
     <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
             (click)="controllerService.stop()">Stop
     </button>
     } @else {
-    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button"
-            (click)="controllerService.play()">Play
+    <button class="bg-primary-500 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-40 disabled:cursor-not-allowed" type="button"
+            [disabled]="state.done.__all__" (click)="controllerService.play()">Play
     </button>
     }
     @if (state) {

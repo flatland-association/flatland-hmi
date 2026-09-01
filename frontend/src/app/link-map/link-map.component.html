@@ -1,11 +1,14 @@
 
-<div class="controller">
-  <select [(ngModel)]="selectedLink" (ngModelChange)="onLinkChange()">
-    @for (linkOption of linkOptions; track $index) {
-    <option [value]="linkOption.value">{{ linkOption.label }}</option>
-    }
-  </select>
-</div>
+<fieldset class="controller">
+  <legend>Line</legend>
+  <div class="dropdown-frame">
+    <select [(ngModel)]="selectedLink" (ngModelChange)="onLinkChange()">
+      @for (linkOption of linkOptions; track $index) {
+      <option [value]="linkOption.value">{{ linkOption.label }}</option>
+      }
+    </select>
+  </div>
+</fieldset>
 
 <div class="map">
   <div class="environment">

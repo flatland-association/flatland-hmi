@@ -36,6 +36,8 @@ export class MapComponent implements OnInit {
   public currentEnv = ''
 
   public nowTime = 0
+  /** Furthest step the time machine can reach — beyond `nowTime` when a plan projects further into the future. */
+  public maxReplayTime = 0
   public replayTime: number | null = null
 
   public get inReplayMode(): boolean {
@@ -78,6 +80,7 @@ export class MapComponent implements OnInit {
       }
     })
     this.stateService.getHistory().subscribe((history) => (this.nowTime = history.length))
+    this.stateService.getMaxReplayTime().subscribe((maxReplayTime) => (this.maxReplayTime = maxReplayTime))
     this.stateService.getReplayTime().subscribe((replayTime) => (this.replayTime = replayTime))
   }
 
@@ -90,7 +93,7 @@ export class MapComponent implements OnInit {
   }
 
   public enterTimeMachine(): void {
-    this.stateService.setReplayTime(this.nowTime)
+    this.stateService.setReplayTime(Math.max(1, this.nowTime))
   }
 
   public leaveTimeMachine(): void {
@@ -104,12 +107,12 @@ export class MapComponent implements OnInit {
 
   public timeMachineNext(): void {
     if (this.replayTime === null) return
-    this.stateService.setReplayTime(Math.min(this.nowTime, this.replayTime + 1))
+    this.stateService.setReplayTime(Math.min(this.maxReplayTime, this.replayTime + 1))
   }
 
   public timeMachineJump(value: string): void {
     const step = parseInt(value, 10)
     if (isNaN(step)) return
-    this.stateService.setReplayTime(Math.min(this.nowTime, Math.max(1, step)))
+    this.stateService.setReplayTime(Math.min(this.maxReplayTime, Math.max(1, step)))
   }
 }

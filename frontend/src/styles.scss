@@ -3,3 +3,39 @@
 * {
   box-sizing: border-box;
 }
+
+// Keep the shared header/footer pinned to the viewport while the page content (map/link-map/marey) scrolls
+// underneath, instead of scrolling away with it.
+lib-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+lib-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
+// lib-header shrinks its padding (and drops a shadow) once the page is scrolled, so it's taller at the very
+// top than everywhere else; pin it to a single constant height instead. lib-footer's own padding is unrelated
+// (much taller, sized for its 3-line address block) so it's pinned to the same height here for consistency,
+// using min-height/flex-centering rather than a hard height so no content gets clipped.
+$header-footer-min-height: 88px;
+
+lib-header header > div {
+  min-height: $header-footer-min-height;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  justify-content: center;
+  box-shadow: none !important;
+}
+
+lib-footer > div {
+  min-height: $header-footer-min-height;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  display: flex;
+  align-items: center;
+}

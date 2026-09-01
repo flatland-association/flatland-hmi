@@ -28,6 +28,7 @@ pip install -r requirements.txt
 Run:
 
 ```bash
+cd backend
 python -m uvicorn main:app --reload
 ```
 

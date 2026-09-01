@@ -1,3 +1,6 @@
+// Default: a floating top-right overlay with margin (MapComponent's usage, `<app-replay-badge>` with no
+// class). MareyComponent overrides this back to an inline flex item via its own `.badge-inline` class (see
+// marey.component.scss) since it's shown inside the "Marey Time Window" fieldset there instead.
 :host {
   position: absolute;
   top: 8px;

@@ -2,10 +2,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 20px;
   padding: 20px;
-  height: 100vh;
 }
 
 .controller {
@@ -28,24 +26,43 @@
       color: #666;
     }
 
+    // Matches MareyComponent's time-window controls (marey.component.scss).
+    .time-machine-triangle,
+    .time-machine-slider,
     .time-machine-field {
-      width: 4ch;
-      text-align: center;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 4px;
-      background-color: #f4f4f4;
-      color: #333;
-
       &:disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
+    }
 
-      // hide number-input spinners
+    .time-machine-triangle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: white;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+
+    .time-machine-slider {
+      width: 140px;
+    }
+
+    .time-machine-field {
+      width: calc(4ch + 10px);
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 2px 4px;
+      background-color: white;
+      color: #333;
+
       appearance: textfield;
-      &::-webkit-outer-spin-button,
-      &::-webkit-inner-spin-button {
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
       }
@@ -236,24 +253,42 @@
     }
   }
 
-  .stationarea {
+  // Shared shape of the map's absolutely-positioned overlay layers (station areas, labels, row/col numbers,
+  // levels): a full-grid 0,0-anchored, click-through container of 20px cells laid out in flex rows. Only
+  // z-index and each layer's own label content differ between them.
+  .stationarea,
+  .station-labels,
+  .pin-labels,
+  .row-col-numbers,
+  .level-labels {
     position: absolute;
     left: 0;
     top: 0;
-    z-index: 6;
     pointer-events: none;
+  }
 
-    .stationarea-row {
-      display: flex;
-      flex-direction: row;
-    }
+  .stationarea-row,
+  .station-row,
+  .pin-row,
+  .rc-row,
+  .level-row {
+    display: flex;
+    flex-direction: row;
+  }
 
-    .stationarea-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
+  .stationarea-cell,
+  .station-cell,
+  .pin-cell,
+  .rc-cell,
+  .level-cell {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    position: relative;
+  }
+
+  .stationarea {
+    z-index: 6;
 
     .station-building {
       width: 100%;
@@ -266,23 +301,7 @@
   }
 
   .station-labels {
-    position: absolute;
-    left: 0;
-    top: 0;
     z-index: 8;
-    pointer-events: none;
-
-    .station-row {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .station-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
 
     .station-label {
       position: absolute;
@@ -296,23 +315,7 @@
   }
 
   .pin-labels {
-    position: absolute;
-    left: 0;
-    top: 0;
     z-index: 8;
-    pointer-events: none;
-
-    .pin-row {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .pin-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
 
     .pin-label {
       position: absolute;
@@ -326,20 +329,7 @@
   }
 
   .row-col-numbers {
-    position: absolute;
-    left: 0;
-    top: 0;
     z-index: 11;
-    pointer-events: none;
-
-    .rc-row { display: flex; flex-direction: row; }
-
-    .rc-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
 
     .row-number {
       position: absolute;
@@ -387,23 +377,7 @@
   }
 
   .level-labels {
-    position: absolute;
-    left: 0;
-    top: 0;
     z-index: 9;
-    pointer-events: none;
-
-    .level-row {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .level-cell {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      position: relative;
-    }
 
     .level-label {
       position: absolute;

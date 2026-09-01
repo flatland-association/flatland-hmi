@@ -89,5 +89,41 @@ describe('StateService', () => {
 
       expect(await firstValueFrom(service.getDisplayedAgents())).toEqual([makeAgent(0, [2, 2])])
     })
+
+    it('returns the loaded plan snapshot when replay time is beyond history but within the plan (FUTURE)', async () => {
+      service.applyStep(makeStep(1), [makeAgent(0, [1, 1])])
+      service.setPlans([[{}, { '0': makeAgent(0, [9, 9]) }]])
+      service.setReplayTime(2)
+
+      expect(await firstValueFrom(service.getDisplayedAgents())).toEqual([makeAgent(0, [9, 9])])
+    })
+
+    it('falls back to the live agents when replay time exceeds both history and the loaded plan', async () => {
+      service.applyStep(makeStep(1), [makeAgent(0, [1, 1])])
+      service.setPlans([[{}, { '0': makeAgent(0, [9, 9]) }]])
+      service.setReplayTime(5)
+
+      expect(await firstValueFrom(service.getDisplayedAgents())).toEqual([makeAgent(0, [1, 1])])
+    })
+  })
+
+  describe('getMaxReplayTime', () => {
+    it('is 0 with no history and no plans', async () => {
+      expect(await firstValueFrom(service.getMaxReplayTime())).toBe(0)
+    })
+
+    it('matches history length when no plan extends further', async () => {
+      service.applyStep(makeStep(1), [makeAgent(0, [1, 1])])
+      service.applyStep(makeStep(2), [makeAgent(0, [2, 2])])
+
+      expect(await firstValueFrom(service.getMaxReplayTime())).toBe(2)
+    })
+
+    it('extends past history length when the loaded plan reaches further into the future', async () => {
+      service.applyStep(makeStep(1), [makeAgent(0, [1, 1])])
+      service.setPlans([[{}, {}, { '0': makeAgent(0, [9, 9]) }]])
+
+      expect(await firstValueFrom(service.getMaxReplayTime())).toBe(3)
+    })
   })
 })

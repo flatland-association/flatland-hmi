@@ -1,5 +1,45 @@
-<app-replay-badge></app-replay-badge>
-<svg [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight">
+<fieldset class="time-controls">
+  <legend>Marey Time Window</legend>
+
+  <span class="control-label" title="Position of the visible time range">Position</span>
+  <button type="button" (click)="scrollUp()" [disabled]="scrollOffset <= 0" title="Scroll to earlier times">&#9650;</button>
+  <input
+    class="time-scrollbar"
+    type="range"
+    min="0"
+    [max]="maxScrollOffset"
+    [step]="timeGridStep"
+    [ngModel]="scrollOffset"
+    (ngModelChange)="onScrollInput($event)"
+    [disabled]="maxScrollOffset <= 0"
+    title="Drag to scroll the visible time range"
+  />
+  <button type="button" (click)="scrollDown()" [disabled]="scrollOffset >= maxScrollOffset" title="Scroll to later times">&#9660;</button>
+  <button type="button" class="live-button" (click)="jumpToNow()" [disabled]="autoFollow" title="Jump back to NOW">Follow</button>
+
+  <label class="visible-steps" title="How many timesteps are visible in the chart at once">
+    <span class="control-label">Window size</span>
+    <input type="number" min="10" [step]="timeGridStep" [ngModel]="visibleTimeSteps" (ngModelChange)="setVisibleTimeSteps($event)" />
+    steps
+  </label>
+  <app-replay-badge class="badge-inline"></app-replay-badge>
+</fieldset>
+
+<!--
+  Wrapper is exactly chartWidth wide (same as the link map's grid) and left-aligned with it; the svg itself is
+  shifted left by marginLeft so its plot area (distance 0..chartWidth) lands inside the wrapper at the same
+  pixel offset as the link map's grid, keeping the two diagrams' distance axes lined up. The svg keeps its
+  default overflow:hidden so trajectory points outside the visible time window are clipped, not bled into
+  the page below.
+-->
+<div class="marey-align" [style.width.px]="chartWidth">
+<svg
+  [attr.width]="svgWidth"
+  [attr.height]="svgHeight"
+  [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight"
+  [style.margin-left.px]="-marginLeft"
+  style="display: block;"
+>
   <!-- Grid lines -->
   <!-- Vertical grid lines (distance) -->
   <g stroke="#e9ecef" stroke-width="0.5">
@@ -36,39 +76,16 @@
     />
   </g>
 
-  <!-- Horizontal grid lines (time) -->
+  <!-- Horizontal grid lines (time), fixed every timeGridStep timesteps within the visible window -->
   <g stroke="#e9ecef" stroke-width="0.5">
-    <line [attr.x1]="marginLeft" [attr.y1]="marginTop" [attr.x2]="marginLeft + chartWidth" [attr.y2]="marginTop" />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.2"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.2"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.4"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.4"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.6"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.6"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="marginTop + chartHeight * 0.8"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="marginTop + chartHeight * 0.8"
-    />
-    <line
-      [attr.x1]="marginLeft"
-      [attr.y1]="svgHeight - marginBottom"
-      [attr.x2]="marginLeft + chartWidth"
-      [attr.y2]="svgHeight - marginBottom"
-    />
+    @for (tick of timeTicks; track tick) {
+      <line
+        [attr.x1]="marginLeft"
+        [attr.y1]="timeToY(tick)"
+        [attr.x2]="marginLeft + chartWidth"
+        [attr.y2]="timeToY(tick)"
+      />
+    }
   </g>
 
   <!-- Axes -->
@@ -92,76 +109,96 @@
   />
 
   <!-- Axis labels -->
-  <!-- Y-axis labels (Time) -->
+  <!-- Y-axis labels (Time), fixed every timeGridStep timesteps within the visible window -->
   <g fill="#495057" font-family="Arial, sans-serif" font-size="12" text-anchor="end">
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + 5">0</text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.2 + 5">
-      {{ maxTime * 0.2 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.4 + 5">
-      {{ maxTime * 0.4 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.6 + 5">
-      {{ maxTime * 0.6 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="marginTop + chartHeight * 0.8 + 5">
-      {{ maxTime * 0.8 | number: '1.0' }}
-    </text>
-    <text [attr.x]="marginLeft - 10" [attr.y]="svgHeight - marginBottom + 5">{{ maxTime }}</text>
+    @for (tick of timeTicks; track tick) {
+      <text [attr.x]="marginLeft - 10" [attr.y]="timeToY(tick) + 5">{{ tick }}</text>
+    }
   </g>
 
   <!-- X-axis labels (Distance) -->
   <g fill="#495057" font-family="Arial, sans-serif" font-size="12" text-anchor="middle">
-    <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 20">0</text>
-    <text [attr.x]="marginLeft + chartWidth * 0.2" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35">0</text>
+    <text [attr.x]="marginLeft + chartWidth * 0.2" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.2 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.4" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.4" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.4 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.6" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.6" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.6 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth * 0.8" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth * 0.8" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance * 0.8 | number: '1.0' }}
     </text>
-    <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 20">
+    <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35">
       {{ maxDistance | number: '1.0-1' }}
     </text>
   </g>
 
-  <!-- Station and line labels -->
-  <text [attr.x]="marginLeft" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="start">{{ fromGate }}
-  </text>
-  <text [attr.x]="marginLeft + chartWidth" [attr.y]="svgHeight - marginBottom + 35"
-        fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="end">{{ toGate }}
-  </text>
+  <!-- Gate name labels: below the chart, one per gate that has pins on this link, placed above the distance
+       number row so they read as "the axis, then the numbers" from top to bottom. -->
+  <g fill="#495057" font-family="Arial, sans-serif" font-size="11" text-anchor="middle">
+    @for (gate of gateLabels; track gate.name) {
+      <text [attr.x]="distanceToX(gate.distance)" [attr.y]="svgHeight - marginBottom + 20">{{ gate.name }}</text>
+    }
+  </g>
 
-  <!-- NOW line (current time step) -->
-  @if (timestep > 0) {
-    <g>
-      <line
-        [attr.x1]="marginLeft"
-        [attr.y1]="nowY"
-        [attr.x2]="marginLeft + chartWidth"
-        [attr.y2]="nowY"
-        stroke="#2e9e44"
-        stroke-width="1.5"
-      />
-      <text
-        [attr.x]="marginLeft + chartWidth + 4"
-        [attr.y]="nowY + 4"
-        fill="#2e9e44"
-        font-family="Arial, sans-serif"
-        font-size="11"
-        text-anchor="start"
-      >NOW
-      </text>
-    </g>
+  <!-- Station areas (orange overlay) -->
+  @for (band of stationBands; track band.name) {
+    <rect
+      [attr.x]="distanceToX(band.fromDistance)"
+      [attr.y]="marginTop"
+      [attr.width]="distanceToX(band.toDistance) - distanceToX(band.fromDistance) + 1"
+      [attr.height]="chartHeight"
+      fill="rgba(255, 165, 0, 0.15)"
+    />
   }
 
-  <!-- REPLAY line (time machine position) -->
+  <!-- Station pins (red overlay, matching the link map's pin cells; drawn over the orange station area).
+       The white rect first cancels out any orange band underneath so the red tint is the same everywhere,
+       regardless of whether the pin's column also happens to fall inside a station area. -->
+  @for (pin of pinBands; track $index) {
+    <rect
+      [attr.x]="distanceToX(pin.distance)"
+      [attr.y]="marginTop"
+      [attr.width]="cellWidth"
+      [attr.height]="chartHeight"
+      fill="white"
+    />
+    <rect
+      [attr.x]="distanceToX(pin.distance)"
+      [attr.y]="marginTop"
+      [attr.width]="cellWidth"
+      [attr.height]="chartHeight"
+      fill="rgba(255, 0, 0, 0.25)"
+    />
+  }
+
+  <!-- NOW line (current time step); always shown, including at step 0 — TOP_TIME_PADDING in timeToY keeps it
+       clear of the top edge instead of being drawn flush against it and disappearing. -->
+  <g>
+    <line
+      [attr.x1]="marginLeft"
+      [attr.y1]="nowY"
+      [attr.x2]="marginLeft + chartWidth"
+      [attr.y2]="nowY"
+      stroke="#2e9e44"
+      stroke-width="1.5"
+    />
+    <text
+      [attr.x]="marginLeft + chartWidth + 4"
+      [attr.y]="nowY + 4"
+      fill="#2e9e44"
+      font-family="Arial, sans-serif"
+      font-size="11"
+      text-anchor="start"
+    >NOW
+    </text>
+  </g>
+
+  <!-- REPLAY/FUTURE line (time machine position); FUTURE once it's browsing past the actual history, same red
+       styling as REPLAY, matching ReplayBadgeComponent's LIVE/REPLAY/FUTURE labeling. -->
   @if (replayTime !== null) {
     <g>
       <line
@@ -179,21 +216,49 @@
         font-family="Arial, sans-serif"
         font-size="11"
         text-anchor="start"
-      >REPLAY
+      >{{ replayTime > timestep ? 'FUTURE' : 'REPLAY' }}
       </text>
     </g>
   }
 
-  <!-- Planned trajectories -->
+  <!-- Planned trajectories: same hue-rotated color as the agent's actual trajectory (if any), dash-dotted to
+       read as "predicted" rather than "actual", faded relative to the actual-trajectory paths below. -->
   @for (plan of plannedRuns; let i = $index; track $index) {
     @for (train of plan; track $index) {
       <path
         [attr.d]="getPolylinePath(train.coordinates)"
-        [attr.stroke]="this.selectedPlan === i ? 'grey' : '#cccccc99'"
         fill="none"
+        stroke="red"
         stroke-width="3"
-        opacity="0.8"
+        stroke-dasharray="6 2 1 2"
+        opacity="0.35"
+        [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'"
       />
+      @for (point of getInternalBreakPoints(train.coordinates); track $index) {
+        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red" opacity="0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+      }
+      <!-- Start marker: doubled if the agent has no actual trajectory yet (a real entering event), single if
+           its actual trajectory ends at a different distance (a real divergence from reality), omitted if the
+           plan simply continues from the agent's last known actual position. -->
+      @if (getPlannedStartMarker(train); as start) {
+        @if (start.double) {
+          <polygon [attr.points]="trianglePoints(start.x, start.y - 3)" fill="red" opacity="0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+          <polygon [attr.points]="trianglePoints(start.x, start.y + 3)" fill="red" opacity="0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        } @else {
+          <polygon [attr.points]="trianglePoints(start.x, start.y)" fill="red" opacity="0.35"
+                   [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        }
+      }
+      <!-- Target marker: always doubled — a plan always runs its agent's shortest path all the way there. -->
+      @if (getPlanTargetMarker(train.coordinates); as target) {
+        <polygon [attr.points]="trianglePoints(target.x, target.y - 3)" fill="red" opacity="0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+        <polygon [attr.points]="trianglePoints(target.x, target.y + 3)" fill="red" opacity="0.35"
+                 [attr.style]="'filter: url(#hue-rotate-' + getTrainHueIndex(train.name) + ')'" />
+      }
     }
     @for (label of getPlanLabels(plan); track $index) {
     <text
@@ -221,17 +286,56 @@
         opacity="0.8"
         [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
       />
-      @for (endPoint of getPolylineSegmentEndPoints(train.coordinates); track $index) {
-      <text
-        [attr.x]="endPoint.x + 3"
-        [attr.y]="endPoint.y + 4"
-        font-family="Arial, sans-serif"
-        font-size="9"
-        fill="#333"
-        [attr.style]="'filter: url(#hue-rotate-' + i + ')'"
-      >{{ train.name }}
-      </text>
+      <!-- Spawn marker: always doubled — entering the plotted range is an unambiguous event. -->
+      @if (getSpawnMarker(train.coordinates); as spawn) {
+        <polygon [attr.points]="trianglePoints(spawn.x, spawn.y - 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <polygon [attr.points]="trianglePoints(spawn.x, spawn.y + 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="spawn.x + 5" [attr.y]="spawn.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
+      }
+      <!-- Internal breaks (a data gap or a jump bigger than maxJumpDistance partway through): single triangle. -->
+      @for (point of getInternalBreakPoints(train.coordinates); track $index) {
+        <polygon [attr.points]="trianglePoints(point.x, point.y)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="point.x + 5" [attr.y]="point.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
+      }
+      <!-- End marker: only drawn if there's something to flag — doubled if the agent has genuinely finished, or
+           if it's still going but its plan predicts a different position right at NOW; omitted if it's still
+           going and its plan (or the lack of one) gives no reason to flag anything at this seam. -->
+      @if (getActualEndMarker(train); as end) {
+        <polygon [attr.points]="trianglePoints(end.x, end.y - 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <polygon [attr.points]="trianglePoints(end.x, end.y + 3)" fill="red" [attr.style]="'filter: url(#hue-rotate-' + i + ')'" />
+        <text [attr.x]="end.x + 5" [attr.y]="end.y + 3" font-family="Arial, sans-serif" font-size="9" fill="#333"
+              [attr.style]="'filter: url(#hue-rotate-' + i + ')'">{{ train.name }}
+        </text>
       }
     </g>
   }
+
+  <!-- Stopping points (dashed red vertical line), labeled with the owning station's name below the chart, at
+       the same height as the gate name labels; drawn last so the line stays visible on top of trajectories,
+       the NOW/REPLAY lines, and agent labels while stepping/replaying. -->
+  @for (stop of stoppingPoints; track $index) {
+    <line
+      [attr.x1]="distanceToX(stop.distance)"
+      [attr.y1]="marginTop"
+      [attr.x2]="distanceToX(stop.distance)"
+      [attr.y2]="svgHeight - marginBottom"
+      stroke="rgba(220, 0, 0, 0.7)"
+      stroke-width="1.5"
+      stroke-dasharray="4 2"
+    />
+    <text
+      [attr.x]="distanceToX(stop.distance)"
+      [attr.y]="svgHeight - marginBottom + 20"
+      fill="#c0392b"
+      font-family="Arial, sans-serif"
+      font-size="10"
+      font-weight="bold"
+      text-anchor="middle"
+    >{{ stop.name }}</text>
+  }
 </svg>
+</div>

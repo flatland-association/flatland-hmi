@@ -15,7 +15,6 @@ export class StateService {
   private state = new ReplaySubject<State>(1)
   private history = new ReplaySubject<Array<Record<string, Agent>>>(1)
   private plans = new ReplaySubject<Array<Array<Record<string, Agent>>>>(1)
-  private plan = new ReplaySubject<number | undefined>(1)
   private selectedLink = new ReplaySubject<string>(1)
   private stations = new ReplaySubject<StationsResponse>(1)
   private links = new ReplaySubject<Array<Link>>(1)
@@ -65,6 +64,7 @@ export class StateService {
   public clearHistory(): void {
     this.historyBuffer = []
     this.history.next([])
+    this.plans.next([])
     this.replayTime.next(null)
   }
 
@@ -92,14 +92,27 @@ export class StateService {
     return this.agents.asObservable()
   }
 
-  /** Live agents when not replaying; otherwise the historical snapshot at the replay time. */
+  /** Live agents when not replaying; the historical snapshot at the replay time when replaying the past; or, for
+   * a replay time beyond the current history (browsing the FUTURE), the loaded plan's snapshot at that step.
+   * `/agent_plans` returns at most one plan (see backend `_build_agent_plans_content`), so `plans[0]` is simply
+   * "the loaded plan", not a choice among several. */
   public getDisplayedAgents(): Observable<Array<Agent>> {
-    return combineLatest([this.agents, this.history, this.replayTime]).pipe(
-      map(([liveAgents, history, replayTime]) => {
+    return combineLatest([this.agents, this.history, this.replayTime, this.plans]).pipe(
+      map(([liveAgents, history, replayTime, plans]) => {
         if (replayTime === null) return liveAgents
         const snapshot = history[replayTime - 1]
-        return snapshot ? Object.values(snapshot) : liveAgents
+        if (snapshot) return Object.values(snapshot)
+        const futureSnapshot = plans[0]?.[replayTime - 1]
+        return futureSnapshot ? Object.values(futureSnapshot) : liveAgents
       }),
+    )
+  }
+
+  /** Furthest step reachable by the time machine: the latest actual history step, or — if further — the last
+   * step of the longest loaded plan, so the time machine can browse into the predicted FUTURE past NOW. */
+  public getMaxReplayTime(): Observable<number> {
+    return combineLatest([this.history, this.plans]).pipe(
+      map(([history, plans]) => Math.max(history.length, 0, ...plans.map((plan) => plan.length))),
     )
   }
 
@@ -125,10 +138,6 @@ export class StateService {
 
   public setPlans(plans: Array<Array<Record<string, Agent>>>): void {
     this.plans.next(plans)
-  }
-
-  public getPlan(): Observable<number | undefined> {
-    return this.plan.asObservable()
   }
 
   public getStations(): Observable<StationsResponse> {
