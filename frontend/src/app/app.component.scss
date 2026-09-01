@@ -1,0 +1,19 @@
+// `.container`'s markup (app.component.html) is a 3x3 grid: 3 spacer divs, [aside, main, aside], 3 more
+// spacer divs. Without this rule, main (holding MapComponent/LinkMapComponent/MareyComponent) is a plain
+// block that stretches to the full page width. The middle column sizes to its content's own natural width
+// (max-content) instead of a hardcoded pixel value, so it stays correctly sized regardless of which of the
+// three widgets is currently widest; the two 1fr side columns absorb the rest of the page as gutters,
+// centering it.
+.container {
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr;
+  width: 100%;
+  gap: 20px;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}

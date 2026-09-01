@@ -61,7 +61,10 @@
     }
   }
 
+  // Opt back out of replay-badge.component.scss's default absolute top-right overlay positioning (needed
+  // for MapComponent's usage) - here the badge is a normal flex item, pushed to the fieldset's right edge.
   .badge-inline {
+    position: static;
     margin-left: auto;
   }
 
